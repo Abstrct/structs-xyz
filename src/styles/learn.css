@@ -19,7 +19,7 @@
 .topbar .hub.active .hub-ico, .topbar .hub[aria-expanded="true"] .hub-ico { color: var(--hub); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--hub) 70%, transparent)); }
 .topbar .hub:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
 
-.hub-menu { --hub: var(--accent-primary); position: fixed; top: 46px; z-index: calc(var(--menu-z) + 5); width: min(420px, calc(100vw - 16px)); max-height: calc(100vh - 60px); overflow-y: auto;
+.hub-menu { --hub: var(--accent-primary); position: fixed; top: 46px; z-index: calc(var(--menu-z) + 5); width: min(420px, calc(100vw - 16px)); max-height: calc(var(--vh, 100vh) - 60px); overflow-y: auto;
   --tone: var(--hub); --tone-line: color-mix(in srgb, var(--hub) 70%, transparent); --panel-tint: linear-gradient(180deg, rgba(10,16,24,.96), rgba(7,11,17,.94)); border-color: color-mix(in srgb, var(--hub) 40%, transparent);
   animation: modalIn .18s cubic-bezier(.2,.9,.2,1); }
 .hm-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px 10px; border-bottom: 1px solid color-mix(in srgb, var(--hub) 25%, transparent);
@@ -137,7 +137,7 @@ body.expert .tb-conn { display: none; }
   font-family: var(--font-chrome); font-size: 13px; letter-spacing: .12em; text-transform: uppercase; }
 .man-tab:hover { color: var(--text-body); }
 .man-tab.on { color: var(--accent-primary-active); border-bottom-color: var(--accent-primary); text-shadow: 0 0 10px rgba(67,205,182,.5); }
-.man-body { gap: 12px; max-height: calc(100vh - 170px); }
+.man-body { gap: 12px; max-height: calc(var(--vh, 100vh) - 170px); }
 .man-step { display: grid; grid-template-columns: 30px 1fr auto; gap: 12px; align-items: center; padding: 10px; border: 1px solid var(--hair); background: rgba(67,205,182,.04); }
 .man-n { width: 30px; height: 30px; display: grid; place-items: center; font-family: var(--font-chrome); font-size: 15px; color: var(--accent-primary); border: 1px solid rgba(67,205,182,.5); }
 .man-hub { --hub: var(--accent-primary); display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px solid color-mix(in srgb, var(--hub) 30%, transparent); background: linear-gradient(160deg, color-mix(in srgb, var(--hub) 8%, transparent), transparent 60%); }

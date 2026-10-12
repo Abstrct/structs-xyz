@@ -74,6 +74,12 @@ const STAGES = [
   // A controller reaches every screen: d-pad, A and Back only, from the title to each hub tile.
   { id: 'padtour', skipQuick: true, run: () => sh('node', ['scripts/studio/padtour.mjs'], { STUDIO_DIST: dist }) },
   { id: 'smoke', optIn: true, run: () => sh('node', ['scripts/smoke.mjs']) },
+  // Opt-in, local: the desktop and TV frames haven't moved since the saved baseline (layout.mjs --save).
+  // Not in CI: a Linux runner's fonts measure differently from the machine that saved it.
+  { id: 'layout', optIn: true, run: async () => {
+    const d = await sh('node', ['scripts/studio/layout.mjs'], { STUDIO_DIST: dist, STUDIO_VIEW: 'desktop' });
+    return d.code ? d : sh('node', ['scripts/studio/layout.mjs'], { STUDIO_DIST: dist, STUDIO_VIEW: 'tv' });
+  } },
 ];
 
 const results = [];

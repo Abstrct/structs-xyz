@@ -76,7 +76,7 @@ export function openSettings(engine: Engine) {
   const back = h('div', { class: 'modal-back settings-back', onclick: (e: Event) => { if (e.target === back) back.remove(); } },
     h('div', { class: 'modal panel player', style: 'width:min(420px, calc(100vw - 32px))' },
       h('div', { class: 'panel-head' }, h('span', { class: 't-label' }, 'Settings'), h('button', { class: 'btn ghost icon', 'aria-label': 'Close', onclick: () => back.remove() }, '×')),
-      h('div', { class: 'panel-body col scroll', style: 'gap:10px; max-height: calc(100vh - 140px)' },
+      h('div', { class: 'panel-body col scroll', style: 'gap:10px; max-height: calc(var(--vh, 100vh) - 140px)' },
         head('Sound & picture'),
         slider('Sound', 'volume'),
         slider('Music', 'music'),

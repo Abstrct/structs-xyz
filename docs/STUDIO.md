@@ -26,6 +26,10 @@ The design canvas **Structs Dreamcast Direction** holds the kit and the key scre
 - **Touch peek.** On a touch screen, tapping anything with a hover title (an icon, a number, a stat tile) shows that title for a moment (`src/ui/peek.ts`). Put the explanation in `title` and touch players get it too.
 - **Teach by doing.** The first battle is coached: one short callout per step, pinned near the control it is about, and the clock waits for you. Results show the XP bar filling toward the next rank.
 - **Phones.** The top bar keeps the six hubs, the vault and More, all at full touch size; the Academy and chat move into More.
+  - Everything a phone needs lives in `src/styles/mobile.css`, loaded last. That covers the safe-area insets for notches and home indicators, the visible height (`--vh`, which is `100dvh`), taps without double-tap zoom, and touch layouts.
+  - Every rule there is either zero on a desktop or scoped to touch (`pointer: coarse` / `hover: none`). Width alone isn't enough, because the 640×480 TV view is narrow too.
+  - Code follows the same rule: `touchScreen()` and `touchWords()` in `src/core/touch.ts`, and `inputMode()` in battle.
+  - After a phone change, `pnpm layout` (STUDIO_VIEW=desktop and tv) proves the desktop and TV frames didn't move.
 
 ## Gates
 
@@ -41,6 +45,7 @@ The design canvas **Structs Dreamcast Direction** holds the kit and the key scre
 | cert | `pnpm cert` (`scripts/studio/cert.mjs`) | an exception or console error, a screen that never mounts (it waits out the boot screen first, so a loaded machine doesn't measure NOW LOADING), a blank 3D view, or anything running past the right edge, on any screen at TV (640×480), desktop or phone. Also over budget on words, tiny targets, unnamed controls, triangles or text size: these are listed in `budgets.json › enforce` and fail. FPS only warns, since CI draws on a software GPU. |
 | padtour | `pnpm padtour` (`scripts/studio/padtour.mjs`) | the playtest's virtual-controller bot, using only the d-pad, A and Back, failing to reach any hub tile from the title, or a tile landing anywhere but the screen its link names |
 | playtest | `pnpm playtest` (`scripts/studio/playtest.mjs`) | the bot, holding a virtual controller, failing to get from the title to a finished battle: PRESS START, Battle door, Start, then A until the debrief. On the phone it then puts the pad down and plays by touch (tap Again, a weapon, an enemy, the card's Fire): the shot must go in. |
+| layout (opt-in, `--layout`, local only) | `pnpm layout` (`scripts/studio/layout.mjs`) | the desktop or TV frame (top bar, hubs, panels, bars, buttons) moving more than 2 px from the baseline saved with `--save`. Run it after any phone-only change. Not in CI, because a Linux runner's fonts measure differently. |
 | smoke | `pnpm smoke` | a screen without chain data online, without an outage message offline, or not recovering when the testnet returns |
 
 ### Cert budgets (`studio/budgets.json`)

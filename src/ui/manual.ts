@@ -2,6 +2,7 @@
  * wall — start here, the places (hub by hub, with how each screen works), the keys, the words,
  * and where the data comes from. */
 import { h } from '../core/dom';
+import { touchWords } from '../core/touch';
 import { audio } from '../core/audio';
 import { HUBS, LESSONS, trackOf } from '../data/learn';
 import { academy } from '../game/academy';
@@ -78,7 +79,7 @@ function page(tab: Tab, go: (p: string) => void): HTMLElement[] {
       ...hub.items.map((it) => h('div', { class: 'man-place' },
         h('div', { class: 'spread' }, h('span', { class: 't-body c-player-hi' }, it.label), it.path ? h('button', { class: 'btn mini ghost', onclick: () => go(it.path!) }, 'Open ▸') : null),
         h('div', { class: 't-tiny c-hint' }, it.desc),
-        it.path && HOW[it.path] ? h('div', { class: 't-tiny man-how' }, HOW[it.path]) : null))));
+        it.path && HOW[it.path] ? h('div', { class: 't-tiny man-how' }, touchWords(HOW[it.path])) : null))));
   }
   if (tab === 'keys') {
     const rows: [string, string][] = [

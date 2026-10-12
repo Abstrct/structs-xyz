@@ -6,6 +6,7 @@
  * guild's colour; allocations are conduits with packets of light running at
  * their load, and infusions are streams of fuel spiralling up to a reactor.
  * A holographic hex plane underneath gives the network its floor. */
+import { touchScreen, touchWords } from '../core/touch';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { Engine, Screen } from '../core/engine';
@@ -1406,7 +1407,7 @@ export class GridScreen implements Screen {
           sw(K_FLOW, 'charge', 'Power flow (an allocation)'), sw(K_RENT, 'market', 'Rented power (a provider agreement)'),
           sw(K_FUEL, 'fuel', 'Fuel: alpha infused into a reactor'),
           h('span', { class: 'dw-sw', title: 'A player, connected to a substation', role: 'img', 'aria-label': 'A player' }, h('i', { class: 'lg lg-home' }), ico('team', 14)),
-          h('span', { class: 'dw-sw legend-hint', title: 'Drag to orbit · wheel to zoom · click a substation or reactor', role: 'img', 'aria-label': 'Drag to orbit, wheel to zoom, click a substation or reactor' }, ico('mouse', 15), h('span', { class: 'dw-sw-k' }, '↻ ±')))));
+          h('span', { class: 'dw-sw legend-hint', title: touchWords('Drag to orbit · wheel to zoom · click a substation or reactor'), role: 'img', 'aria-label': touchWords('Drag to orbit, wheel to zoom, click a substation or reactor') }, ico(touchScreen() ? 'refresh' : 'mouse', 15), h('span', { class: 'dw-sw-k' }, '↻ ±')))));
     const card = h('div', { class: 'grid-card panel neutral' });
     this.root.append(left, card);
     this.els = { summary, status, card, left };

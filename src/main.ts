@@ -46,6 +46,8 @@ import { startPeek } from './ui/peek';
 import './styles/learn.css';
 // The Dreamcast skin re-points every token and primitive: it must come after all of them.
 import './styles/dc.css';
+// The phone layer, last: safe areas, the visible height, touch taps (desktop doesn't move).
+import './styles/mobile.css';
 
 /* ── Boot ───────────────────────────────────────────────────────────────── */
 const bootTip = document.getElementById('boot-tip')!;
@@ -198,7 +200,11 @@ function setActiveNav(_name: RouteName) { hubNav?.setActive(currentRoute()); }
 function buildTopbar() {
   const mark = h('div', { class: 'brand-mark', html: MARK });
   const brand = h('a', { class: 'brand', href: '/galaxy', title: 'Structs: the galaxy map' }, mark, h('span', { class: 'brand-name' }, 'STRUCTS'));
-  hubNav = buildHubNav(() => togglePalette(navigate));
+  // The home planet's view is My Base's own, so it lights the Base hub (it opens there by default).
+  const homePlanet = () => { const pid = wallet.active?.playerId; return (pid && empire.players.get(pid)?.planetId) || null; };
+  hubNav = buildHubNav(() => togglePalette(navigate), homePlanet);
+  // The commander loads after the first paint: the highlight follows (the menu stays as it is).
+  empire.onChange(() => hubNav?.setActive(currentRoute(), false));
 
   // The Academy: the way in for anyone new, with how far along they are.
   const acad = h('a', { class: 'tb-academy', href: '/academy', title: 'Academy: short lessons on strategy, economics and technology, with XP', onclick: () => audio.play('select') });

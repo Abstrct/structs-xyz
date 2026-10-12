@@ -10,7 +10,7 @@ import { PIXEL_RATIO, type Engine } from '../core/engine';
 import { h, toast, confirmBox, portrait, showTooltip, hideTooltip, banner } from '../core/dom';
 import { audio } from '../core/audio';
 import { PanelScreen } from './panelScreen';
-import { replaceRoute } from '../core/nav';
+import { currentRoute, redirectTo, replaceRoute } from '../core/nav';
 import { wallet } from '../wallet/wallet';
 import { txq } from '../wallet/queue';
 import { empire, type OwnedStruct, type PlayerState } from '../game/empire';
@@ -241,6 +241,30 @@ export class CommandScreen extends PanelScreen {
     if (this.playerId && !empire.commands(this.playerId)) { empire.watch(this.playerId); const id = this.playerId; this.cleanup.push(() => empire.unwatch(id)); }
     void empire.refresh();
     this.paint();
+    // My Base opens on the planet itself, the fun view; these panels are one press away there (its
+    // Base pill opens /command/<id>, which stays here). Only a bare /command goes, and only once
+    // the home planet is known.
+    if (!params.player) this.openPlanet();
+  }
+
+  /** To the home planet's own view, now or as soon as the commander loads (for a few seconds, and
+   * never once the player has started doing something here). */
+  private openPlanet() {
+    let done = false, off: () => void = () => {};
+    const stop = () => { if (done) return; done = true; clearTimeout(t); off(); this.root?.removeEventListener('pointerdown', stop); window.removeEventListener('keydown', stop); };
+    const go = () => {
+      const planetId = this.me?.planetId;
+      if (done || !planetId || !this.root?.isConnected || currentRoute() !== '/command') return;
+      stop();
+      redirectTo('/planet/' + planetId);
+    };
+    const t = window.setTimeout(stop, 6000);
+    this.root.addEventListener('pointerdown', stop);
+    window.addEventListener('keydown', stop);
+    this.cleanup.push(stop);
+    off = empire.onChange(() => go());
+    if (done) off();
+    else go();
   }
 
   private schedulePaint() {

@@ -1,0 +1,113 @@
+/* The phone layer: what a phone needs and a desktop never sees. Loaded last (after dc.css).
+ * Everything here is either zero on a desktop (safe-area insets; 100dvh is 100vh there) or scoped
+ * to touch screens, so the desktop and TV layouts don't move. `node scripts/studio/layout.mjs`
+ * (STUDIO_VIEW=desktop and tv) checks that against a recorded baseline. */
+
+:root {
+  /* A phone's notch, rounded corners and home indicator (all 0 on a desktop). */
+  --sa-t: env(safe-area-inset-top, 0px);
+  --sa-r: env(safe-area-inset-right, 0px);
+  --sa-b: env(safe-area-inset-bottom, 0px);
+  --sa-l: env(safe-area-inset-left, 0px);
+  /* The visible height. A phone browser's bars come and go: 100vh counts them, so anything sized
+   * to it ran off the bottom; 100dvh doesn't. Older browsers keep 100vh. */
+  --vh: 100vh;
+}
+@supports (height: 100dvh) { :root { --vh: 100dvh; } }
+
+/* The interface stays inside the safe area; the 3D view still fills the whole screen behind it.
+ * (A margin on a fixed box adds to its top/bottom offset, so each menu's own placement stands.)
+ * `body >` outranks the original rules whatever order the build links the stylesheets in. */
+body > .shell { top: var(--sa-t); left: var(--sa-l); right: var(--sa-r); }
+body > #ui { inset: var(--sa-t) var(--sa-r) var(--sa-b) var(--sa-l); }
+body > .hub-menu, body > .more-menu { margin-top: var(--sa-t); }
+body > .cp-dock { margin-top: var(--sa-t); margin-bottom: var(--sa-b); right: var(--sa-r); }
+body > .toasts { margin-bottom: var(--sa-b); }
+
+/* Touch: a quick tap is a tap (no double-tap zoom, and no wait for one). */
+@media (hover: none) and (pointer: coarse) {
+  button, a[href], input, select, textarea, label, [role="button"], .btn { touch-action: manipulation; }
+}
+
+/* Chat on a phone: the dock fills the screen and the top bar has no chat button. Signed in, the
+ * panel's head has its ×; signed out it has none, so the dock's own thumb-sized × shows. Hidden
+ * everywhere else. */
+.cp-dock-close { display: none; }
+@media (max-width: 760px) {
+  body > .cp-dock:has(.signed-out) .cp-dock-close { display: flex; align-items: center; justify-content: center; position: absolute; top: 6px; right: 6px; z-index: 3;
+    width: 44px; height: 44px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.35); background: rgba(7, 11, 44, 0.9); color: #fff; font-size: 24px; line-height: 1; pointer-events: auto; }
+}
+
+/* A tooltip never wider than a phone (dom.ts keeps it on screen). */
+@media (max-width: 760px) { body > .tooltip { max-width: calc(100vw - 16px); } }
+
+/* Battle on a touch screen: the gaps between the HUD's cards belong to the battlefield, so a tap
+ * there reaches the ship under it. */
+@media (pointer: coarse) {
+  .screen.battle .battle-top { pointer-events: none; }
+  .screen.battle .battle-top > * { pointer-events: auto; }
+}
+
+/* The galaxy on a phone: the map is the point. The left panel folds to its head (its chevron shows
+ * only here), and it steps aside while a planet's card is open. (Touch only: the 640×480 TV view
+ * is narrow too, and keeps its panel.) */
+.screen.galaxy .dw-fold { display: none; }
+@media (max-width: 760px) and (pointer: coarse) {
+  .screen.galaxy .dw-fold { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 40px; margin: -6px -8px -6px 4px;
+    border: 0; background: none; color: #fff; border-radius: 12px; transition: transform 0.2s ease; }
+  .screen.galaxy .galaxy-left:not(.shut) .dw-fold { transform: rotate(180deg); }
+  .screen.galaxy .galaxy-left.shut > .panel-body { display: none; }
+  .screen.galaxy:has(.planet-card) .galaxy-left { display: none; }
+}
+
+/* Battle, touch: the empty action bar is a thumb-sized button that picks a ship. */
+.action-bar.ab-pick { gap: 10px; min-height: 52px; cursor: pointer; color: #fff; font: inherit; }
+
+/* Bigger thumbs, same layout: the results' buttons and the next-fight Go reach 44 px on touch. */
+@media (pointer: coarse) {
+  .dc-debrief .btn { min-height: 44px; }
+  .dc-debrief .next-step .btn.mini { min-height: 40px; min-width: 64px; font-size: 13px; }
+}
+
+/* The vault on a phone: 16 px fields (iOS zooms the page into anything smaller), and on a short
+ * screen the sheet scrolls as a whole so the team list keeps room to pick from. */
+@media (pointer: coarse) {
+  body > .vault-back .input { font-size: 16px; }
+}
+@media (max-height: 500px) and (pointer: coarse) {
+  body > .vault-back .modal.vault { max-height: calc(var(--vh) - 16px); overflow-y: auto; }
+  body > .vault-back .vault-body { max-height: none; overflow: visible; }
+  body > .vault-back .guild-pick { min-height: 120px; }
+}
+
+/* Text a phone can read: nothing under 12 px on a narrow touch screen (these were 11 px there). */
+@media (max-width: 760px) and (pointer: coarse) {
+  body .chip, body .btn.mini, body .btn > .sub, body .badges > i, body .grid-label .dw-gl, body .planet-crumbs .dcb-crumb, body .t-tiny { font-size: 12px; }
+  body .btn.choice.dc-size .sub, body .screen.grid .grid-label .t-tiny.dw-gl { font-size: 12px; }
+}
+
+/* The More menu's key labels mean nothing to a finger. */
+@media (hover: none) and (pointer: coarse) { kbd.mm-hint { display: none; } }
+
+/* A phone on its side keeps the full top bar: its small round buttons grow to thumb size. */
+@media (max-height: 560px) and (pointer: coarse) {
+  .topbar .tb-btn, .topbar .tb-conn { min-width: 44px; min-height: 44px; }
+}
+
+/* Battle on a phone on its side (short, touch): the HUD in two thin rows so the field has room.
+ * The side cards drop their portraits, the turn card is one row, and the verbs sit side by side. */
+@media (max-height: 450px) and (pointer: coarse) {
+  .screen.battle .battle-top { top: 48px; }
+  .screen.battle .fleet-card { padding: 4px 10px; }
+  .screen.battle .fleet-card .pfp { display: none; }
+  .screen.battle .fleet-card .grow.col { gap: 2px !important; }
+  .screen.battle .block-card { display: flex; align-items: center; gap: 6px; padding: 4px 8px; }
+  .screen.battle .block-card > .spread, .screen.battle .block-card > .bar { display: none; }
+  .screen.battle .block-card .block-num { font-size: 22px; }
+  .screen.battle .block-card .block-ctl { margin-top: 0 !important; flex-wrap: nowrap; }
+  .screen.battle .action-bar { bottom: 6px; padding: 4px 8px; gap: 8px; }
+  .screen.battle .unit-card .sprite.big { width: 36px; height: 36px; }
+  .screen.battle .btn.action { flex-direction: row; min-height: 48px; padding: 4px 10px; gap: 6px; }
+  .screen.battle .drift { padding: 4px 8px; flex-direction: row; align-items: center; gap: 6px; }
+  .screen.battle .drift .row { flex-wrap: nowrap; }
+}

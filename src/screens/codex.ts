@@ -414,7 +414,7 @@ export class CodexScreen implements Screen {
         // Fly sits in the card's head, always in view (the card's body scrolls on small screens).
         t.category === 'fleet' ? h('button', { class: 'btn solid mini cx-fly', title: 'Fly it in a training battle', 'data-k': 'cx:fly', onclick: () => this.flyIt(t.id) }, h('span', { class: 'dc-face a mini' }, 'A'), h('span', { html: icon('play', 14) }), 'Fly') : null,
         about),
-      h('div', { class: 'panel-body col scroll', style: 'max-height: calc(100vh - 170px)' },
+      h('div', { class: 'panel-body col scroll', style: 'max-height: calc(var(--vh, 100vh) - 170px)' },
         h('div', { class: 't-display ' + (this.faction === 'enemy' ? 'c-enemy' : 'c-player'), title: roleOf(t) }, t.type),
         h('div', { class: 'row wrap cx-sub' },
           ...ambitsOf(t.possibleAmbit).map((a) => h('span', { class: 'chip cx-chip ambit-' + a, title: `Fights in ${AMBIT_NAME[a]}` }, h('span', { html: icon(a, 12) }), AMBIT_NAME[a])),

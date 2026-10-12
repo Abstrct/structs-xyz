@@ -222,26 +222,32 @@ export class BattleScreen implements Screen {
   private fitCamera(resetZoom = false) {
     if (resetZoom) this.zoom.reset();
     const w = window.innerWidth, hgt = window.innerHeight;
-    // A short narrow screen (the Dreamcast's 640×480, a small laptop window) keeps the setup panel
-    // at the side and the HUD in two thin bands, as the stylesheet lays them out.
-    const short = w <= 760 && hgt <= 560;
-    const side = this.phase === 'setup' ? (w > 760 ? 346 : short ? 316 : 0) : 0;
+    // A short narrow screen (the Dreamcast's 640×480, a small laptop window), or a phone on its side
+    // (short and touch, however wide), keeps the setup panel at the side and the HUD in two thin
+    // bands, as the stylesheet lays them out. A desktop mouse never counts as the phone.
+    const coarse = matchMedia('(pointer: coarse)').matches;
+    const short = (w <= 760 || coarse) && hgt <= 560;
+    const side = this.phase === 'setup' ? (short ? 316 : w > 760 ? 346 : 0) : 0;
     // The battle log docks on the right from 1100px up, when it shows (always in a replay).
     const right = this.phase !== 'setup' && w > 1100 && (this.showLog || this.phase === 'replay') ? 300 : 0;
     const usableW = w - side - right;
     const narrow = w <= 760;
+    const compact = narrow || short;
     // On a phone the setup sheet covers the lower 55%: fit the board above it.
-    const hud = this.phase === 'setup' ? (narrow && !short ? hgt * 0.55 + 50 : 60) : narrow ? (short ? 230 : 360) : 300;
+    // (A phone on its side packs its HUD tighter still, mobile.css: about 170 px of it.)
+    const hud = this.phase === 'setup' ? (narrow && !short ? hgt * 0.55 + 50 : 60) : compact ? (short ? (coarse && hgt <= 450 ? 170 : 230) : 360) : 300;
     const usableH = Math.max(160, hgt - hud);
     const t = Math.tan((this.camera.fov * Math.PI) / 360);
-    const halfW = 26.5, halfH = 11.8;
+    // A phone held upright is short of width, not height: frame the field closer (the Command Ships
+    // sit at ±19.4, so 22.5 still shows them whole) and every ship draws about a fifth bigger.
+    const halfW = narrow && !short ? 22.5 : 26.5, halfH = 11.8;
     const distW = halfW / (t * (usableW / hgt));
     const distH = halfH / (t * (usableH / hgt));
     this.fitDist = Math.max(distW, distH, 34);
     if (side) this.camera.setViewOffset(w, hgt, -side / 2, -14, w, hgt);
     else if (narrow && !short && this.phase === 'setup') this.camera.setViewOffset(w, hgt, 0, hgt / 2 - (44 + hgt * 0.45) / 2, w, hgt);
     // A tall phone frames the field a little high, toward the HUD, leaving the action bar room below.
-    else if (this.phase !== 'setup') this.camera.setViewOffset(w, hgt, right / 2, narrow ? (short ? -10 : 34) : -12, w, hgt);
+    else if (this.phase !== 'setup') this.camera.setViewOffset(w, hgt, right / 2, compact ? (short ? -10 : 34) : -12, w, hgt);
     else this.camera.clearViewOffset();
     this.camera.updateProjectionMatrix();
   }
@@ -949,7 +955,10 @@ export class BattleScreen implements Screen {
     const c = this.activeChain();
     const s = this.selectedStruct();
     if (!c || !s) {
-      if (this.phase === 'battle') this.root.appendChild(h('div', { class: 'action-bar panel empty', title: 'Select one of your ships (Tab) to give an order' }, h('span', { class: 'c-player', html: icon('ship', 22) }), h('kbd', null, 'Tab')));
+      // On a touch screen there is no Tab: the empty bar is itself the button that picks a ship.
+      if (this.phase === 'battle') this.root.appendChild(inputMode() === 'touch'
+        ? h('button', { type: 'button', class: 'action-bar panel empty ab-pick', onclick: () => { audio.play('select'); this.selectFirst(); } }, h('span', { class: 'c-player', html: icon('ship', 22) }), h('span', { class: 't-label' }, 'Pick a ship'))
+        : h('div', { class: 'action-bar panel empty', title: 'Select one of your ships (Tab) to give an order' }, h('span', { class: 'c-player', html: icon('ship', 22) }), h('kbd', null, 'Tab')));
       return;
     }
     const t = TYPES_BY_ID[s.typeId];

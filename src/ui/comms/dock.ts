@@ -82,6 +82,13 @@ export function mountCommsDock(navigate: Nav = (path) => { goTo(path); }): Comms
     // (it already tries by itself as soon as the wallet is open), unless they signed out on purpose.
     toggle() { if (isOpen) d.close(); else { d.open(); comms.autoSignIn(); } },
   };
+  // On a phone the dock covers the screen and the top bar's chat button is gone: it carries its own
+  // close button (shown only there, by CSS), and going to another screen puts it away.
+  const phone = () => matchMedia('(max-width: 760px)').matches;
+  el.appendChild(h('button', { type: 'button', class: 'cp-dock-close', 'aria-label': 'Close chat', title: 'Close chat', onclick: () => { audio.play('select'); d.close(); } }, '×'));
+  const away = () => { if (isOpen && phone()) d.close(); };
+  window.addEventListener('structs:navigate', away);
+  window.addEventListener('popstate', away);
   setCommsOpener((id) => { if (CommsPanel.full) CommsPanel.full.openRoom(id); else d.open(id); });
   window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isOpen && !e.defaultPrevented && !el.contains(e.target as Node)) d.close(); });
   dock = d;

@@ -96,8 +96,11 @@ export function showTooltip(x: number, y: number, content: Node | string, kind =
   clear(tip);
   tip.appendChild(typeof content === 'string' ? document.createTextNode(content) : content);
   const w = tip.offsetWidth, hgt = tip.offsetHeight;
-  const px = x + 14 + w > window.innerWidth ? x - w - 28 : x;
-  const py = y + 14 + hgt > window.innerHeight ? y - hgt - 28 : y;
+  // Beside the pointer, flipped near an edge, and never off the screen (a phone is narrower than
+  // most tooltips are flipped by). The CSS nudges it 14 px right and down, so the clamp allows for that.
+  const clamp = (v: number, max: number) => Math.max(-6, Math.min(v, max));
+  const px = clamp(x + 14 + w > window.innerWidth ? x - w - 28 : x, window.innerWidth - w - 22);
+  const py = clamp(y + 14 + hgt > window.innerHeight ? y - hgt - 28 : y, window.innerHeight - hgt - 22);
   tip.style.left = px + 'px';
   tip.style.top = py + 'px';
 }

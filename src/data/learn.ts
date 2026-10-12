@@ -87,9 +87,11 @@ export const HUBS: Hub[] = [
   },
 ];
 
-/** The hub a route belongs to (null for the Academy, which sits beside the hubs). */
-export function hubFor(path: string): HubId | null {
+/** The hub a route belongs to (null for the Academy, which sits beside the hubs). The player's own
+ * home planet is My Base's view, so it belongs to Base; any other planet is Explore. */
+export function hubFor(path: string, homePlanet?: string | null): HubId | null {
   const p = path.replace(/\/+$/, '') || '/';
+  if (homePlanet && p === '/planet/' + homePlanet) return 'base';
   if (p.startsWith('/academy')) return null;
   if (p.startsWith('/command') || p === '/ops' || p.startsWith('/ops/record') || p.startsWith('/ops/queue')) return 'base';
   if (p.startsWith('/ops')) return 'lab';

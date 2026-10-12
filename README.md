@@ -11,6 +11,11 @@ The client is designed like a Dreamcast game: show it, don't say it.
 - **Controllers**: any gamepad plays the whole game. Back jumps to the hubs, the d-pad walks and aims, and a hit rumbles the pad like the Jump Pack.
 - **Picture**: the 3D view draws about 480 lines in dithered 16-bit colour, like the console's 640×480 (Settings › Dreamcast picture turns it off).
 - **Touch**: tap any icon or number to see its name for a moment, the way hover works with a mouse.
+- **Phones**: the interface stays clear of notches and the home bar, and fits the screen as the browser's bars come and go.
+  - The galaxy panel folds away so the map gets the screen, and one tap opens a planet.
+  - Battles get the compact HUD on a phone held sideways, and frame ships bigger when it's upright.
+  - Chat has its own close button, and no phone text is smaller than 12 px.
+  - Desktop and the 640×480 TV view are unchanged; `pnpm layout` checks it.
 - **The VMU**: a 48×32 screen in the top bar shows your commander's mood and charge as pixels. Without a commander it keeps a pet that hatches on your first win and grows up at five. Tap the VMU to see what it shows.
 - **Results**: stars, three numbers, the XP bar filling toward your next rank, and the next fight one press away. Every fight pays a little XP (more for a win and for each star), so playing again always counts.
 - **Touch battles**: tap a weapon, tap a red-ringed enemy to see the odds (a tap near a small ship counts), and press Fire on its card.
@@ -52,7 +57,7 @@ The client is built so a curious thirteen-year-old can find their way in and kee
   - reactors are "working" or "stopped".
 
   Nothing is removed: one switch shows it all.
-- **Start over** (Settings) clears the Academy for a new learner on a shared computer, and rank and XP stay. After finishing a lesson, **Next lesson** opens the next one. My Base puts *What to do next* at the top. The galaxy's first tip points at the six hubs, which glow until it's closed.
+- **Start over** (Settings) clears the Academy for a new learner on a shared computer, and rank and XP stay. After finishing a lesson, **Next lesson** opens the next one. My Base opens on your home planet itself, the 3D view of your base and fleet. Its **Base** button opens the panels, which put *What to do next* at the top. The galaxy's first tip points at the six hubs, which glow until it's closed.
 - **Larger text** (Settings) steps the small labels and fine print up a size. Tiles with room for only a word keep theirs.
 - **Easier battles**: the first battle teaches its first shot in three short callouts (Weapon, Fire, Charge). The callouts dock above the controls; each waits until you've done it, with the turn clock held and the control it asks for pulsing. They name the buttons of your input: A on a pad, 1 on a keyboard, a tap on touch. A first battle starts Easy. Setup is one question, asked as ship counts (Small 5, Medium 9, Large 13, Random ?), plus Gauntlet and Daily tiles. Computer skill (★ to ★★★), autopilot and turn length fold behind a gear. The HUD is meters and icons: charge, the Command Ship's crown and health, the turn. Charge grows one a turn and any move empties it; the armed move's minimum is marked on the battery. Orders are face buttons (A fire, X guard, Y drift, with Y opening a layer picker). The results screen gives up to three stars, three numbers and one next step.
 - **Clearer on every screen**: the Code Lab opens one group of moves at a time. Replays call each shot as a number ("-2", BLOCKED, DESTROYED), and a fight of several attacks shows as one row with ×N. Unit Guide stats are icon chips and pips. My Base's vitals are icon chips, and its advisor is one card with an A button. The offline message still says that Training battles and the Academy work.

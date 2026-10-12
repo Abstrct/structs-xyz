@@ -353,7 +353,8 @@ function renderEnlist(body: HTMLElement, index: number, setBusy: (b: boolean) =>
       h('div', { class: 'grow' }), go),
     fresh ? h('div', { class: 't-tiny c-warn', title: 'Your secret key is made and sealed in this browser. Its recovery phrase (24 secret words) is in the vault whenever you want a copy.' }, 'Never share your recovery phrase with anyone.') : null,
   ].filter(Boolean) as Node[]);
-  name.focus();
+  // On a touch screen the keyboard would cover the teams and Enlist at once: the field waits for a tap.
+  if (!matchMedia('(hover: none) and (pointer: coarse)').matches) name.focus();
 }
 
 /** Enlisting, still waiting on the guild. */

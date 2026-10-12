@@ -12,7 +12,7 @@ import { loadRecord } from '../screens/battle/record';
 
 export interface HubNav { el: HTMLElement; setActive(path: string, closeMenu?: boolean): void; close(): void }
 
-export function buildHubNav(openPalette: () => void): HubNav {
+export function buildHubNav(openPalette: () => void, homePlanet: () => string | null = () => null): HubNav {
   const buttons = new Map<HubId, HTMLButtonElement>();
   let menu: HTMLElement | null = null;
   let openId: HubId | null = null;
@@ -107,7 +107,7 @@ export function buildHubNav(openPalette: () => void): HubNav {
      * URL (an autoplaying replay) only moves the highlight. */
     setActive(path: string, closeMenu = true) {
       current = path;
-      const id = hubFor(path);
+      const id = hubFor(path, homePlanet());
       for (const [k, b] of buttons) b.classList.toggle('active', k === id);
       if (closeMenu) close();
     },

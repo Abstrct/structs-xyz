@@ -26,6 +26,7 @@ import { latestAttacks, summarize, type CombatRecord } from '../chain/combat';
 import { commander } from '../chain/commander';
 import { enlisting } from '../game/enlist';
 import { icon, MARK } from '../ui/icons';
+import { touchScreen, touchWords } from '../core/touch';
 import '../styles/dc-watch.css';
 
 const CAPACITY = 80000;
@@ -527,10 +528,20 @@ export class GalaxyScreen implements Screen {
     this.chartEl = h('div', { class: 't-tiny c-hint chart-progress', title: 'Charting the galaxy' }, store.planetsLoaded ? '' : 'Charting…');
     // A section: its picture and one word; what it lists is its title.
     const sec = (ico_: string, word: string, title: string, btn?: HTMLElement) => h('div', { class: 'dw-sec', title }, ico(ico_, 16), h('span', { class: 't-label' }, word), btn || null);
-    const left = h('div', { class: 'galaxy-left panel' },
+    // On a phone the panel starts folded (the map is the point), unless the player opened it before.
+    let leftShut = matchMedia('(max-width: 760px) and (pointer: coarse)').matches;
+    try { if (localStorage.getItem('structs.galaxy.left') === '1') leftShut = false; } catch { /* ignore */ }
+    const left = h('div', { class: 'galaxy-left panel' + (leftShut ? ' shut' : '') },
       h('div', { class: 'panel-head', title: 'Every planet anyone has found: the oldest in the middle, the newest at the edge. Lit planets are players’ homes, in their guild’s colour. Red lines are fleets out raiding. Click any planet.' },
         h('span', { class: 'dw-head' }, ico('explore', 20), h('span', { class: 't-label' }, h('span', { class: 'x-only' }, 'Testnet'), h('span', { class: 's-only' }, 'Galaxy'))),
-        h('span', { class: 'chip player' }, h('span', { class: 'dot pulse' }), 'Live')),
+        h('span', { class: 'chip player' }, h('span', { class: 'dot pulse' }), 'Live'),
+        // Phones only (CSS): the panel folds to its head, so the map has the screen.
+        h('button', { type: 'button', class: 'dw-fold', 'aria-label': 'Show or hide the galaxy panel', 'aria-expanded': String(!leftShut), onclick: (e: Event) => {
+          const shut = left.classList.toggle('shut');
+          (e.currentTarget as HTMLElement).setAttribute('aria-expanded', String(!shut));
+          try { localStorage.setItem('structs.galaxy.left', shut ? '0' : '1'); } catch { /* ignore */ }
+          audio.play('select');
+        } }, ico('down', 18))),
       this.leftBody = h('div', { class: 'panel-body col', onscroll: () => this.edgeFade() },
         this.statsEl,
         this.chartEl,
@@ -578,7 +589,7 @@ export class GalaxyScreen implements Screen {
     const legend = h('div', { class: 'galaxy-legend t-tiny c-hint' }, replayBtn,
       mark('lg-home', 'base', 'Player’s home, in their guild’s colour'), mark('lg-dead', 'planet', 'Used-up planet: its ore ran out'),
       mark('lg-raid', 'ship', 'Fleet out raiding'), mark('lg-hot', 'hot', 'Busy right now'), mark('lg-site', 'battle', 'Recent battle: click it to watch'),
-      h('span', { class: 'legend-hint dw-sw', title: 'Drag to spin · wheel to zoom · click a planet', role: 'img', 'aria-label': 'Drag to spin, wheel to zoom, click a planet' }, ico('mouse', 15), h('span', { class: 'dw-sw-k' }, '↻ ±')));
+      h('span', { class: 'legend-hint dw-sw', title: touchWords('Drag to spin · wheel to zoom · click a planet'), role: 'img', 'aria-label': touchWords('Drag to spin, wheel to zoom, click a planet') }, ico(touchScreen() ? 'refresh' : 'mouse', 15), h('span', { class: 'dw-sw-k' }, '↻ ±')));
     this.meLabel = h('button', { class: 'me-label t-label', onclick: () => { const p = commander.state?.planetId; if (p) { audio.play('select'); this.focusPlanet(p, true); } } }, 'You');
     this.nameLayer = h('div', { class: 'name-layer' });
     this.root.append(this.nameLayer, left, right, legend, this.replayEl, this.meLabel);
@@ -1026,9 +1037,11 @@ export class GalaxyScreen implements Screen {
       this.pointerPx = { x: e.clientX, y: e.clientY };
       this.idleT = 0;
     };
-    const down = (e: PointerEvent) => { this.downAt = { x: e.clientX, y: e.clientY }; this.fly = null; this.idleT = 0; };
+    // A finger has no hover: a tap never moves the pointer first, so the press and the lift say where it is.
+    const down = (e: PointerEvent) => { if (e.pointerType !== 'mouse') move(e); this.downAt = { x: e.clientX, y: e.clientY }; this.fly = null; this.idleT = 0; };
     const up = (e: PointerEvent) => {
       if (Math.hypot(e.clientX - this.downAt.x, e.clientY - this.downAt.y) > 5) return;
+      if (e.pointerType !== 'mouse') move(e);
       const site = this.pickSite();
       if (site != null && this.siteData[site]) { audio.play('select'); this.navigate('/combat/' + this.siteData[site].last.hash + '/e'); return; }
       // A click on the materialized world keeps it selected.

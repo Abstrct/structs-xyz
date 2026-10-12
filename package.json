@@ -18,6 +18,7 @@
     "cert": "node scripts/studio/cert.mjs",
     "playtest": "node scripts/studio/playtest.mjs",
     "padtour": "node scripts/studio/padtour.mjs",
+    "layout": "node scripts/studio/layout.mjs",
     "soak": "tsx scripts/studio/soak.test.ts",
     "shoot": "node scripts/studio/shoot.mjs",
     "docshots": "node scripts/studio/docshots.mjs",

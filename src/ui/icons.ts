@@ -57,6 +57,8 @@ const GLYPHS: Record<string, string> = {
   gear: '<circle cx="12" cy="12" r="3.5"/><path d="M12 2 V5 M12 19 V22 M2 12 H5 M19 12 H22 M4.9 4.9 L7 7 M17 17 L19.1 19.1 M4.9 19.1 L7 17 M17 7 L19.1 4.9"/>',
   lock: '<rect x="4" y="10" width="16" height="11" rx="3"/><path d="M8 10 V7 A4 4 0 0 1 16 7 V10"/>',
   back: '<path d="M10 5 L3 12 L10 19 M3 12 H21"/>',
+  // A fold's chevron (a panel opens downward).
+  down: '<path d="M6 9 L12 15 L18 9"/>',
   // The base screens: the four battlegrounds, a pick for ore still in the ground, a build slot.
   space: solid('M12 2 L14.2 9.8 L22 12 L14.2 14.2 L12 22 L9.8 14.2 L2 12 L9.8 9.8 Z'),
   air: '<path d="M7 18 H17 A4 4 0 0 0 17 10 A5.5 5.5 0 0 0 6.5 9 A4.5 4.5 0 0 0 7 18 Z"/>',

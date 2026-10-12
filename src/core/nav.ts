@@ -31,6 +31,14 @@ export function goTo(path: string) {
   window.dispatchEvent(new CustomEvent<string>('structs:navigate', { detail: to }));
 }
 
+/** Go somewhere else instead of this route (a redirect): the current entry is replaced, not added
+ * to, so Back never bounces into it again. */
+export function redirectTo(path: string) {
+  const to = normalizeRoute(path);
+  history.replaceState(null, '', withBase(to));
+  window.dispatchEvent(new CustomEvent<string>('structs:navigate', { detail: to }));
+}
+
 /** Rewrite the current entry in place (a screen refining its own URL). */
 export function replaceRoute(path: string) {
   const to = normalizeRoute(path);
