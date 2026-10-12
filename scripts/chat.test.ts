@@ -5,7 +5,7 @@ import {
 } from '../src/chat/format';
 import { resolveObjectURL } from 'node:buffer';
 import { tokenProblem } from '../src/ui/comms/tokenGuard';
-import { authorizeUrl, b64url, guildApiRoot, guildLoginProblem, loginForm, matrixScope, newDeviceId, pkceChallenge, readCallback, registrationBody, within } from '../src/chat/oauth';
+import { guildApiRoot, guildLoginProblem, matrixSessionBody, newDeviceId, readGrant, requestGrant, within } from '../src/chat/oauth';
 import { newRoom } from '../src/chat/model';
 import {
   TIMELINE_CAP, addEcho, applyMessages, applySync, dmPartner, emptyState, firstUnreadIndex, hiddenRoom, mutedRooms, newestEvent,
@@ -22,36 +22,32 @@ check(tokenProblem('  my words: abandon abandon abandon abandon abandon abandon 
 check(tokenProblem('syt_abc def') !== null, 'a token with spaces is refused');
 check(tokenProblem('  syt_dXNlcg_AbCdEfGh_0123ab  ') === null, 'a real-looking token passes');
 
-/* ── Wallet sign-in: the desktop app's chain, its pure parts ─────────────── */
+/* ── Wallet sign-in, behind the scenes: the guild API's /auth/matrix ──────── */
 {
-  // RFC 7636 appendix B: the documented verifier and its S256 challenge.
-  eq(await pkceChallenge('dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk'), 'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM', 'PKCE S256 matches RFC 7636');
-  eq(b64url(new Uint8Array([251, 255, 191])), '-_-_', 'base64url has no + / or padding');
+  const login = { address: 'structs1a', signature: 'ab', pubkey: 'cd', guild_id: '0-5', unix_timestamp: 123 };
   check(/^[A-Z0-9]{10}$/.test(newDeviceId()), 'a device id is one scope token');
-  eq(matrixScope('ABC'), 'urn:matrix:org.matrix.msc2967.client:api:* urn:matrix:org.matrix.msc2967.client:device:ABC', 'the Matrix scope names the device');
-  const meta = { issuer: 'https://auth.g.test/', authorization_endpoint: 'https://auth.g.test/authorize?x=1', token_endpoint: 'https://auth.g.test/oauth2/token' };
-  const a = new URL(authorizeUrl(meta, { clientId: 'C', redirectUri: 'https://structs.xyz/comms-callback.html', deviceId: 'D1', state: 'S', challenge: 'CH' }));
-  eq([a.origin + a.pathname, a.searchParams.get('x'), a.searchParams.get('response_type'), a.searchParams.get('client_id'), a.searchParams.get('redirect_uri'), a.searchParams.get('state'), a.searchParams.get('code_challenge'), a.searchParams.get('code_challenge_method'), a.searchParams.get('scope')?.endsWith('device:D1')],
-    ['https://auth.g.test/authorize', '1', 'code', 'C', 'https://structs.xyz/comms-callback.html', 'S', 'CH', 'S256', true], 'the authorize URL carries the code flow with PKCE');
-  check(a.searchParams.get('prompt') === null && new URL(authorizeUrl(meta, { clientId: 'C', redirectUri: 'r', deviceId: 'D', state: 'S', challenge: 'CH', prompt: 'login' })).searchParams.get('prompt') === 'login', 'prompt=login only when asked');
-  eq(['https://g.test/api/', 'https://g.test', 'https://g.test/api'].map(guildApiRoot), ['https://g.test/api', 'https://g.test/api', 'https://g.test/api'], 'the form login and its pre-check share one API root');
+  eq(matrixSessionBody(login, 'DEV1'), { address: 'structs1a', signature: 'ab', pubkey: 'cd', guild_id: '0-5', unix_timestamp: 123, device_id: 'DEV1' }, 'the request is the guild login, plus this browser’s device');
+  const ok = { success: true, errors: [], data: { user_id: '@1-5:hs', device_id: 'DEV1', access_token: 'mat_A', refresh_token: 'mar_R', expires_in: 300, client_id: 'C1', token_endpoint: 'https://auth.g.test/oauth2/token', revocation_endpoint: 'https://auth.g.test/oauth2/revoke' } };
+  const g = readGrant(ok, 200);
+  eq([g.access_token, g.refresh_token, g.expires_in, g.client_id, g.token_endpoint, g.revocation_endpoint], ['mat_A', 'mar_R', 300, 'C1', 'https://auth.g.test/oauth2/token', 'https://auth.g.test/oauth2/revoke'], 'a grant carries the tokens and where to refresh and revoke them');
+  const threw = (f: () => unknown) => { try { f(); return ''; } catch (e) { return (e as Error).message; } };
+  eq(threw(() => readGrant({ success: false, errors: { signature_validation_failed: 'Invalid signature' }, data: null }, 401)), 'Invalid signature', 'a refusal is said in the guild’s own words');
+  check(/refresh/.test(threw(() => readGrant({ success: true, data: { ...ok.data, token_endpoint: 'http://auth.g.test/token' } }, 200))), 'a token endpoint that is not https is refused');
+  check(/sign-out/.test(threw(() => readGrant({ success: true, data: { ...ok.data, revocation_endpoint: 'javascript:alert(1)' } }, 200))), 'an unsafe revocation address is refused');
+  check(/without a chat token/.test(threw(() => readGrant({ success: true, data: { client_id: 'C1', token_endpoint: 'https://a.test/t' } }, 200))), 'no token, no session');
+  // The request itself, against a fake guild: one POST, JSON, no cookies; a guild without the route says so.
+  const seen: { url: string; init: RequestInit }[] = [];
+  const fake = (status: number, body: unknown) => (async (url: string | URL, init?: RequestInit) => { seen.push({ url: String(url), init: init ?? {} }); return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } }); }) as typeof fetch;
+  const got = await requestGrant('https://g.test/api', login, 'DEV1', new AbortController().signal, fake(200, ok));
+  check(got?.access_token === 'mat_A' && seen[0].url === 'https://g.test/api/auth/matrix' && seen[0].init.method === 'POST' && seen[0].init.credentials === 'omit'
+    && JSON.parse(String(seen[0].init.body)).device_id === 'DEV1', 'one JSON POST to {guild_api}/auth/matrix, without cookies');
+  check(await requestGrant('https://g.test/api', login, 'DEV1', new AbortController().signal, fake(404, {})) === null, 'a guild without the route answers null (not yet turned on)');
+  eq(['https://g.test/api/', 'https://g.test', 'https://g.test/api'].map(guildApiRoot), ['https://g.test/api', 'https://g.test/api', 'https://g.test/api'], 'one API root, however guild.json writes it');
   const ac = new AbortController();
   const w = within(ac.signal, 60_000);
   ac.abort();
   check(w.aborted, 'Cancel aborts a request in flight');
-  const reg = registrationBody('https://structs.xyz/', 'https://structs.xyz/comms-callback.html');
-  eq([reg.application_type, reg.token_endpoint_auth_method, reg.redirect_uris, reg.grant_types], ['web', 'none', ['https://structs.xyz/comms-callback.html'], ['authorization_code', 'refresh_token']], 'registered as a public web client');
-  eq(loginForm({ address: 'structs1a', signature: 'ab', pubkey: 'cd', guild_id: '0-5', unix_timestamp: 123 }, 'https://auth.g.test/authorize?q'),
-    { address: 'structs1a', signature: 'ab', pubkey: 'cd', guild_id: '0-5', unix_timestamp: '123', continue: 'https://auth.g.test/authorize?q' }, 'the guild form login: the signed fields and continue');
-  eq(readCallback('?code=K&state=S', 'S'), { code: 'K' }, 'the callback gives the code for our state');
-  let threw = '';
-  try { readCallback('?code=K&state=OTHER', 'S'); } catch (e) { threw = (e as Error).message; }
-  check(/not for this sign-in/.test(threw), 'a code for another state is refused');
-  threw = '';
-  try { readCallback('?error=access_denied&state=S', 'S'); } catch (e) { threw = (e as Error).message; }
-  check(/cancelled/.test(threw), 'a refusal reads as cancelled');
-  check(guildLoginProblem({ success: true }, 200) === null, 'a guild login that succeeded is no problem');
-  eq(guildLoginProblem({ success: false, errors: { signature_validation_failed: 'Invalid signature' } }, 401), 'Invalid signature', 'the guild says why in its own words');
+  check(guildLoginProblem({ success: true }, 200) === null, 'a guild answer that succeeded is no problem');
 }
 
 /* ── Chain ids ──────────────────────────────────────────────────────────── */
@@ -254,13 +250,20 @@ eq(['image/svg+xml', 'text/html', 'application/xhtml+xml', 'text/xml', '', null,
   g.window = Object.assign(new EventTarget(), { setInterval: () => 0, clearInterval: () => {}, setTimeout, clearTimeout });
   g.document = Object.assign(new EventTarget(), { hidden: false });
   const calls: { url: string; method: string; auth: string | null; body?: string }[] = [];
+  // The fake guild's /auth/matrix: a grant for whoever signed, and the account its homeserver reports.
+  let whoamiUser = '@1-1:hs.test';
+  const grantFor = (b: Record<string, unknown>) => ({ success: true, errors: [], data: { user_id: whoamiUser, device_id: b.device_id, access_token: 'mat_bg', refresh_token: 'mar_bg', expires_in: 300, client_id: 'CBG', token_endpoint: 'https://auth.hs.test/oauth2/token', revocation_endpoint: 'https://auth.hs.test/oauth2/revoke' } });
   let thumbType = 'text/html';
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input), method = init?.method ?? 'GET';
     calls.push({ url, method, auth: new Headers(init?.headers).get('authorization'), body: typeof init?.body === 'string' ? init.body : undefined });
     const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { 'content-type': 'application/json' } });
     if (url.endsWith('/structs/guild/0-5')) return json({ Guild: { id: '0-5', index: '5', endpoint: 'https://sn.test/guild.json' } });
-    if (url === 'https://sn.test/guild.json') return json({ guild: { id: '0-5', name: 'SN Corp', tag: 'SN', services: { matrix: 'https://hs.test' } } });
+    if (url === 'https://sn.test/guild.json') return json({ guild: { id: '0-5', name: 'SN Corp', tag: 'SN', services: { matrix: 'https://hs.test', guild_api: 'https://sn.test/api' } } });
+    if (url === 'https://sn.test/api/timestamp') return json({ success: true, data: { unix_timestamp: Math.floor(Date.now() / 1000) } });
+    if (url === 'https://sn.test/api/auth/matrix' && method === 'POST') return json(grantFor(JSON.parse(String(init?.body))));
+    if (url.endsWith('/v3/account/whoami')) return json({ user_id: whoamiUser, device_id: 'DEVW' });
+    if (url === 'https://auth.hs.test/oauth2/revoke') return json({});
     if (url.includes('/v3/sync')) { await new Promise((r) => setTimeout(r, 5)); return json({ next_batch: 's' + calls.length, rooms: {} }); }
     if (url.includes('/media/thumbnail/')) return new Response('<script>alert(1)</script>', { headers: { 'content-type': thumbType } });
     if (url.endsWith('/logout')) return json({});
@@ -341,6 +344,37 @@ eq(['image/svg+xml', 'text/html', 'application/xhtml+xml', 'text/xml', '', null,
   for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i)!; if (k.startsWith('structs.comms.')) left.push(k); }
   eq(left, [], 'forget leaves no comms keys');
   check(!comms.session && comms.state === 'signedOut', 'forget signs out');
+
+  // Behind the scenes: a commander in a guild that runs chat signs in by itself, with no click and
+  // no window (the stub window has no open(): a popup would throw). The guild API turns the signed
+  // login into the session; the homeserver must say it is that commander.
+  const { store } = await import('../src/chain/store');
+  const { loadGuilds } = await import('../src/chat/guilds');
+  store.guilds.set('0-5', { id: '0-5', index: '5', endpoint: 'https://sn.test/guild.json' } as never);
+  await loadGuilds(true);
+  store.players.set('1-1', { id: '1-1', guildId: '0-5' } as never);
+  calls.length = 0;
+  // Nothing calls sign-in here: the commander arriving on the open wallet is enough.
+  wallet.setAccount(primary.index, { playerId: '1-1' });
+  check(comms.signingIn, 'with the wallet open and a commander in a guild that runs chat, sign-in starts by itself');
+  check(!comms.autoSignIn(), 'and a second trigger does not start another');
+  for (let i = 0; i < 100 && comms.state !== 'live'; i++) await new Promise((r) => setTimeout(r, 20));
+  const asked = calls.find((c) => c.url === 'https://sn.test/api/auth/matrix');
+  const sent = asked ? JSON.parse(asked.body!) : {};
+  check(comms.state === 'live' && comms.session?.user_id === '@1-1:hs.test' && comms.session.client_id === 'CBG' && comms.session.revocation_endpoint === 'https://auth.hs.test/oauth2/revoke',
+    'the guild API’s grant becomes a live session, with its refresh and revocation endpoints');
+  check(sent.address === primary.address && sent.guild_id === '0-5' && /^[0-9a-f]{130}$/.test(sent.signature) && typeof sent.device_id === 'string' && sent.device_id.length >= 4,
+    'the guild was sent the wallet-signed login and this browser’s device');
+  check(!calls.some((c) => /authorize|oauth2\/registration|comms-callback/.test(c.url)), 'no browser OAuth chain: one request to the guild');
+  // An account that is not the signer's is refused, and its tokens revoked.
+  await comms.signOut();
+  whoamiUser = '@1-9:hs.test';
+  calls.length = 0;
+  let refused = '';
+  try { await comms.signInWithWallet(); } catch (e) { refused = (e as Error).message; }
+  await new Promise((r) => setTimeout(r, 20));
+  check(/not commander 1-1/.test(refused) && !comms.session, 'a grant for another commander is refused: ' + refused);
+  check(calls.some((c) => c.url === 'https://auth.hs.test/oauth2/revoke'), 'and the stray tokens are revoked');
 }
 
 if (failures) { console.error(`chat: ${failures} failure(s)`); process.exit(1); }

@@ -1,5 +1,4 @@
 import { defineConfig, type Plugin } from 'vite';
-import { devRelayPlugin } from './server/dev-relay.mjs';
 
 // The game needs no CORS from its own server (Vite's default would answer every localhost origin),
 // and no other site may frame it, where a click could land on something it can't see.
@@ -25,8 +24,7 @@ export default defineConfig({
   // Absolute: screens live at real paths (/codex/5), so asset URLs must not be relative to them.
   // Under a base path the app adds it itself (src/core/base.ts).
   base: BASE,
-  // The dev relay is `vite serve` only: chat's wallet sign-in on localhost (server/dev-relay.mjs).
-  plugins: [siteEnvPlugin(), devRelayPlugin()],
+  plugins: [siteEnvPlugin()],
   define: { __BUILD_ID__: JSON.stringify(Date.now().toString(36)) },
   build: {
     target: 'es2022',

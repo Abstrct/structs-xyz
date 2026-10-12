@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "start": "node server/serve.mjs",
     "typecheck": "tsc --noEmit && tsc --noEmit -p scripts",
-    "test": "tsx scripts/sim.test.ts && tsx scripts/store.test.ts && tsx scripts/combat.test.ts && tsx scripts/history.test.ts && tsx scripts/wallet.test.ts && tsx scripts/pow.test.ts && tsx scripts/game.test.ts && tsx scripts/gpu.test.ts && tsx scripts/data.test.ts && tsx scripts/direct.test.ts && tsx scripts/chat.test.ts && tsx scripts/devrelay.test.ts && tsx scripts/economy.test.ts && tsx scripts/planetActions.test.ts && tsx scripts/learn.test.ts && tsx scripts/base.test.ts",
+    "test": "tsx scripts/sim.test.ts && tsx scripts/store.test.ts && tsx scripts/combat.test.ts && tsx scripts/history.test.ts && tsx scripts/wallet.test.ts && tsx scripts/pow.test.ts && tsx scripts/game.test.ts && tsx scripts/gpu.test.ts && tsx scripts/data.test.ts && tsx scripts/direct.test.ts && tsx scripts/chat.test.ts && tsx scripts/economy.test.ts && tsx scripts/planetActions.test.ts && tsx scripts/learn.test.ts && tsx scripts/base.test.ts",
     "test:parity": "tsx scripts/parity.test.ts",
     "smoke": "tsc --noEmit && node scripts/smoke.mjs",
     "studio": "node scripts/studio/run.mjs",

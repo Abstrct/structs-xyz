@@ -1,9 +1,10 @@
 /* Comms: the Matrix client. One session at a time, for the comms identity — a wallet account,
  * independent of the account the rest of the client acts as (so switching the Command deck to a
- * replicant leaves chat alone). Signed in on the player's guild's homeserver with a wallet
- * signature (./oauth: the desktop app's chain, with the guild login in a small window), or with an
- * access token from another Matrix client; then talking to the homeserver directly (Synapse answers CORS). Long-poll /sync, rooms
- * reduced by ./model, sends with local echo, refresh tokens handled single-flight.
+ * replicant leaves chat alone). Signed in behind the scenes on the player's guild's homeserver: the
+ * wallet signs the guild's login and the guild API hands back the Matrix session (./oauth); or with
+ * an access token from another Matrix client. Then it talks to the homeserver directly (Synapse
+ * answers CORS): long-poll /sync, rooms reduced by ./model, sends with local echo, refresh tokens
+ * handled single-flight.
  *
  * The access token lives in localStorage per account. That is the browser's only place
  * for it; it is scoped to chat (MAS device scope), and signing out revokes it. */
@@ -13,12 +14,8 @@ import { store } from '../chain/store';
 import { lcd } from '../chain/lcd';
 import { safeEach, sleep } from '../core/util';
 import { guildApi, guildInfo, guildTimestamp, homeserverOf, loadGuilds } from './guilds';
-import { buildLoginRequest, type LoginRequest } from '../guild/api';
-import { asset } from '../core/base';
-import {
-  CALLBACK_CHANNEL, CALLBACK_FILE, CALLBACK_KEY, SIGNIN_WINDOW, authorizeUrl, b64url, guildApiRoot, guildLoginProblem, loginForm, newDeviceId, pkceChallenge,
-  randomBytes, readCallback, registrationBody, within, type AuthMeta,
-} from './oauth';
+import { buildLoginRequest } from '../guild/api';
+import { guildApiRoot, newDeviceId, requestGrant, within, type MatrixGrant } from './oauth';
 import {
   editContent, formatWithPills, hostOf, localpart, mentionsMe, messageContent, objectRoomLocal, playerOfUser, safeMediaType, serverOf, slug,
   type Outgoing, type Pill,
@@ -69,8 +66,6 @@ const enc = encodeURIComponent;
 const SKEY_PREFIX = 'structs.comms.session.';
 const SKEY = (acct: string) => SKEY_PREFIX + acct;
 const DEVICE_PREFIX = 'structs.comms.device.';
-/** This site's client id at each guild's auth service, per callback address. */
-const CLIENT_PREFIX = 'structs.comms.client.';
 /** Signed out on purpose: no automatic sign-in for this account until the player asks again. */
 const OPTOUT_PREFIX = 'structs.comms.optout.';
 /** The account index chat signs in as (absent: the primary account). */
@@ -125,12 +120,17 @@ class Comms {
       const i = read<number | null>(IDENTITY_KEY, null);
       if (i != null && wallet.accounts.length && !wallet.account(i)) write(IDENTITY_KEY, null);
       if (this.accountKey() !== this.boundAccount) this.resume();
+      // The wallet opening (or a commander arriving) is the moment to sign chat in, behind the scenes.
+      this.autoSignIn();
     });
     window.addEventListener('online', () => this.wakeNap?.());
     document.addEventListener('visibilitychange', () => { if (!document.hidden) { this.wakeNap?.(); this.emitUnread(true); } });
     void store.loadCore().catch(() => { /* names fall back to ids */ });
-    void loadGuilds().then(() => this.emitChange(null)).catch(() => { /* tags fall back */ });
+    // The roster (whose guild) and the directory (its chat server) both land late: try again as each does.
+    store.onCore(() => this.autoSignIn());
+    void loadGuilds().then(() => { this.emitChange(null); this.autoSignIn(); }).catch(() => { /* tags fall back */ });
     this.resume();
+    this.autoSignIn();
   }
 
   /** The wallet account chat signs in as: the chosen one while it exists, else the primary. */
@@ -185,6 +185,8 @@ class Comms {
     this.session = null;
     this.setState('expired');
     this.emitChange(null);
+    // A dead session signs in again behind the scenes (once a visit; then it waits for Connect).
+    queueMicrotask(() => this.autoSignIn());
   }
 
   async signOut() {
@@ -269,8 +271,9 @@ class Comms {
 
   /** A wallet sign-in in flight (Cancel stops it). */
   private signIn: AbortController | null = null;
-  /** Opening chat signs in by itself once per visit; after that it waits for a click. */
-  private autoTried = false;
+  /** Background sign-ins tried this visit, per account: the first, and one more after a session
+   * dies. Past that a failure waits for Connect, so a guild that refuses is not asked in a loop. */
+  private autoTried = new Map<string, number>();
   get signingIn() { return !!this.signIn; }
 
   /** The comms identity's guild and its chat servers, or why the wallet sign-in can't run yet. */
@@ -288,15 +291,15 @@ class Comms {
     return { guildId: p.guildId, homeserver: g.services.matrix, guildApi: guildApiRoot(g.services.guild_api) };
   }
 
-  /** Opening chat (a click) signs in by itself: no session, not signed out on purpose, the wallet
-   * ready and the guild running chat, and not already tried this visit. Call it from the click. */
+  /** Sign in by itself, behind the scenes, whenever it can: the wallet open, a commander in a guild
+   * that runs chat, no session, and not signed out on purpose. Safe to call often: on start, when
+   * the wallet opens, as the guild directory and roster land, and when a session dies. */
   autoSignIn(): boolean {
     const acct = this.identity;
-    if (this.session || this.signIn || this.autoTried || !acct || read<boolean>(OPTOUT_PREFIX + acct.address, false)) return false;
-    if ('block' in this.walletRoute()) return false;
-    // A controller's press is no click to a pop-up blocker: the card offers Connect instead.
-    if (import.meta.env?.DEV !== true && !canOpenWindow()) return false;
-    this.autoTried = true;
+    if (this.session || this.signIn || !acct || read<boolean>(OPTOUT_PREFIX + acct.address, false)) return false;
+    const tries = this.autoTried.get(acct.address) ?? 0;
+    if (tries >= 2 || 'block' in this.walletRoute()) return false;
+    this.autoTried.set(acct.address, tries + 1);
     void this.signInWithWallet().catch(() => { /* lastError carries it to the sign-in card */ });
     return true;
   }
@@ -307,24 +310,13 @@ class Comms {
    * abandoned silently, and can no longer save or start anything. */
   private dropSignIn() { const a = this.signIn; this.signIn = null; a?.abort(); }
 
-  /** Sign in on the comms identity's guild's homeserver with its wallet. Call from a click: on the
-   * published site the guild's login runs in a small window that the click opens (a page can't keep
-   * the guild's session cookie itself) and comes back through comms-callback.html. On the dev
-   * server, server/dev-relay.mjs runs the same chain instead (auth services refuse localhost). */
+  /** Sign in on the comms identity's guild's homeserver with its wallet, in the background: the
+   * wallet signs the guild's login, and the guild API hands back the Matrix session (./oauth). */
   async signInWithWallet(): Promise<void> {
-    if (this.signIn) { if (import.meta.env?.DEV !== true) window.open('', SIGNIN_WINDOW)?.focus(); return; }
+    if (this.signIn) return;
     const route = this.walletRoute();
     if ('block' in route) throw new Error(WALLET_BLOCK[route.block]);
     const acct = this.identity!;
-    if (import.meta.env?.DEV !== true && !canOpenWindow()) {
-      this.lastError = 'Press Connect with a click or a tap: a controller can’t open the sign-in window';
-      this.emitChange(null);
-      throw new Error(this.lastError);
-    }
-    // The window opens now, while the click still counts with pop-up blockers; the login is posted into it later.
-    const win = import.meta.env?.DEV === true ? null : window.open('', SIGNIN_WINDOW, 'popup,width=480,height=720');
-    if (import.meta.env?.DEV !== true && !win) { this.lastError = 'Allow pop-ups for this site to sign in to chat'; this.emitChange(null); throw new Error(this.lastError); }
-    if (win) waitingPage(win);
     const ac = new AbortController();
     this.signIn = ac;
     const sig = ac.signal;
@@ -332,34 +324,33 @@ class Comms {
     this.lastError = '';
     write(OPTOUT_PREFIX + acct.address, null);
     this.setState('connecting');
-    let tok: Tokens | null = null;
+    let grant: MatrixGrant | null = null;
     try {
       const deviceId = this.deviceFor(acct.address);
       const login = buildLoginRequest(route.guildId, acct.address, await guildClock(route.guildApi, sig), (m) => wallet.signMessage(acct.index, m));
-      tok = import.meta.env?.DEV === true ? await viaDevRelay(route, deviceId, login, sig) : await this.viaWindow(route, deviceId, login, sig);
-      const who = await fetch(route.homeserver + '/_matrix/client/v3/account/whoami', { headers: { authorization: 'Bearer ' + tok.access_token }, signal: within(sig, 20_000) });
+      grant = await requestGrant(route.guildApi, login, deviceId, within(sig, 60_000));
+      if (!grant) throw new Error('Your guild hasn’t turned on chat sign-in yet');
+      const who = await fetch(route.homeserver + '/_matrix/client/v3/account/whoami', { headers: { authorization: 'Bearer ' + grant.access_token }, signal: within(sig, 20_000) });
       const wj = await who.json().catch(() => ({})) as { user_id?: string; device_id?: string };
       if (!who.ok || !wj.user_id) throw new Error(`The homeserver did not accept the new sign-in (${who.status})`);
-      // The account must be the commander who signed: an auth service can hold an older session
-      // in this browser, someone else's, and hand out that account instead.
-      if (playerOfUser(wj.user_id) !== acct.playerId) throw new Error(`That signed in as ${wj.user_id}, not commander ${acct.playerId}. Sign out of your guild’s site, then try again.`);
+      // The account must be the commander who signed.
+      if (playerOfUser(wj.user_id) !== acct.playerId) throw new Error(`The guild signed in ${wj.user_id}, not commander ${acct.playerId}`);
       // Nothing is saved for an account that is no longer the comms identity, or a sign-in given up.
       if (this.signIn !== ac || sig.aborted || this.accountKey() !== acct.address) throw new Error('Sign-in cancelled');
       const s: MatrixSession = {
-        homeserver: route.homeserver, user_id: wj.user_id, device_id: wj.device_id ?? deviceId,
-        access_token: tok.access_token, refresh_token: tok.refresh_token ?? null, expires_at: tok.expires_in ? Date.now() + tok.expires_in * 1000 : null,
-        client_id: tok.client_id, token_endpoint: tok.token_endpoint, revocation_endpoint: tok.revocation_endpoint ?? null, guildId: route.guildId, account: acct.address,
+        homeserver: route.homeserver, user_id: wj.user_id, device_id: wj.device_id ?? grant.device_id ?? deviceId,
+        access_token: grant.access_token, refresh_token: grant.refresh_token, expires_at: grant.expires_in ? Date.now() + grant.expires_in * 1000 : null,
+        client_id: grant.client_id, token_endpoint: grant.token_endpoint, revocation_endpoint: grant.revocation_endpoint, guildId: route.guildId, account: acct.address,
       };
-      tok = null;
+      grant = null;
       write(SKEY(acct.address), s);
       this.signIn = null;
       this.halt();
       this.begin(s);
       await this.firstLive();
     } catch (e) {
-      try { win?.close(); } catch { /* severed */ }
       // Tokens that will not be kept are revoked, not left valid.
-      if (tok) void revoke(tok);
+      if (grant) void revoke(grant);
       if (this.signIn === ac) {
         this.lastError = sig.aborted ? 'Sign-in cancelled' : (e as Error).message || 'Sign-in failed';
         this.setState(before === 'expired' ? 'expired' : 'signedOut');
@@ -369,41 +360,6 @@ class Comms {
     } finally {
       if (this.signIn === ac) this.signIn = null;
     }
-  }
-
-  /** The published site's way: the guild's form login in the sign-in window, on to its auth
-   * service, and the code back from comms-callback.html, redeemed here with this tab's verifier. */
-  private async viaWindow(route: { guildId: string; homeserver: string; guildApi: string }, deviceId: string, login: LoginRequest, signal: AbortSignal): Promise<Tokens> {
-    const meta = await authMetadata(route.homeserver, signal);
-    const redirect = new URL(asset(CALLBACK_FILE), location.href).href;
-    const clientId = await this.clientFor(meta, redirect, signal);
-    const verifier = b64url(randomBytes(32)), state = b64url(randomBytes(16));
-    const authorize = authorizeUrl(meta, { clientId, redirectUri: redirect, deviceId, state, challenge: await pkceChallenge(verifier), prompt: 'login' });
-    // The guild checks the signature first, at the same address the form will post to, so a
-    // refusal is said here instead of as JSON in the window.
-    const pre = await fetch(route.guildApi + '/auth/login', { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: JSON.stringify(login), credentials: 'omit', signal: within(signal, 20_000) });
-    const refused = guildLoginProblem(await pre.json().catch(() => null), pre.status);
-    if (refused) throw new Error(refused);
-    if (signal.aborted) throw new Error('Sign-in cancelled');
-    const answer = waitForCallback(state, signal);
-    // The guild's login as a form, in the window: its session cookie on its own site, then on to
-    // its auth service, which sees that session and sends the code back to comms-callback.html.
-    postForm(SIGNIN_WINDOW, route.guildApi + '/auth/login', loginForm(login, authorize));
-    const { code } = readCallback(await answer, state);
-    return { ...await redeemCode(meta, clientId, redirect, code, verifier, signal), client_id: clientId, token_endpoint: meta.token_endpoint, revocation_endpoint: meta.revocation_endpoint ?? null };
-  }
-
-  /** This site's client id at a guild's auth service: registered once, then remembered. */
-  private async clientFor(meta: AuthMeta, redirect: string, signal: AbortSignal): Promise<string> {
-    const key = CLIENT_PREFIX + meta.issuer + '|' + redirect;
-    const known = read<string | null>(key, null);
-    if (known) return known;
-    if (!meta.registration_endpoint) throw new Error('Your guild’s sign-in service takes no new apps');
-    const r = await fetch(meta.registration_endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(registrationBody(new URL(asset(''), location.href).href, redirect)), signal: within(signal, 20_000) });
-    const j = await r.json().catch(() => ({})) as { client_id?: string; error?: string; error_description?: string };
-    if (!r.ok || !j.client_id) throw new Error(`Your guild’s sign-in service refused this site (${j.error_description || j.error || r.status})`);
-    write(key, j.client_id);
-    return j.client_id;
   }
 
   /** One Matrix device per account on this browser, kept across sign-ins (no device pile-up). */
@@ -1074,42 +1030,6 @@ class Comms {
 /** Best effort: tell the server the device is gone, so the token dies with it. */
 /* ── Wallet sign-in helpers ───────────────────────────────────────────────── */
 
-/* On the dev server (localhost) the sign-in goes through server/dev-relay.mjs; a build never does.
- * The check is written out where it is used (`import.meta.env?.DEV === true`): a build replaces it
- * with false in place, so the relay call and its branches drop out of the bundle entirely. */
-interface Tokens { access_token: string; refresh_token?: string | null; expires_in?: number | null; client_id: string; token_endpoint: string; revocation_endpoint?: string | null }
-
-async function viaDevRelay(route: { homeserver: string; guildApi: string }, deviceId: string, login: LoginRequest, signal: AbortSignal): Promise<Tokens> {
-  const r = await fetch('/__dev/comms/signin', { method: 'POST', signal: within(signal, 120_000), headers: { 'content-type': 'application/json' }, body: JSON.stringify({ homeserver: route.homeserver, guildApi: route.guildApi, deviceId, login }) });
-  const j = await r.json().catch(() => ({})) as Partial<Tokens> & { error?: string };
-  if (!r.ok || !j.access_token || !j.client_id || !j.token_endpoint) throw new Error(j.error || `The dev relay could not sign in (${r.status})`);
-  return j as Tokens;
-}
-
-/** The homeserver's auth service (MAS): the stable path, then MSC2965's. */
-async function authMetadata(hs: string, signal: AbortSignal): Promise<AuthMeta> {
-  let last = '';
-  for (const p of ['/_matrix/client/v1/auth_metadata', '/_matrix/client/unstable/org.matrix.msc2965/auth_metadata']) {
-    if (signal.aborted) break;
-    try {
-      const r = await fetch(hs + p, { signal: within(signal, 20_000) });
-      if (r.ok) { const j = await r.json() as AuthMeta; if (j.authorization_endpoint && j.token_endpoint) return j; }
-      last = 'HTTP ' + r.status;
-    } catch (e) { last = (e as Error).message; }
-  }
-  throw new Error(`${hostOf(hs)} has no wallet sign-in (${last})`);
-}
-
-async function redeemCode(meta: AuthMeta, clientId: string, redirect: string, code: string, verifier: string, signal: AbortSignal) {
-  const r = await fetch(meta.token_endpoint, {
-    method: 'POST', signal: within(signal, 20_000), headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: redirect, client_id: clientId, code_verifier: verifier }).toString(),
-  });
-  const j = await r.json().catch(() => ({})) as { access_token?: string; refresh_token?: string; expires_in?: number; error?: string; error_description?: string };
-  if (!r.ok || !j.access_token) throw new Error(`Your guild’s sign-in service refused the code (${j.error_description || j.error || r.status})`);
-  return j as { access_token: string; refresh_token?: string; expires_in?: number };
-}
-
 /** The guild's clock (its login signature is good for ten minutes of its time, not ours). */
 async function guildClock(guildApi: string, signal: AbortSignal): Promise<number> {
   const r = await fetch(guildApi + '/timestamp', { headers: { accept: 'application/json' }, credentials: 'omit', signal: within(signal, 20_000) });
@@ -1118,74 +1038,12 @@ async function guildClock(guildApi: string, signal: AbortSignal): Promise<number
   return ts;
 }
 
-/** Whether a click or tap is in hand for a pop-up (a controller's press is not one). */
-function canOpenWindow(): boolean {
-  const ua = (navigator as Navigator & { userActivation?: { isActive: boolean } }).userActivation;
-  return !ua || ua.isActive;
-}
-
 /** Revoke a grant at the auth service: the refresh token (which ends the session), then the access token. */
 function revoke(t: { access_token: string; refresh_token?: string | null; client_id: string | null; revocation_endpoint?: string | null }): Promise<void> {
   const ep = t.revocation_endpoint, cid = t.client_id;
   if (!ep || !cid) return Promise.resolve();
   const one = (token: string, hint: string) => fetch(ep, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ token, token_type_hint: hint, client_id: cid }).toString() }).then(() => undefined, () => undefined);
   return (t.refresh_token ? one(t.refresh_token, 'refresh_token') : Promise.resolve()).then(() => one(t.access_token, 'access_token'));
-}
-
-/** The sign-in window's first moment, before the guild's page arrives. */
-function waitingPage(win: Window) {
-  try {
-    const d = win.document;
-    d.title = 'Structs · chat sign-in';
-    d.body.style.cssText = 'margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0B1240;color:#fff;font:600 16px system-ui,sans-serif';
-    d.body.textContent = 'Connecting to your guild…';
-  } catch { /* a window from an earlier try, on another site */ }
-}
-
-function postForm(target: string, action: string, fields: Record<string, string>) {
-  const f = document.createElement('form');
-  f.method = 'POST';
-  f.action = action;
-  f.target = target;
-  f.style.display = 'none';
-  for (const [k, v] of Object.entries(fields)) {
-    const i = document.createElement('input');
-    i.type = 'hidden'; i.name = k; i.value = v;
-    f.appendChild(i);
-  }
-  document.body.appendChild(f);
-  f.submit();
-  f.remove();
-}
-
-/** The callback page's answer for this sign-in's state: by BroadcastChannel, the opener, or a
- * storage event (whichever survives the sign-in pages' opener policy). */
-function waitForCallback(state: string, signal: AbortSignal, ms = 5 * 60_000): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const bc = typeof BroadcastChannel === 'function' ? new BroadcastChannel(CALLBACK_CHANNEL) : null;
-    const take = (m: unknown) => {
-      const search = (m as { search?: unknown } | null)?.search;
-      if (typeof search !== 'string' || new URLSearchParams(search).get('state') !== state) return;
-      finish();
-      resolve(search);
-    };
-    const onBc = (e: MessageEvent) => take(e.data);
-    const onMsg = (e: MessageEvent) => { if (e.origin === location.origin) take((e.data as { structsCommsAuth?: unknown } | null)?.structsCommsAuth); };
-    const onStore = (e: StorageEvent) => { if (e.key === CALLBACK_KEY && e.newValue) { try { take(JSON.parse(e.newValue)); } catch { /* not ours */ } } };
-    const onAbort = () => { finish(); reject(new Error('Sign-in cancelled')); };
-    const t = setTimeout(() => { finish(); reject(new Error('The sign-in window took too long')); }, ms);
-    const finish = () => {
-      clearTimeout(t);
-      bc?.close();
-      window.removeEventListener('message', onMsg);
-      window.removeEventListener('storage', onStore);
-      signal.removeEventListener('abort', onAbort);
-    };
-    bc?.addEventListener('message', onBc);
-    window.addEventListener('message', onMsg);
-    window.addEventListener('storage', onStore);
-    signal.addEventListener('abort', onAbort);
-  });
 }
 
 /** End a session: a wallet sign-in's grant is revoked at its auth service (the homeserver has no

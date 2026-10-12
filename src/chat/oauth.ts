@@ -1,120 +1,87 @@
-/* Chat sign-in with the wallet, the pure parts: the same chain as the desktop app
- * (structs-universe src-tauri/src/matrix/auth.rs), shaped for a web page.
+/* Chat sign-in with the wallet, behind the scenes: the guild API hands back the Matrix session.
  *
- *   guild.json services.matrix                 → the homeserver
- *   GET  {hs}/_matrix/client/v1/auth_metadata  → its auth service (MAS): issuer and endpoints
- *   POST {mas}/oauth2/registration             → this site's client id (a public web client, PKCE)
- *   POST {guild_api}/auth/login  (a form, in the sign-in window: the wallet signature, and
- *        `continue` = the MAS authorize URL)  → the guild's session cookie, set on its own site;
- *        then 302 on to MAS, which sees the guild session and comes straight back
- *   GET  {site}/comms-callback.html?code&state → the code, handed to the game tab
- *   POST {mas}/oauth2/token  (code + verifier) → the Matrix access and refresh tokens
+ * A guild's webapp is the identity provider for its homeserver's auth service (MAS). The desktop
+ * app walks that sign-in chain itself, with its own cookie jar (structs-universe
+ * src-tauri/src/matrix/auth.rs). A web page can't: the chain needs the guild's session cookie and
+ * redirects across three sites. So the guild API walks it on its side. The page posts the same
+ * wallet-signed login as /api/auth/login and gets Matrix tokens back. No window, no redirect, no cookie.
  *
- * A page can't keep another site's cookie, so the guild login runs as a top-level form post in a
- * small window rather than as a request from the page: that is the one difference from desktop. */
+ *   POST {guild_api}/auth/matrix  { address, pubkey, signature, guild_id, unix_timestamp, device_id }
+ *     → { success: true, data: { user_id, device_id, access_token, refresh_token, expires_in,
+ *                                  client_id, token_endpoint, revocation_endpoint } }
+ *
+ * client_id is a public MAS client (no secret): this page refreshes and revokes at MAS itself. */
 
-export interface AuthMeta {
-  issuer: string;
-  authorization_endpoint: string;
+export const MATRIX_SESSION_PATH = 'auth/matrix';
+
+/** What the guild hands back: the Matrix tokens, and where to refresh and revoke them. */
+export interface MatrixGrant {
+  access_token: string;
+  refresh_token: string | null;
+  expires_in: number | null;
+  client_id: string;
   token_endpoint: string;
-  registration_endpoint?: string;
-  revocation_endpoint?: string;
+  revocation_endpoint: string | null;
+  user_id?: string;
+  device_id?: string;
 }
 
-/** The sign-in window's name: the guild's form login is posted into it. */
-export const SIGNIN_WINDOW = 'structs-comms-signin';
-/** Where the callback page announces the code (and its localStorage fallback key). */
-export const CALLBACK_CHANNEL = 'structs-comms-auth';
-export const CALLBACK_KEY = 'structs.comms.callback';
-/** The callback page: a static file next to the app (public/comms-callback.html). */
-export const CALLBACK_FILE = 'comms-callback.html';
-
-export function b64url(bytes: Uint8Array): string {
-  let s = '';
-  for (const b of bytes) s += String.fromCharCode(b);
-  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-export const randomBytes = (n: number) => crypto.getRandomValues(new Uint8Array(n));
-
-/** RFC 7636 S256: the challenge is base64url(sha256(verifier)). */
-export async function pkceChallenge(verifier: string): Promise<string> {
-  return b64url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
-}
+export interface SignedLogin { address: string; signature: string; pubkey: string; guild_id: string; unix_timestamp: number | string }
 
 /** A Matrix device id: ten letters and digits, one scope token (as the desktop app makes them). */
 export function newDeviceId(): string {
   const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  return Array.from(randomBytes(10), (b) => A[b % A.length]).join('');
+  return Array.from(crypto.getRandomValues(new Uint8Array(10)), (b) => A[b % A.length]).join('');
 }
 
-/** MSC2967's scope for a Matrix client: the whole client API, and this one device. */
-export function matrixScope(deviceId: string): string {
-  return `urn:matrix:org.matrix.msc2967.client:api:* urn:matrix:org.matrix.msc2967.client:device:${deviceId}`;
+/** The request: the guild's own login fields, and this browser's device for the Matrix session. */
+export function matrixSessionBody(login: SignedLogin, deviceId: string) {
+  return { address: login.address, signature: login.signature, pubkey: login.pubkey, guild_id: login.guild_id, unix_timestamp: login.unix_timestamp, device_id: deviceId };
 }
 
-/** This site registered as a public web client: its address, its callback, code + refresh, no secret. */
-export function registrationBody(siteUrl: string, redirectUri: string) {
-  return {
-    client_name: 'Structs Command Deck',
-    client_uri: siteUrl,
-    application_type: 'web',
-    redirect_uris: [redirectUri],
-    response_types: ['code'],
-    grant_types: ['authorization_code', 'refresh_token'],
-    token_endpoint_auth_method: 'none',
-  };
-}
-
-/** `prompt: 'login'` makes the auth service sign in again rather than reuse its own session cookie
- * in this browser, which may belong to another commander (the desktop app gets the same from a
- * fresh cookie jar on every run). */
-export function authorizeUrl(meta: AuthMeta, o: { clientId: string; redirectUri: string; deviceId: string; state: string; challenge: string; prompt?: string }): string {
-  const u = new URL(meta.authorization_endpoint);
-  const q = u.searchParams;
-  q.set('response_type', 'code');
-  q.set('client_id', o.clientId);
-  q.set('redirect_uri', o.redirectUri);
-  q.set('scope', matrixScope(o.deviceId));
-  q.set('state', o.state);
-  q.set('code_challenge', o.challenge);
-  q.set('code_challenge_method', 'S256');
-  q.set('response_mode', 'query');
-  if (o.prompt) q.set('prompt', o.prompt);
-  return u.href;
-}
-
-/** The guild's form login: the signed fields, and where to go once the session is set. */
-export function loginForm(login: { address: string; signature: string; pubkey: string; guild_id: string; unix_timestamp: number | string }, continueUrl: string): Record<string, string> {
-  return {
-    address: login.address, signature: login.signature, pubkey: login.pubkey,
-    guild_id: login.guild_id, unix_timestamp: String(login.unix_timestamp),
-    continue: continueUrl,
-  };
-}
-
-/** The callback's answer, checked: the state must be the one this sign-in sent (that is what stops
- * a code we did not ask for from being redeemed as ours). */
-export function readCallback(search: string, state: string): { code: string } {
-  const q = new URLSearchParams(search);
-  if (q.get('state') !== state) throw new Error('The sign-in answer was not for this sign-in');
-  const err = q.get('error');
-  if (err) throw new Error(err === 'access_denied' ? 'Sign-in was cancelled' : `Sign-in stopped: ${q.get('error_description') || err}`);
-  const code = q.get('code');
-  if (!code) throw new Error('The sign-in answer carried no code');
-  return { code };
-}
-
-/** The guild's login errors, in its own words (`{errors: {key: message}}`). */
+/** The guild's errors, in its own words (`{errors: {key: message}}`). */
 export function guildLoginProblem(body: { success?: boolean; errors?: Record<string, string> | unknown[] | null } | null, status: number): string | null {
   if (body?.success === true) return null;
   const e = body?.errors;
   const words = e && !Array.isArray(e) ? Object.values(e).filter((x) => typeof x === 'string').join('; ') : '';
-  return words || `The guild refused the sign-in (${status})`;
+  return words || `The guild refused the chat sign-in (${status})`;
 }
 
-/** A guild's API root, the way src/guild/transport.ts reaches it (`…/api`): the form login and its
- * pre-check must post to the same place. */
+const httpsUrl = (u: unknown): u is string => { try { return typeof u === 'string' && new URL(u).protocol === 'https:'; } catch { return false; } };
+
+/** The guild's answer, checked: a refusal in its own words, else tokens with https endpoints. */
+export function readGrant(body: unknown, status: number): MatrixGrant {
+  const env = body as { success?: boolean; errors?: Record<string, string> | null; data?: Record<string, unknown> | null } | null;
+  const refused = guildLoginProblem(env, status);
+  if (refused) throw new Error(refused);
+  const d = env?.data ?? {};
+  if (typeof d.access_token !== 'string' || !d.access_token) throw new Error('The guild answered without a chat token');
+  if (typeof d.client_id !== 'string' || !d.client_id || !httpsUrl(d.token_endpoint)) throw new Error('The guild’s chat sign-in left out where to refresh it');
+  if (d.revocation_endpoint != null && !httpsUrl(d.revocation_endpoint)) throw new Error('The guild’s chat sign-in names an unsafe sign-out address');
+  return {
+    access_token: d.access_token,
+    refresh_token: typeof d.refresh_token === 'string' ? d.refresh_token : null,
+    expires_in: typeof d.expires_in === 'number' ? d.expires_in : null,
+    client_id: d.client_id,
+    token_endpoint: d.token_endpoint,
+    revocation_endpoint: typeof d.revocation_endpoint === 'string' ? d.revocation_endpoint : null,
+    user_id: typeof d.user_id === 'string' ? d.user_id : undefined,
+    device_id: typeof d.device_id === 'string' ? d.device_id : undefined,
+  };
+}
+
+/** Ask the guild for the session. Resolves `null` when the guild has no such route (404). */
+export async function requestGrant(guildApi: string, login: SignedLogin, deviceId: string, signal: AbortSignal, f: typeof fetch = fetch): Promise<MatrixGrant | null> {
+  const r = await f(`${guildApi}/${MATRIX_SESSION_PATH}`, {
+    method: 'POST', credentials: 'omit', signal,
+    headers: { 'content-type': 'application/json', accept: 'application/json' },
+    body: JSON.stringify(matrixSessionBody(login, deviceId)),
+  });
+  if (r.status === 404) return null;
+  return readGrant(await r.json().catch(() => null), r.status);
+}
+
+/** A guild's API root, the way src/guild/transport.ts reaches it (`…/api`). */
 export function guildApiRoot(guildApi: string): string {
   return guildApi.replace(/\/+$/, '').replace(/(\/api)?$/, '/api');
 }
@@ -129,4 +96,3 @@ export function within(signal: AbortSignal, ms: number): AbortSignal {
   setTimeout(stop, ms);
   return c.signal;
 }
-

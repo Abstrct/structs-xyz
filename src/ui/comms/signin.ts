@@ -1,5 +1,7 @@
 /* The sign-in card: what comms is, and the way in — the commander's wallet, on their guild's own
- * chat server (one button: matrix.ts signInWithWallet, the desktop app's chain). When it can't run
+ * chat server. Comms signs in by itself, behind the scenes, as soon as it can (matrix.ts
+ * autoSignIn: the guild API turns the wallet-signed login into the session); the card shows that
+ * happening, and its one button tries again after a failure. When it can't run
  * yet, a few words say why (enlist, join a guild, unlock, the guild runs no chat server) with the
  * one button that fixes it. An access token from another Matrix client still works, folded behind
  * "Have a token?" (open at once in Expert mode). Dreamcast-style: a picture and a few words each,

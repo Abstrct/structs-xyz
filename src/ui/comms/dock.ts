@@ -78,8 +78,8 @@ export function mountCommsDock(navigate: Nav = (path) => { goTo(path); }): Comms
       button.classList.remove('active');
       panel?.setVisible(false);
     },
-    // Opening chat (a click or C, so a sign-in window may open) signs the commander in to their
-    // guild's chat server by itself, once a visit, unless they signed out on purpose.
+    // Opening chat signs the commander in to their guild's chat server too, if nothing has yet
+    // (it already tries by itself as soon as the wallet is open), unless they signed out on purpose.
     toggle() { if (isOpen) d.close(); else { d.open(); comms.autoSignIn(); } },
   };
   setCommsOpener((id) => { if (CommsPanel.full) CommsPanel.full.openRoom(id); else d.open(id); });

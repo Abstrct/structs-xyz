@@ -14,8 +14,6 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
-  // Chat sign-in's callback carries a one-time code in its address: never cache it.
-  if (url.pathname.endsWith('/comms-callback.html')) return;
   const isPage = req.mode === 'navigate';
   const isStatic = /\/(assets|fonts|img|sound)\//.test(url.pathname) || /\.(png|webp|jpg|svg|webmanifest|woff2|ttf|mp3)$/.test(url.pathname);
   if (!isPage && !isStatic) return;
