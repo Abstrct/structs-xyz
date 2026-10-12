@@ -203,7 +203,13 @@ export class PlanetScreen implements Screen {
     this.introPending = true;
     this.zoom.reset(true);
     this.raiderId = null;
-    const loading = h('div', { class: 'planet-loading t-label c-hint' }, h('span', { class: 'dot pulse c-player' }), ' Reading the chain…');
+    // While the chain answers: the dossier's outline with a scan sweeping it, and a receiving pill
+    // (dc-polish.css), never a bare line of text on empty sky.
+    const bars = () => h('span', { class: 'dcp-bars', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('i'));
+    const loading = h('div', { class: 'planet-loading', role: 'status', 'aria-label': 'Reading this world from the chain' },
+      h('div', { class: 'planet-skel panel player dcp-sweep', 'aria-hidden': 'true' },
+        h('i', { class: 'sk-title' }), h('i', { class: 'sk-bar' }), h('div', { class: 'sk-grid' }, h('i'), h('i'), h('i'), h('i')), h('i', { class: 'sk-bar' }), h('i', { class: 'sk-bar short' })),
+      h('span', { class: 'dcp-rx planet-rx', title: 'Reading this world from the chain' }, h('span', { class: 'dcp-dish', 'aria-hidden': 'true', html: icon('planet', 16) }), bars(), 'Receiving'));
     this.root.appendChild(loading);
     try {
       let id = params.id || '';
@@ -222,12 +228,15 @@ export class PlanetScreen implements Screen {
     } catch (e) {
       if (token !== this.loadToken) return;
       loading.remove();
-      const panel = h('div', { class: 'planet-error panel enemy' }, h('div', { class: 'panel-body col' },
+      // No signal: the dish, two words and the way on; the testnet's own words are in the title.
+      const why = 'Could not read ' + (params.id || params.player) + ' from the testnet: ' + String((e as Error).message || e);
+      const panel = h('div', { class: 'planet-error panel enemy', role: 'alert' }, h('div', { class: 'panel-body col', title: why },
+        h('span', { class: 'dcp-dish big', 'aria-hidden': 'true', html: icon('planet', 34) }),
         h('div', { class: 't-display c-enemy' }, 'No signal'),
-        h('div', { class: 't-body c-hint' }, 'Could not read ' + (params.id || params.player) + ' from the testnet: ' + String((e as Error).message || e)),
+        h('div', { class: 't-body c-hint' }, 'The testnet didn’t answer.'),
         h('div', { class: 'row' },
-          h('button', { class: 'btn', onclick: () => this.navigate('/galaxy') }, '◂ Back to the galaxy'),
-          h('button', { class: 'btn solid', onclick: () => { audio.play('select'); panel.remove(); void this.start(params, ++this.loadToken); } }, 'Try again ↻'))));
+          h('button', { class: 'btn', onclick: () => this.navigate('/galaxy') }, h('span', { html: icon('back', 16) }), 'Galaxy'),
+          h('button', { class: 'btn solid', onclick: () => { audio.play('select'); panel.remove(); void this.start(params, ++this.loadToken); } }, h('span', { html: icon('refresh', 16) }), 'Try again'))));
       this.root.appendChild(panel);
       return;
     }

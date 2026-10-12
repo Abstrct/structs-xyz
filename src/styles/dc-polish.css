@@ -1,0 +1,112 @@
+/* The polish pass: the testnet answering, in the kit's style. A data screen can wait 6–15 s for the
+ * LCD or the live feed; it should look like a console receiving a signal, never like a broken page
+ * of bare ellipses. Loaded in the main bundle after dc-nav.css, so every screen chunk can use it.
+ *
+ *   .dcp-bars   a signal meter (four bars climbing in turn) where a number is about to land
+ *   .dcp-rx     a pill: a dish with rings going out, the bars and one word
+ *   .dcp-scan   a well with a scan line sweeping down the 480-line dither, a dish in the middle
+ *   .dcp-sweep  the same sweep laid over anything (placeholder cards)
+ *   .dcp-stale  a block showing the last visit's numbers (dimmed, never passed off as live)
+ *   .dcp-last   the chip that says so: a clock, two words, the age
+ *
+ * Colour is the screen's hub (--hub) with white; the accent stays the cursor's. With reduced motion
+ * everything holds still: the bars stand as a staircase, the rings and the sweep rest. */
+
+/* ── The signal meter ───────────────────────────────────────────────────── */
+.dcp-bars { display: inline-flex; align-items: flex-end; gap: 3px; height: 18px; flex: none; vertical-align: middle; color: var(--hub, var(--accent-primary)); }
+.dcp-bars i { display: block; width: 5px; height: 30%; border-radius: 2px; background: currentColor; opacity: 0.35; animation: dcp-bar 1.2s steps(6, end) infinite; }
+.dcp-bars i:nth-child(2) { animation-delay: 0.15s; }
+.dcp-bars i:nth-child(3) { animation-delay: 0.3s; }
+.dcp-bars i:nth-child(4) { animation-delay: 0.45s; }
+@keyframes dcp-bar { 0%, 100% { height: 30%; opacity: 0.35; } 45% { height: 100%; opacity: 1; } }
+/* In a tile, the meter stands where the number goes, at the number's height. */
+:is(.eco-big, .itile-v, .dct-num) .dcp-bars { height: 0.8em; margin: 0.1em 0; }
+
+/* ── The receiving pill ─────────────────────────────────────────────────── */
+.dcp-rx { --c: var(--hub, var(--accent-primary)); display: inline-flex; align-items: center; gap: 10px; min-height: 36px; padding: 3px 16px 3px 4px; border-radius: 999px; white-space: nowrap; align-self: flex-start;
+  border: 2px solid color-mix(in srgb, var(--c) 55%, transparent); background: color-mix(in srgb, var(--c) 14%, rgba(11, 18, 64, 0.88)); box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.1);
+  color: #fff; font-family: var(--font-chrome); font-weight: 900; font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; }
+.dcp-rx .dcp-bars { color: var(--c); }
+/* The dish: the hub's colour on glass, rings going out from it. */
+.dcp-dish { --c: var(--hub, var(--accent-primary)); position: relative; display: inline-flex; align-items: center; justify-content: center; flex: none; width: 28px; height: 28px; border-radius: 50%;
+  color: var(--c); background: rgba(255, 255, 255, 0.1); }
+.dcp-dish .ico { position: relative; z-index: 1; }
+.dcp-dish::before, .dcp-dish::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--c); opacity: 0; animation: dcp-ring 1.8s ease-out infinite; pointer-events: none; }
+.dcp-dish::after { animation-delay: 0.9s; }
+@keyframes dcp-ring { 0% { transform: scale(0.7); opacity: 0.9; } 100% { transform: scale(1.9); opacity: 0; } }
+.dcp-dish.big { width: 72px; height: 72px; background: color-mix(in srgb, var(--c) 16%, rgba(255, 255, 255, 0.06)); box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.22), 0 0 0 3px color-mix(in srgb, var(--c) 28%, transparent); }
+.dcp-dish.big::before, .dcp-dish.big::after { border-width: 3px; }
+
+/* ── The scanning well ──────────────────────────────────────────────────── */
+.dcp-scan { --c: var(--hub, var(--accent-primary)); position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; min-height: 200px; padding: 28px 16px;
+  border-radius: 22px; border: 2px dashed color-mix(in srgb, var(--c) 35%, transparent); color: #fff; text-align: center;
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 3px), radial-gradient(ellipse at 50% 42%, color-mix(in srgb, var(--c) 18%, transparent), transparent 68%), rgba(5, 9, 40, 0.35); }
+.dcp-scan::after, .dcp-sweep::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 45%; pointer-events: none; z-index: 2; transform: translateY(-100%); animation: dcp-sweep 2.6s linear infinite;
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--hub, var(--accent-primary)) 14%, transparent) 80%, color-mix(in srgb, var(--hub, var(--accent-primary)) 55%, #fff) 99%, transparent 100%); }
+@keyframes dcp-sweep { to { transform: translateY(330%); } }
+/* Connected and only waiting: the rings go on, the sweep stops. */
+.dcp-scan.calm::after { display: none; }
+.dcp-sweep { position: relative; overflow: hidden; }
+.dcp-scan-line { display: inline-flex; align-items: center; gap: 10px; font-family: var(--font-chrome); font-weight: 900; font-size: 18px; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; }
+
+/* ── The last visit's numbers ───────────────────────────────────────────── */
+/* Dim and desaturated with a clock in the corner: what the screen said last time, until the live read lands. */
+.dcp-stale { position: relative; }
+/* (Weighted past the screens' own `.economy .dct-frame .eco-tile .eco-big { filter: none }`.) */
+:is(.economy .dct-frame .eco-tile, .intel .dct-frame .itile, .eco-tile, .itile).dcp-stale :is(.eco-big, .itile-v) { opacity: 0.55; filter: saturate(0.4); }
+.dcp-stale::after { content: ''; position: absolute; top: 8px; right: 10px; width: 14px; height: 14px; opacity: 0.8;
+  background: var(--text-hint); -webkit-mask: var(--dcp-clock) center / contain no-repeat; mask: var(--dcp-clock) center / contain no-repeat; }
+:root { --dcp-clock: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E"); }
+.dcp-last { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 3px 12px 3px 10px; border-radius: 999px; white-space: nowrap;
+  border: 2px dashed rgba(180, 195, 238, 0.45); background: rgba(255, 255, 255, 0.05); color: var(--text-hint); font-family: var(--font-chrome); font-weight: 900; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; }
+.dcp-last > span:first-child { display: inline-flex; }
+.dcp-last b { color: #fff; font-weight: 900; }
+/* A screen's one live region: read by screen readers, never drawn (the inner span keeps its words
+ * out of the studio's visible-word count). */
+.dcp-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+/* The status row over a waiting screen: the pill and, when there is one, the last visit's chip. */
+.dcp-wait-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+
+/* Short screens (the TV, a phone on its side): a smaller dish. */
+@media (max-height: 560px) {
+  .dcp-scan { min-height: 150px; gap: 10px; padding: 16px 12px; }
+  .dcp-dish.big { width: 56px; height: 56px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dcp-bars i { animation: none; opacity: 0.85; }
+  .dcp-bars i:nth-child(1) { height: 40%; } .dcp-bars i:nth-child(2) { height: 60%; } .dcp-bars i:nth-child(3) { height: 80%; } .dcp-bars i:nth-child(4) { height: 100%; }
+  .dcp-dish::before, .dcp-dish::after { animation: none; }
+  .dcp-dish::before { opacity: 0.45; transform: scale(1.35); }
+  .dcp-scan::after, .dcp-sweep::after { animation: none; display: none; }
+}
+
+/* ── The ? help card (guide.ts): an opaque glass-blue card in the kit's style ─────────────────
+ * It sat near-black and let the screen show through its heading on phones. `body >` outranks the
+ * older learn.css rules in any link order. */
+body > .guide-card.panel { position: fixed; z-index: calc(var(--menu-z) + 4); isolation: isolate; padding: 14px 16px 12px; gap: 10px; border-radius: 24px;
+  border: 3px solid color-mix(in srgb, var(--hub) 70%, #fff 0%); background: linear-gradient(180deg, #1C318F 0%, #13236F 55%, #0F1D5E 100%);
+  backdrop-filter: none; -webkit-backdrop-filter: none; color: var(--text-body);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.16), inset 0 -4px 0 rgba(0, 0, 0, 0.22), 0 24px 60px -16px rgba(0, 0, 20, 0.9), 0 0 0 1px rgba(0, 0, 0, 0.3); }
+body > .guide-card.panel::before, body > .guide-card.panel::after { display: none; }
+body > .guide-card .guide-ico { width: 40px; height: 40px; border: 0; border-radius: 50%; color: var(--dc-void); background: var(--hub); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.22), 0 0 0 3px color-mix(in srgb, var(--hub) 30%, transparent); }
+body > .guide-card .guide-where { font-weight: 900; font-size: 12px; letter-spacing: 0.06em; color: var(--text-hint); }
+body > .guide-card .guide-title { font-weight: 900; font-size: 20px; line-height: 1.1; letter-spacing: 0.03em; color: #fff; text-shadow: 0 3px 0 var(--dc-deep); }
+body > .guide-card .guide-x { width: 40px; height: 40px; min-width: 40px; padding: 0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 20px; }
+body > .guide-card .guide-what { font-size: 15px; line-height: 21px; color: #fff; }
+body > .guide-card .guide-try-h { font-weight: 900; font-size: 14px; letter-spacing: 0.06em; color: var(--hub); }
+body > .guide-card .guide-tries { gap: 6px; padding-left: 24px; font-size: 14px; line-height: 19px; color: var(--text-body); }
+body > .guide-card .guide-tries li::marker { font-family: var(--font-chrome); font-weight: 900; }
+body > .guide-card .guide-foot .btn { min-height: 40px; }
+body > .guide-card .guide-off { color: var(--text-hint); font-size: 12px; }
+
+/* ── The More (⋯) menu: the same opaque glass-blue card as the ? card ───────────────────────── */
+body > .more-menu.panel { border-radius: 22px; border: 3px solid rgba(143, 168, 255, 0.55); background: linear-gradient(180deg, #1C318F 0%, #13236F 55%, #0F1D5E 100%);
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.16), inset 0 -4px 0 rgba(0, 0, 0, 0.22), 0 24px 60px -16px rgba(0, 0, 20, 0.9), 0 0 0 1px rgba(0, 0, 0, 0.3); }
+body > .more-menu.panel::before, body > .more-menu.panel::after { display: none; }
+body > .more-menu .mm-item { color: #fff; }
+body > .more-menu .mm-item:hover, body > .more-menu .mm-item:focus-visible { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.35); }
+body > .more-menu .mm-item:focus-visible { outline: 3px solid var(--dc-accent); outline-offset: -1px; }
+body > .more-menu .mm-sep { height: 2px; border-radius: 2px; background: rgba(143, 168, 255, 0.3); }
+body > .more-menu kbd.mm-hint { border-radius: 8px; border: 2px solid rgba(143, 168, 255, 0.45); background: rgba(255, 255, 255, 0.08); color: var(--text-hint); }

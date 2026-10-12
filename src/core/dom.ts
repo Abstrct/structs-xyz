@@ -47,7 +47,25 @@ export const ui = () => document.getElementById('ui') as HTMLDivElement;
 
 /* ── Toasts ─────────────────────────────────────────────────────────────── */
 let toastBox: HTMLDivElement | null = null;
+/** Good news waiting for the screen to be ready for it (PRESS START shows the logo alone). Trouble
+ * (an enemy or warning toast, an enemy banner: a raid) never waits: it shows, with its sound, at once. */
+let held: (() => void)[] | null = null;
+/** Hold good-news toasts and banners while `on`; letting go plays the latest four, one by one. */
+export function holdNotices(on: boolean) {
+  if (on) { held ||= []; return; }
+  const q = held;
+  held = null;
+  q?.slice(-4).forEach((f, i) => setTimeout(f, 300 + i * 450));
+}
+/** Run `f` (a sound and the banner it belongs to) now, or with the held notices when they play. */
+export function whenNoticesShow(f: () => void) {
+  if (!held) { f(); return; }
+  held.push(f);
+  if (held.length > 12) held.shift();
+}
+
 export function toast(text: string, kind: '' | 'player' | 'enemy' | 'warn' = '', ms = 3200, action?: { label: string; run: () => void }) {
+  if (held && kind !== 'enemy' && kind !== 'warn') { whenNoticesShow(() => toast(text, kind, ms, action)); return; }
   if (!toastBox || !toastBox.isConnected) { toastBox = h('div', { class: 'toasts', role: 'status', 'aria-live': 'polite' }); document.body.appendChild(toastBox); }
   const t = h('div', { class: 'toast ' + kind + (action ? ' has-action' : '') }, text,
     action ? h('button', { class: 'toast-act', onclick: () => { action.run(); t.remove(); } }, action.label) : null);
@@ -77,6 +95,8 @@ export function copyText(text: string, ok: string, ms = 1600) {
 /* ── Banner ─────────────────────────────────────────────────────────────── */
 export function banner(big: string, small: string, kind: 'player' | 'enemy' | 'neutral', ms = 2200) {
   const b = h('div', { class: 'banner ' + kind, role: 'status', 'aria-live': 'assertive' }, h('div', { class: 'small' }, small), h('div', { class: 'big' }, big));
+  // Held (see holdNotices): it shows later, as a new banner; this one is never shown.
+  if (held && kind !== 'enemy') { whenNoticesShow(() => banner(big, small, kind, ms)); return b; }
   // Two at once (a victory and a promotion) stack rather than print over each other.
   const live = document.querySelectorAll('.banner:not(.out)').length;
   if (live) b.style.top = `calc(38% + ${live * 124}px)`;

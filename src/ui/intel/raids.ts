@@ -5,11 +5,11 @@ import { h } from '../../core/dom';
 import { audio } from '../../core/audio';
 import { store } from '../../chain/store';
 import { formatInt } from '../../core/util';
-import { grass, type GrassEvent } from '../../grass/grass';
-import { describe } from '../../grass/describe';
+import { grass } from '../../grass/grass';
 import type { RaidRow } from '../../guild/api';
 import { humanize } from '../../core/util';
-import { loading, partsEl, playerLink, idLink, quiet, section, slot, tile, timeOf, type IntelCtx } from './common';
+import { listening, loading, playerLink, idLink, quiet, section, slot, tile, timeOf, waiting, type IntelCtx } from './common';
+import { cardFeed } from './feedCard';
 
 const names = { player: (id: string) => store.playerName(id), fleetOwner: (f: string) => store.fleets.get(f)?.owner };
 const RAID_CATS = ['raid_status', 'block_raid_start', 'fleet_arrive', 'fleet_depart', 'shield_change', 'struct_attack'];
@@ -33,8 +33,8 @@ export function mountRaids(ctx: IntelCtx) {
     const atWorlds = away.filter((f) => f.locationId.startsWith('2-'));
     const targets = new Set(atWorlds.map((f) => f.locationId));
     tiles.replaceChildren(
-      tile('Away', store.coreLoaded ? formatInt(away.length) : '…', 'fleets off their home world', away.length ? 'enemy' : '', 'ship'),
-      tile('Threatened', store.coreLoaded ? formatInt(targets.size) : '…', 'worlds with a foreign fleet in orbit', targets.size ? 'enemy' : '', 'planet'),
+      tile('Away', store.coreLoaded ? formatInt(away.length) : waiting(), 'fleets off their home world', away.length ? 'enemy' : '', 'ship'),
+      tile('Threatened', store.coreLoaded ? formatInt(targets.size) : waiting(), 'worlds with a foreign fleet in orbit', targets.size ? 'enemy' : '', 'planet'),
       tile('Raid news', formatInt(grass.recent({ category: 'raid_status' }).length), 'heard live this session', '', 'news'));
     if (!store.coreLoaded) return;
     if (!atWorlds.length) { field.replaceChildren(quiet('Everyone is home', 'No fleets abroad. Every commander is home.')); return; }
@@ -58,16 +58,10 @@ export function mountRaids(ctx: IntelCtx) {
   function schedule() { if (!t) t = setTimeout(() => { t = null; paintField(); }, 800); }
   ctx.cleanup.push(() => { if (t) clearTimeout(t); });
 
-  const add = (e: GrassEvent, top = true) => {
-    const d = describe(e, names);
-    const r = h('div', { class: 'arow tone-' + d.tone }, h('span', { class: 'when' }, new Date(e.at).toLocaleTimeString('en-US', { hour12: false })), h('span', { class: 'atag' }, d.tag), partsEl(ctx, d.parts));
-    if (top) feed.prepend(r); else feed.appendChild(r);
-    while (feed.children.length > 60) feed.lastElementChild?.remove();
-    feed.querySelector('.empty-live')?.remove();
-  };
+  const add = cardFeed(ctx, feed, names, 60);
   const past = grass.recent({ category: RAID_CATS }, 60);
   for (let i = past.length - 1; i >= 0; i--) add(past[i], false);
-  if (!feed.children.length) feed.appendChild(h('div', { class: 't-tiny c-hint empty-live', title: 'Listening for raids, fleet jumps and shield changes…' }, 'Listening…'));
+  if (!feed.children.length) feed.appendChild(listening('Listening for raids, fleet jumps and shield changes…'));
   ctx.cleanup.push(grass.on({ category: RAID_CATS }, (e) => { add(e); if (e.category === 'raid_status') paintField(); }));
 }
 

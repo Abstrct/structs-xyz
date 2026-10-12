@@ -71,19 +71,6 @@ export function mountMarket(ctx: EcoCtx) {
 
 const guildOf = (p: ProviderRow) => store.players.get(p.owner)?.guildId || '';
 
-/** The Market's shape while the galaxy is still being read: the tiles, the shop and its cards as
- * dim placeholders, so the screen is never an empty "Reading…". */
-export function marketSkeleton(): HTMLElement {
-  const ghost = () => h('div', { class: 'eco-card offer dct-skel', 'aria-hidden': 'true' }, h('i', { class: 'w60' }), h('i', { class: 'big w40' }), h('i', { class: 'w30' }));
-  return h('div', { class: 'col', style: 'gap:14px', title: 'Reading the market…' },
-    h('div', { class: 'eco-tiles' },
-      tile('Best price', '…', 'the cheapest open offer: alpha per kW·day', 'player', 'alpha'), tile('Sellers', '…', null, '', 'market'), tile('Rented', '…', 'rentals running now', '', 'queue')),
-    section('Power shop', 'Offers, cheapest first. Prices are in alpha per kilowatt per day.', [
-      h('div', { class: 'eco-loading dct-skel-note' }, h('span', { class: 'dot pulse c-player' }), 'Reading…'),
-      h('div', { class: 'eco-cards' }, ghost(), ghost(), ghost(), ghost()),
-    ], { tone: 'player', icon: 'market' }));
-}
-
 /* ── Offers ─────────────────────────────────────────────────────────────── */
 
 function offerCard(ctx: EcoCtx, p: ProviderRow, price: bigint | null) {

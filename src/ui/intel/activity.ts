@@ -8,9 +8,10 @@ import { audio } from '../../core/audio';
 import { store } from '../../chain/store';
 import { formatInt } from '../../core/util';
 import { grass, parseGrass, type GrassEvent, type GrassState } from '../../grass/grass';
-import { describe, GROUPS, groupOf, type Group } from '../../grass/describe';
+import { GROUPS, groupOf, type Group } from '../../grass/describe';
 import { guildLabel } from '../../guild/directory';
-import { errorBox, partsEl, type IntelCtx } from './common';
+import { errorBox, receiving, type IntelCtx } from './common';
+import { FOLD_MS, fold, keyOf, newCard, tickTimes, type Card } from './feedCard';
 import { sparkline, SERIES } from './chart';
 import { icon } from '../icons';
 
@@ -64,26 +65,40 @@ export function mountActivity(ctx: IntelCtx) {
     return !!(e.playerId && store.playerName(e.playerId).toLowerCase().includes(q));
   };
 
-  const row = (e: GrassEvent, hist = false) => {
-    const d = describe(e, names);
-    return h('div', { class: `arow tone-${d.tone} g-${d.group}${hist ? ' hist' : ''}`, title: e.subject },
-      h('span', { class: 'when' }, new Date(e.at).toLocaleTimeString('en-US', { hour12: false })),
-      h('span', { class: 'atag' }, d.tag),
-      h('span', { class: 'atext' }, partsEl(ctx, d.parts), e.stub ? h('span', { class: 'chip warn stub', title: 'Payload too large for the feed: ids only' }, 'stub') : null));
+  /* The list is event cards, newest on top; the same thing again (four guards set in a row) folds
+   * into the card above it with a count, so the feed reads as what is happening, not a log. */
+  const cards = new WeakMap<HTMLElement, Card>();
+  /** Put one event on top of the live list (oldest first, so the newest ends on top). */
+  const add = (e: GrassEvent) => {
+    const top = list.firstElementChild as HTMLElement | null;
+    const c = top ? cards.get(top) : undefined;
+    if (c && c.key === keyOf(e) && Math.abs(e.at - c.at) < FOLD_MS) { fold(ctx, c, e, names); return; }
+    const n = newCard(ctx, e, names);
+    cards.set(n.el, n);
+    list.prepend(n.el);
   };
+  /** Cards for a run of history (newest first), folded the same way. */
+  const histCards = (events: GrassEvent[]) => {
+    const out: Card[] = [];
+    for (const e of events) {
+      const last = out[out.length - 1];
+      if (last && last.key === keyOf(e) && Math.abs(last.at - e.at) < FOLD_MS) fold(ctx, last, e, names);
+      else out.push(newCard(ctx, e, names, true));
+    }
+    return out.map((c) => c.el);
+  };
+  const liveCards = () => list.querySelectorAll(':scope > .acard');
 
   const flush = () => {
     frame = 0;
     if (!ctx.alive() || !pending.length) return;
     const batch = pending; pending = [];
-    const frag = document.createDocumentFragment();
-    // Newest on top.
-    for (let i = batch.length - 1; i >= 0; i--) frag.appendChild(row(batch[i]));
-    list.prepend(frag);
     list.querySelector('.aempty')?.remove();
-    const live = list.querySelectorAll(':scope > .arow');
+    for (const e of batch) add(e);
+    const live = liveCards();
     for (let i = MAX_ROWS; i < live.length; i++) live[i].remove();
     if (earlierBox.childElementCount && live.length + earlierBox.childElementCount > MAX_ROWS + 1) paintEarlier();
+    paintStatus();
   };
 
   const accept = (e: GrassEvent) => {
@@ -103,29 +118,31 @@ export function mountActivity(ctx: IntelCtx) {
   const histBox = h('div', { class: 'ahist' });
   const paintHist = () => {
     const shown = hist.filter(visible);
-    histBox.replaceChildren(...(shown.length ? [h('div', { class: 'adivider t-label' }, `Older · from ${guildLabel(ctx.guildId).name}’s indexer (${formatInt(shown.length)})`)] : []),
-      ...shown.map((e) => row(e, true)));
+    histBox.replaceChildren(...(shown.length ? [h('div', { class: 'adivider t-label', title: `Older news from ${guildLabel(ctx.guildId).name}’s indexer (${formatInt(shown.length)})` }, h('span', { html: icon('clock', 14) }), 'Older')] : []),
+      ...histCards(shown));
   };
   const paintEarlier = () => {
-    const room = MAX_ROWS - list.querySelectorAll('.arow:not(.hist)').length;
+    const room = MAX_ROWS - liveCards().length;
     const shown = room > 0 ? earlier.filter(visible).slice(-Math.min(room, 120)) : [];
-    earlierBox.replaceChildren(...(shown.length ? [h('div', { class: 'adivider t-label' }, `Earlier · kept from your last visit (${shown.length})`)] : []),
-      ...shown.reverse().map((e) => row(e, true)));
+    earlierBox.replaceChildren(...(shown.length ? [h('div', { class: 'adivider t-label', title: `Kept from your last visit (${shown.length}): not live` }, h('span', { html: icon('clock', 14) }), 'Last visit')] : []),
+      ...histCards(shown.reverse()));
   };
   const rebuild = () => {
     clear(list);
     pending = [];
     const recent = grass.recent().filter(visible).slice(-MAX_ROWS);
-    for (let i = recent.length - 1; i >= 0; i--) list.appendChild(row(recent[i]));
+    for (const e of recent) add(e);
     if (!list.children.length) list.appendChild(emptyRow());
     paintEarlier();
     paintHist();
     list.append(histBox, earlierBox);
+    paintStatus();
   };
-  // The empty list: a picture and three words; the sentence is the hover.
+  // The empty list: a dish under a scan line and a word or two; the sentence is the hover. Tuning
+  // in, the line sweeps; connected and only waiting, the dish's rings go on alone.
   const emptyText = () => (grass.state === 'live' ? 'Connected. Waiting for something to happen: builds, battles, raids and mining show up here the moment they do.' : 'Connecting to the live news…');
-  const emptyWords = () => (grass.state === 'live' ? 'Waiting for news' : 'Tuning in…');
-  const emptyRow = () => h('div', { class: 'aempty dct-blank', title: emptyText() }, h('span', { class: 'dct-blank-ico', html: icon('news', 26) }), h('span', { class: 'dct-blank-words' }, emptyWords()));
+  const emptyWords = () => (grass.state === 'live' ? 'Waiting for news' : 'Tuning in');
+  const emptyRow = () => { const el = receiving(emptyWords(), emptyText(), 'news', grass.state === 'live'); el.classList.add('aempty'); return el; };
 
   function setPaused(p: boolean) {
     paused = p;
@@ -169,11 +186,12 @@ export function mountActivity(ctx: IntelCtx) {
   const paintStatus = () => {
     const st: GrassState = grass.state;
     const label = st === 'live' ? 'Live' : st === 'connecting' ? 'Tuning in' : st === 'down' ? 'Reconnecting' : 'Idle';
-    // The stream's details are an expert's read-out while it is live; trouble shows for everyone.
-    status.className = 'astatus t-tiny ' + (st === 'live' ? 'c-player x-only' : st === 'down' ? 'c-enemy' : 'c-warn');
     const empty = list.querySelector('.aempty');
-    if (empty) { (empty as HTMLElement).title = emptyText(); const w = empty.querySelector('.dct-blank-words'); if (w) w.textContent = emptyWords(); }
-    status.replaceChildren(h('span', { class: 'dot' + (st === 'live' && !paused ? ' pulse' : '') }), ` ${paused ? 'Paused' : label} · ${guildLabel(grass.guildId || ctx.guildId).name} GRASS · block ${grass.height ? formatInt(grass.height) : '…'}`);
+    // The stream's details are an expert's read-out while it is live, and while the empty list's
+    // dish says the same thing bigger; trouble shows for everyone.
+    status.className = 'astatus t-tiny ' + (st === 'live' ? 'c-player x-only' : st === 'down' ? 'c-enemy' : 'c-warn' + (empty ? ' x-only' : ''));
+    if (empty) { (empty as HTMLElement).title = emptyText(); empty.classList.toggle('calm', st === 'live'); const w = empty.querySelector('.dcp-word'); if (w) w.textContent = emptyWords(); }
+    status.replaceChildren(h('span', { class: 'dot' + (st === 'live' && !paused ? ' pulse' : '') }), ` ${paused ? 'Paused' : label} · ${guildLabel(grass.guildId || ctx.guildId).name} GRASS${grass.height ? ` · block ${formatInt(grass.height)}` : ''}`);
   };
   const paintRate = () => {
     const per = grass.perMinute(undefined, 30);
@@ -221,7 +239,7 @@ export function mountActivity(ctx: IntelCtx) {
     }
   }
 
-  const timer = setInterval(() => { paintRate(); paintChips(); }, 5000);
+  const timer = setInterval(() => { paintRate(); paintChips(); tickTimes(list); }, 5000);
   ctx.cleanup.push(
     grass.on(undefined, accept),
     grass.onState(paintStatus),

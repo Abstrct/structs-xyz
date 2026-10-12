@@ -24,7 +24,8 @@
   "minTapFine": 24,
   "minTapCoarse": 40,
   "default": {
-    "words": 40,
+    "words": 46,
+    "why": "40, plus the six hub names in the top bar (2026-10-12: the hubs are named, so nobody guesses at coloured circles)",
     "tiny": 0,
     "tris": 60000,
     "calls": 300,

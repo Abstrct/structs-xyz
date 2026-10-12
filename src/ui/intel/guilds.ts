@@ -11,8 +11,8 @@ import { formatAlpha, formatInt, formatPower } from '../../core/util';
 import { guilds, guildLabel, safeUrl, type GuildEntry } from '../../guild/directory';
 import { guildApi, type GuildRow, type RosterRow } from '../../guild/api';
 import { grass, type GrassEvent } from '../../grass/grass';
-import { describe } from '../../grass/describe';
-import { errorBox, guildLogo, loading, partsEl, playerLink, section, slot, tile, type IntelCtx } from './common';
+import { errorBox, guildLogo, listening, loading, playerLink, section, slot, tile, waiting, type IntelCtx } from './common';
+import { cardFeed } from './feedCard';
 import { sparkline } from './chart';
 import { icon } from '../icons';
 
@@ -37,9 +37,9 @@ export function mountGuilds(ctx: IntelCtx) {
     const perMin = grass.perMinute(undefined, 5);
     glance.replaceChildren(
       tile('Guilds', formatInt(store.guilds.size || 0), undefined, '', 'flag'),
-      tile('Commanders', store.coreLoaded ? formatInt(store.players.size) : '…', undefined, '', 'team'),
-      tile('Raiding', store.coreLoaded ? formatInt(away) : '…', 'fleets out raiding, away from home', away ? 'enemy' : '', 'ship'),
-      Object.assign(tile('Block', grass.height ? formatInt(grass.height) : '…', 'from GRASS'), { className: 'itile x-only' }),
+      tile('Commanders', store.coreLoaded ? formatInt(store.players.size) : waiting(), undefined, '', 'team'),
+      tile('Raiding', store.coreLoaded ? formatInt(away) : waiting(), 'fleets out raiding, away from home', away ? 'enemy' : '', 'ship'),
+      Object.assign(tile('Block', grass.height ? formatInt(grass.height) : waiting(), 'from GRASS'), { className: 'itile x-only' }),
       Object.assign(tile('Signal', formatInt(perMin[perMin.length - 1] || 0) + '/min', sparkline(grass.perMinute(undefined, 20), undefined, 110, 20)), { className: 'itile x-only' }),
     );
   };
@@ -60,8 +60,8 @@ function card(ctx: IntelCtx, g: GuildEntry): HTMLElement {
   const m = g.meta;
   const label = guildLabel(g.id);
   const members = store.members(g.id);
-  const power = h('span', { class: 'num' }, '…');
-  const fuel = h('span', { class: 'num' }, '…');
+  const power = h('span', { class: 'num' }, waiting('Reading its reactor…'));
+  const fuel = h('span', { class: 'num' }, waiting('Reading its reactor…'));
   reactorGrid(g.chain?.primaryReactorId).then((gr) => { power.textContent = gr ? formatPower(gr.capacity) : '—'; fuel.textContent = gr ? formatAlpha(gr.fuel) : '—'; }, () => { power.textContent = '—'; fuel.textContent = '—'; });
   const svc = g.services;
   const open = () => { audio.play('select'); ctx.navigate('/intel/guild/' + g.id); };
@@ -78,7 +78,7 @@ function card(ctx: IntelCtx, g: GuildEntry): HTMLElement {
           g.id === ctx.guildId ? h('span', { class: 'chip player', title: 'News & Rankings reads this guild’s live feed' }, h('span', { html: icon('news', 12) })) : null))),
     h('div', { class: 'gcard-desc t-tiny x-only' }, desc),
     h('div', { class: 'gcard-stats' },
-      h('div', { title: 'Members' }, h('div', { class: 'dct-num-ico', html: icon('team', 16) }), h('div', { class: 'num' }, store.coreLoaded ? formatInt(members) : '…')),
+      h('div', { title: 'Members' }, h('div', { class: 'dct-num-ico', html: icon('team', 16) }), h('div', { class: 'num' }, store.coreLoaded ? formatInt(members) : waiting())),
       h('div', { title: 'Reactor power' }, h('div', { class: 'dct-num-ico k-power', html: icon('power', 16) }), power),
       h('div', { title: 'Alpha infused' }, h('div', { class: 'dct-num-ico k-fuel', html: icon('fuel', 16) }), fuel)),
     // What the guild offers: in plain words a takes-new-players / chat pair; expert mode names the services.
@@ -158,15 +158,14 @@ function mountGuild(ctx: IntelCtx, id: string) {
   })();
 
   // Live: GRASS events about this guild's members.
+  const addLive = cardFeed(ctx, live, names, 40);
   const paintLive = (e: GrassEvent) => {
     if (!e.playerId || store.players.get(e.playerId)?.guildId !== id) return;
     if (e.category === 'lastAction') return;   // too chatty to be news
-    const d = describe(e, names);
-    live.prepend(h('div', { class: 'arow tone-' + d.tone }, h('span', { class: 'when' }, new Date(e.at).toLocaleTimeString('en-US', { hour12: false })), h('span', { class: 'atag' }, d.tag), partsEl(ctx, d.parts)));
-    while (live.children.length > 40) live.lastElementChild?.remove();
+    addLive(e);
   };
   for (const e of grass.recent(undefined, 600)) paintLive(e);
-  if (!live.children.length) live.appendChild(h('div', { class: 't-tiny c-hint empty-live' }, 'Listening for this guild’s members on GRASS…'));
+  if (!live.children.length) live.appendChild(listening('Listening for this guild’s members on GRASS…'));
   ctx.cleanup.push(grass.on(undefined, (e) => { live.querySelector('.empty-live')?.remove(); paintLive(e); }));
 }
 

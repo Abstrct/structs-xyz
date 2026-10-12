@@ -11,9 +11,10 @@ import { wallet } from '../../wallet/wallet';
 import { balances } from '../../wallet/tx';
 import { formatAlpha, formatInt } from '../../core/util';
 import { grass, type GrassEvent } from '../../grass/grass';
-import { describe, amountText } from '../../grass/describe';
+import { amountText } from '../../grass/describe';
 import type { LedgerRow } from '../../guild/api';
-import { errorBox, loading, partsEl, playerLink, section, short, slot, tile, timeOf, type IntelCtx } from './common';
+import { errorBox, listening, loading, playerLink, section, short, slot, tile, timeOf, type IntelCtx } from './common';
+import { cardFeed } from './feedCard';
 import { icon } from '../icons';
 
 const names = { player: (id: string) => store.playerName(id) };
@@ -105,15 +106,9 @@ function ledgerRow(ctx: IntelCtx, r: LedgerRow): HTMLElement {
 }
 
 function feed(ctx: IntelCtx, el: HTMLElement, keep: (e: GrassEvent) => boolean) {
-  const add = (e: GrassEvent, top = true) => {
-    const d = describe(e, names);
-    const r = h('div', { class: 'arow tone-' + d.tone }, h('span', { class: 'when' }, new Date(e.at).toLocaleTimeString('en-US', { hour12: false })), h('span', { class: 'atag' }, d.tag), partsEl(ctx, d.parts));
-    if (top) el.prepend(r); else el.appendChild(r);
-    while (el.children.length > 80) el.lastElementChild?.remove();
-    el.querySelector('.empty-live')?.remove();
-  };
+  const add = cardFeed(ctx, el, names, 80);
   const past = grass.recent({ kind: 'inventory' }).filter(keep).slice(-60);
   for (let i = past.length - 1; i >= 0; i--) add(past[i], false);
-  if (!el.children.length) el.appendChild(h('div', { class: 't-tiny c-hint empty-live', title: 'Waiting for the next ore or alpha to move…' }, 'Listening…'));
+  if (!el.children.length) el.appendChild(listening('Waiting for the next ore or alpha to move…'));
   ctx.cleanup.push(grass.on({ kind: 'inventory' }, (e) => { if (keep(e)) add(e); }));
 }

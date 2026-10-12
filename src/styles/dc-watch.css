@@ -410,3 +410,52 @@
   .screen.galaxy .dw-cap { display: block; font-family: var(--font-chrome); font-weight: 900; font-size: 11px; line-height: 13px; letter-spacing: 0.03em; text-transform: uppercase;
     color: var(--text-hint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 }
+
+/* ── The title's memory card: a returning player's rank, wins, today's daily and best gauntlet ── */
+.dc-title .dc-save { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: clamp(14px, 2.6vh, 28px); pointer-events: auto;
+  animation: dc-door-in 0.35s 0.2s cubic-bezier(0.2, 0.9, 0.2, 1) both; }
+.dc-save-chip { --tone: #8FA8FF; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 6px 16px 6px 10px; border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--tone) 55%, transparent); background: rgba(11, 18, 64, 0.82); color: #fff; text-decoration: none;
+  font-family: var(--font-chrome); font-weight: 900; box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.1), 0 5px 0 rgba(0, 0, 0, 0.28);
+  transition: transform 0.12s, border-color 0.12s, background-color 0.12s; }
+.dc-save-chip:hover, .dc-save-chip:focus-visible { border-color: #fff; background: color-mix(in srgb, var(--tone) 24%, rgba(11, 18, 64, 0.9)); transform: translateY(-2px); outline: none; }
+.dc-save-chip:focus-visible { box-shadow: 0 0 0 3px var(--dc-accent), 0 5px 0 rgba(0, 0, 0, 0.28); }
+.dc-save-chip.rank, .dc-save-chip.gauntlet { --tone: var(--dc-x); }
+.dc-save-chip.wins { --tone: #43CDB6; }
+.dc-save-chip.daily { --tone: #FF3D5A; position: relative; }
+.dc-save-ico { display: inline-flex; color: var(--tone); }
+.dc-save-col { display: flex; flex-direction: column; gap: 5px; }
+.dc-save-k { font-size: 14px; line-height: 1; letter-spacing: 0.04em; text-transform: uppercase; font-style: italic; color: var(--dc-x); }
+.dc-save-bar { display: block; width: 92px; height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.16); overflow: hidden; }
+.dc-save-bar b { display: block; height: 100%; min-width: 4px; border-radius: inherit; background: var(--dc-x); }
+.dc-save-n { font-size: 18px; line-height: 1; font-style: italic; letter-spacing: 0.02em; }
+.dc-save-sub { font-size: 12px; color: rgba(255, 255, 255, 0.7); }
+.dc-save-chip.daily.won .dc-save-n { color: var(--dc-x); }
+/* Today's daily, not yet played: it calls you. */
+.dc-save-chip.daily.fresh .dc-save-n { color: var(--dc-accent); font-size: 14px; letter-spacing: 0.08em; }
+.dc-save-chip.daily.fresh::after { content: ''; position: absolute; right: -3px; top: -3px; width: 12px; height: 12px; border-radius: 50%; background: var(--dc-accent); animation: dc-ping 1.2s ease-out infinite; }
+@media (prefers-reduced-motion: reduce) { .dc-title .dc-save { animation: none; } .dc-save-chip.daily.fresh::after { animation: none; } }
+@media (max-width: 640px) { .dc-title .dc-save { gap: 6px; } .dc-save-chip { padding: 4px 12px 4px 8px; gap: 6px; } .dc-save-bar { width: 64px; } }
+/* A short screen (the TV's 480 lines, a phone on its side): the card waits for the doors. */
+@media (max-height: 560px) { .dc-title:not(.menu) .dc-save { display: none; } .dc-title .dc-save { margin-top: 10px; } .dc-save-chip { min-height: 40px; } }
+/* A galaxy tile still waiting on the chain: the meter stands at the number's height. */
+.dw-tile .num .dcp-bars { height: 0.8em; color: var(--accent-primary); }
+.dc-title .dc-save[hidden] { display: none; }
+/* On the title, news (a mission paid, a promotion) drops into the band under the top bar, one at a
+ * time (the newest), clear of the logo, the doors and the card. A promotion's banner plays small in
+ * the same band, and the toasts wait behind it. */
+body:has(.dc-title:not(.out)) > .toasts { top: calc(var(--sa-t, 0px) + 54px); bottom: auto; margin-bottom: 0; }
+body:has(.dc-title:not(.out)) > .toasts > .toast:not(:last-child) { display: none; }
+body:has(.dc-title:not(.out)) > .banner { top: calc(var(--sa-t, 0px) + 50px) !important; gap: 2px; }
+body:has(.dc-title:not(.out)) > .banner .big { font-size: clamp(26px, 5vw, 40px); }
+body:has(.dc-title:not(.out)):has(> .banner:not(.out)) > .toasts { visibility: hidden; }
+/* The grid's tiles carry their word too, where nothing hovers (as the galaxy's do). */
+.screen.grid .dw-cap { display: none; }
+@media (max-width: 760px), (hover: none) {
+  .screen.grid .dw-tile { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 5px; row-gap: 0; }
+  .screen.grid .dw-tile > .dw-ico { grid-row: span 2; }
+  .screen.grid .dw-tile > b { line-height: 16px; }
+  .screen.grid .dw-cap { display: block; font-family: var(--font-chrome); font-weight: 900; font-size: 12px; line-height: 13px; letter-spacing: 0.03em; text-transform: uppercase;
+    color: var(--text-hint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+}
+

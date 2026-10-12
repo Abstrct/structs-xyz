@@ -1,9 +1,10 @@
 /* Operations. */
 @import './command.css';
-.ops-wrap { position: absolute; inset: 8px 10px 10px; display: flex; flex-direction: column; min-height: 0; }
+/* As tall as what is in it (top-anchored), growing to the floor; a long page scrolls inside. */
+.ops-wrap { position: absolute; inset: 8px 10px auto; max-height: calc(100% - 18px); display: flex; flex-direction: column; min-height: 0; }
 .ops-nav { display: flex; gap: 2px; flex-wrap: wrap; }
 .ops-nav .btn { min-height: 26px; padding: 5px 12px; }
-.ops-page { flex: 1; min-height: 0; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.ops-page { flex: 0 1 auto; min-height: 0; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
 .ops-bar { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
 .ops-bar .btn.active { color: var(--accent-primary); border-color: var(--surface-player-highlight); }
 .ops-explain { max-width: 820px; line-height: 15px; }
@@ -20,7 +21,7 @@
 .birth { padding: 8px 10px; border: 1px dashed var(--accent-primary); background: rgba(19,53,70,.35); display: flex; flex-direction: column; gap: 2px; animation: feedIn .35s ease; }
 .birth.bad { border-color: var(--accent-destructive); }
 .birth.ok { border-style: solid; }
-@media (max-width: 720px) { .foundry { flex-direction: column; align-items: stretch; } .ops-wrap { inset: 6px; } }
+@media (max-width: 720px) { .foundry { flex-direction: column; align-items: stretch; } .ops-wrap { inset: 6px 6px auto; max-height: calc(100% - 12px); } }
 .ops-settings .set-row > .t-label { width: 230px; flex: none; }
 .guild-roster { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px; }
 .perm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px 10px; }

@@ -1,0 +1,83 @@
+/* The hubs wear their names. Six coloured circles asked a new player to guess; a console's menu bar
+ * names its places. Each hub is a pill: its icon, then its one-word name. main.ts steps the bar
+ * through data-fit as room runs out: '' and 'tight' name every hub, 'icons' names only the hub you're
+ * in, and 'min' is icons alone, with the name on hover as before.
+ * `body .shell` outranks dc.css and learn.css whatever order the build links them in.
+ * Phones move the bar to the bottom, under the thumb: that part lives in mobile.css. */
+
+body .shell .topbar .hubs { gap: 6px; }
+body .shell .topbar .hub { width: auto; min-width: 38px; height: 38px; min-height: 38px; padding: 0 15px 0 10px; gap: 7px; border-radius: 999px; flex: none;
+  transition: background-color 0.15s, border-color 0.15s, transform 0.12s; }
+body .shell .topbar .hub .hub-label { display: inline; font-family: var(--font-chrome); font-weight: 900; font-style: italic; font-size: 13px; line-height: 1;
+  letter-spacing: 0.05em; text-transform: uppercase; color: rgba(255, 255, 255, 0.88); }
+body .shell .topbar .hub:hover .hub-label { color: #fff; }
+body .shell .topbar .hub:active { transform: translateY(1px); }
+body .shell .topbar .hub.active .hub-label, body .shell .topbar .hub[aria-expanded="true"] .hub-label { color: var(--dc-void); }
+body .shell .topbar .hub:focus-visible { border-radius: 999px; }
+/* With its name on show, a hub needs no hover tag. */
+body .shell .topbar:is([data-fit=""], [data-fit="tight"]) .hub::after,
+body .shell .topbar[data-fit="icons"] .hub.active::after { display: none; }
+
+body .shell .topbar[data-fit="tight"] .hubs { gap: 4px; }
+body .shell .topbar[data-fit="tight"] .hub { padding: 0 11px 0 8px; gap: 5px; }
+body .shell .topbar[data-fit="tight"] .hub .hub-label { font-size: 12px; letter-spacing: 0.03em; }
+
+/* Short of room: only the hub you're in keeps its name, so you always know where you are. */
+body .shell .topbar[data-fit="icons"] .hubs { gap: 4px; }
+body .shell .topbar[data-fit="icons"] .hub:not(.active) { width: 38px; padding: 0; justify-content: center; }
+body .shell .topbar[data-fit="icons"] .hub:not(.active) .hub-label { display: none; }
+body .shell .topbar[data-fit="icons"] .hub.active { padding: 0 12px 0 8px; gap: 5px; }
+body .shell .topbar[data-fit="icons"] .hub.active .hub-label { font-size: 12px; letter-spacing: 0.03em; }
+
+body .shell .topbar[data-fit="min"] .hub { width: 38px; padding: 0; justify-content: center; }
+body .shell .topbar[data-fit="min"] .hub .hub-label { display: none; }
+
+/* The 640×480 TV view and narrow windows: 40 px circles, the hub you're in still named. */
+@media (max-width: 640px) {
+  body .shell .topbar[data-fit] .hubs { gap: 3px; }
+  body .shell .topbar[data-fit] .hub:not(.active), body .shell .topbar[data-fit="min"] .hub { width: 40px; height: 40px; min-width: 40px; min-height: 40px; padding: 0; }
+  body .shell .topbar[data-fit] .hub:not(.active) .hub-label { display: none; }
+  body .shell .topbar[data-fit] .hub.active { height: 40px; min-height: 40px; }
+}
+@media (max-width: 640px) {
+  body .shell .topbar[data-fit] .hub:not(.active)::after { display: block; }
+}
+
+/* A hub's menu is solid (the screen under it bled through its tiles) and stands off the page. */
+body > .hub-menu.panel { --panel-tint: rgb(11, 18, 64); box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(0, 0, 0, 0.3); }
+
+/* ── A screen arriving: its panels rise and settle as the fade lifts (main.ts riseIn) ── */
+@keyframes dc-rise { from { opacity: 0; translate: 0 14px; scale: 0.985; } }
+/* (translate and scale, not transform: centred panels keep their own translateX(-50%).) */
+@media (prefers-reduced-motion: no-preference) {
+  body.screen-rise #ui .screen .panel:not(.tooltip) { animation: dc-rise 0.34s cubic-bezier(0.2, 0.9, 0.2, 1) both; }
+  body.screen-rise #ui .screen .panel ~ .panel { animation-delay: 0.06s; }
+}
+
+/* Battle setup's folded options: a chevron shows the row opens. */
+.setup-more .setup-more-chev { display: inline-flex; margin-left: auto; opacity: 0.75; transition: transform 0.2s; }
+.setup-more.open .setup-more-chev { transform: rotate(180deg); }
+.setup-more .setup-more-sum { margin-left: auto; }
+
+/* ── PRESS START is the logo over the live galaxy, nothing else: the bars slide in with the doors ── */
+/* (Opacity only: a transform or translate on .shell would capture the phone's fixed bottom bar.) */
+body .shell { transition: opacity 0.3s ease; }
+body.press-start .shell { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.3s ease, visibility 0s 0.3s; }
+
+/* The connection dot speaks up only when something's wrong (or in Expert mode): a healthy link is
+ * the normal state, and one less dot in a busy corner. Its trouble states always show. */
+body:not(.expert) .shell .topbar .tb-conn.ok { display: none; }
+
+/* The TV view and narrow windows: the hub a pad or keyboard stands on opens out to show its name,
+ * like the one you're in (a hover tag alone hid behind the cursor ring). */
+@media (max-width: 640px) {
+  body .shell .topbar[data-fit] .hub:not(.active):is(:focus-visible, body.pad :focus) { width: auto; padding: 0 12px 0 8px; gap: 5px; }
+  body .shell .topbar[data-fit] .hub:not(.active):is(:focus-visible, body.pad :focus) .hub-label { display: inline; font-size: 12px; letter-spacing: 0.03em; }
+  body .shell .topbar[data-fit] .hub:not(.active):is(:focus-visible, body.pad :focus)::after { display: none; }
+}
+
+/* Narrow bars strip the round buttons' padding; ENLIST keeps its word, so it keeps room for it
+ * (the italic's last letter ran into the pill's edge on the TV view). */
+@media (max-width: 640px) and (pointer: fine) {
+  body .shell .topbar .wallet-chip.empty:has(.nm) { padding: 0 14px 0 10px !important; gap: 6px; }
+}

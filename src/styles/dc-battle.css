@@ -1,0 +1,243 @@
+/* The battle, Dreamcast style (loaded by src/screens/battle/battle.ts): the coach's callouts, the
+ * verbs' names, the HUD's thumb-sized controls, the target card on a short screen, the results' next
+ * step, the setup's summary in pictures, and the gauntlet's intro card.
+ * Selectors carry `.screen.battle` (or the window's own class) so they outrank dc.css and the older
+ * sheets in any order the build links them. Phone-only rules are scoped to touch, never to width
+ * alone: the 640×480 TV view is narrow too. */
+
+/* ── Coach: a compact callout pinned to the control it is about ──────────
+ * battle.ts placeCoach() sets left/top (and --tip-x, where its pointer sits); it hangs above a button
+ * in the action bar, or under a meter in the HUD (.below), and never covers the HUD's cards. */
+.screen.battle .coach.dc-callout {
+  position: absolute; right: auto; bottom: auto; transform: none; margin: 0; z-index: 6;
+  width: max-content; max-width: min(360px, calc(100vw - 16px));
+  display: grid; grid-template-columns: minmax(0, auto) auto; grid-template-areas: "head ok" "text ok";
+  align-items: center; column-gap: 14px; row-gap: 2px; text-align: left; white-space: normal; flex-wrap: initial;
+  padding: 8px 8px 10px 14px; border-radius: 18px; border: 3px solid var(--dc-x);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.14), 0 10px 0 -4px rgba(0, 0, 0, 0.35), 0 16px 30px -12px rgba(0, 0, 0, 0.8);
+  animation: dc-callout-in 0.28s cubic-bezier(0.2, 0.9, 0.2, 1) both;
+}
+.screen.battle .coach.dc-callout .coach-head { grid-area: head; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.screen.battle .coach.dc-callout .coach-dots { display: flex; gap: 4px; }
+.screen.battle .coach.dc-callout .coach-dots i { width: 8px; height: 8px; }
+.screen.battle .coach.dc-callout .coach-title { font-size: 20px; line-height: 1; }
+.screen.battle .coach.dc-callout .coach-text { grid-area: text; font-size: 14px; line-height: 1.25; font-weight: 800; color: #fff; }
+.screen.battle .coach.dc-callout .coach-ok { grid-area: ok; min-height: 36px; padding: 4px 16px; font-size: 15px; align-self: center; }
+/* The pointer: a diamond half-sunk into the edge nearest the control, so the callout's body seems to
+ * reach for it. */
+.screen.battle .coach.dc-callout .coach-tip { position: absolute; left: var(--tip-x, 50%); bottom: -10px; width: 16px; height: 16px; margin-left: -8px; box-sizing: border-box;
+  transform: rotate(45deg); background: rgb(12, 19, 66); border: 0 solid var(--dc-x); border-right-width: 3px; border-bottom-width: 3px; border-radius: 0 0 4px 0; pointer-events: none; }
+.screen.battle .coach.dc-callout.below .coach-tip { bottom: auto; top: -10px; border-right-width: 0; border-bottom-width: 0; border-left-width: 3px; border-top-width: 3px; border-radius: 4px 0 0 0; }
+.screen.battle .coach.dc-callout.no-tip .coach-tip { display: none; }
+/* While step 2 is up, the callout is the "Fire!" call: the pill above the bar steps aside for it. */
+.screen.battle:has(.coach.dc-callout.k-aim) .action-bar .targeting-hint { display: none; }
+@keyframes dc-callout-in { from { opacity: 0; translate: 0 8px; } }
+@media (prefers-reduced-motion: reduce) { .screen.battle .coach.dc-callout { animation: none; } }
+@media (pointer: coarse) { .screen.battle .coach.dc-callout .coach-ok { min-height: 40px; min-width: 52px; } }
+/* A short screen (the TV's 480 lines, a phone on its side): smaller type; a callout above the bar is one
+ * line (it sits low, over the deck's lowest layer only), one under the HUD is two narrow lines. */
+@media (max-height: 560px) {
+  .screen.battle .coach.dc-callout { padding: 5px 6px 7px 12px; column-gap: 10px; border-radius: 16px; }
+  .screen.battle .coach.dc-callout .coach-title { font-size: 17px; }
+  .screen.battle .coach.dc-callout .coach-text { font-size: 13px; }
+  .screen.battle .coach.dc-callout .coach-ok { min-height: 30px; padding: 2px 12px; font-size: 13px; }
+  .screen.battle .coach.dc-callout:not(.below) { grid-template-columns: auto minmax(0, auto) auto; grid-template-areas: "head text ok"; max-width: calc(100vw - 16px); }
+  .screen.battle .coach.dc-callout.below { max-width: 220px; }
+}
+@media (max-height: 560px) and (pointer: coarse) {
+  .screen.battle .coach.dc-callout .coach-ok { min-height: 40px; }
+  /* A phone on its side: while a tapped target's card (with its Fire) is up, it is the step's next
+   * move, and there is no room for both: the callout steps aside until the card goes. */
+  body:has(> .tooltip.on .tip-fire) .screen.battle .coach.dc-callout { visibility: hidden; }
+}
+
+/* ── The verbs: an icon over one word (MISSILE, GUARD, MOVE), then the numbers, at every size ── */
+.screen.battle .action-bar .btn.action .a-name { display: block; font-size: 13px; line-height: 1.05; letter-spacing: 0.04em; white-space: nowrap; color: #fff; }
+.screen.battle .action-bar .btn.action.active .a-name { color: var(--dc-void); }
+.screen.battle .action-bar .btn.action:disabled .a-name { color: inherit; }
+.screen.battle .action-bar .btn.action .a-nums { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.screen.battle .action-bar .drift .a-name { display: inline; font-family: var(--font-chrome); font-weight: 900; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; color: #fff; }
+@media (max-width: 760px), (max-height: 560px) and (pointer: coarse) {
+  .screen.battle .action-bar .btn.action { gap: 3px; }
+  .screen.battle .action-bar .btn.action .a-name { font-size: 12px; }
+  .screen.battle .action-bar .btn.action .a-dmg { font-size: 17px; }
+  .screen.battle .action-bar .btn.action .a-cost { font-size: 14px; }
+}
+
+/* ── HUD: pause and retreat at thumb size on the TV and on touch; retreat reads as leaving ── */
+.screen.battle .block-ctl .btn.mini { align-items: center; justify-content: center; }
+.screen.battle .block-ctl .btn.mini .ico { display: block; }
+.screen.battle .block-ctl .hud-retreat { color: #fff; border-color: var(--accent-destructive); background: rgba(255, 61, 90, 0.34); }
+.screen.battle .block-ctl .hud-retreat:hover { background: var(--accent-destructive); border-color: #fff; }
+@media (max-width: 760px), (pointer: coarse) {
+  .screen.battle .block-ctl { gap: 6px !important; }
+  .screen.battle .block-ctl .btn.mini { min-width: 40px; min-height: 40px; padding: 4px 8px; }
+}
+
+/* ── The target card on a short screen: the forecast in two columns, so it fits between the HUD and
+ * the verbs (battle.ts fitTip places it there). ── */
+@media (max-height: 560px) {
+  body > .tooltip .dc-forecast { display: grid; grid-template-columns: repeat(2, minmax(0, auto)); column-gap: 12px; row-gap: 1px; margin-top: 4px; padding-top: 4px; }
+  body > .tooltip .dc-forecast .pf-row { grid-template-columns: 14px auto auto; gap: 4px; }
+  body > .tooltip .dc-forecast .pf-row b { font-size: 15px; }
+  body > .tooltip .dc-forecast .pf-k { font-size: 11px; }
+  body > .tooltip .dc-forecast > .t-tiny { grid-column: 1 / -1; }
+}
+
+/* ── The fight's calls (3, 2, 1, ENGAGE, K.O.) let the fleets show through ── */
+body:has(.screen.battle .battle-top) > .banner { background: rgba(7, 11, 44, 0.5); padding: 10px 0; }
+
+/* ── Results: the next step is the big button; the rest is small ── */
+.debrief-back .dc-debrief .db-main { display: flex; gap: 8px; width: 100%; align-items: stretch; margin-top: 2px; }
+.debrief-back .dc-debrief .db-main .btn { gap: 8px; white-space: nowrap; justify-content: center; }
+.debrief-back .dc-debrief .db-go { font-size: 20px; letter-spacing: 0.06em; min-height: 54px; padding: 8px 18px; }
+.debrief-back .dc-debrief .db-next-size { display: inline-flex; align-items: center; gap: 5px; padding: 3px 12px 3px 9px; border-radius: 999px; background: rgba(7, 11, 44, 0.45); }
+.debrief-back .dc-debrief .db-next-size b { font-size: 22px; line-height: 1; }
+.debrief-back .dc-debrief .db-next-size .ico { color: #fff; }
+.debrief-back .dc-debrief .db-minor { display: flex; align-items: center; gap: 6px; width: 100%; }
+.debrief-back .dc-debrief .db-minor .btn { gap: 8px; }
+.debrief-back .dc-debrief .db-ico-btn { width: 40px; min-width: 40px; height: 40px; min-height: 40px; padding: 0; justify-content: center; border-radius: 50%; }
+@media (pointer: coarse) { .debrief-back .dc-debrief .db-ico-btn { width: 44px; min-width: 44px; height: 44px; } }
+/* A narrow window: the next step takes its own row, Again and Fleets share the one under it. */
+@media (max-width: 520px) {
+  .debrief-back .dc-debrief .db-main { flex-wrap: wrap; }
+  .debrief-back .dc-debrief .db-main .db-go { flex: 1 1 100%; }
+  .debrief-back .dc-debrief .db-main .btn:not(.db-go) { flex: 1 1 0; }
+}
+@media (max-height: 560px) {
+  .debrief-back .dc-debrief .db-go { min-height: 46px; font-size: 18px; padding: 6px 14px; }
+  .debrief-back .dc-debrief .db-minor .btn:not(.db-ico-btn) { min-height: 38px; padding: 6px 14px; }
+}
+
+/* ── Setup: the options' summary in pictures (stars, a hand or a robot, the turn clock) ── */
+.screen.battle .setup-more .setup-more-sum { display: inline-flex; align-items: center; gap: 12px; font-size: 14px; }
+.screen.battle .setup-more .sm-part { display: inline-flex; align-items: center; gap: 3px; }
+.screen.battle .setup-more .sm-stars { gap: 1px; color: var(--dc-x); }
+.screen.battle .setup-more .sm-who { color: var(--accent-primary); }
+.screen.battle .setup-more-body .sm-who { display: inline-flex; }
+.screen.battle .setup-more-body .btn.choice.small { gap: 6px; }
+
+/* ── The gauntlet's intro: its rules on one card, then Go ── */
+.gauntlet-intro .modal.dc-gi { width: min(380px, calc(100vw - 32px)); border: 3px solid var(--dc-x); padding: 18px 18px 14px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; --panel-tint: rgba(16, 24, 84, 0.97); }
+.gauntlet-intro .dc-gi-head { display: flex; align-items: center; gap: 10px; color: var(--dc-x); }
+.gauntlet-intro .dc-gi-flag { display: inline-flex; }
+.gauntlet-intro .dc-gi-head .t-display { font-size: 36px; line-height: 1; color: var(--dc-x); text-shadow: 0 4px 0 var(--dc-deep); }
+.gauntlet-intro .dc-gi-rows { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.gauntlet-intro .dc-gi-row { display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-radius: 16px; background: rgba(0, 0, 0, 0.28); text-align: left;
+  font-family: var(--font-chrome); font-weight: 900; font-size: 17px; letter-spacing: 0.03em; text-transform: uppercase; color: #fff;
+  animation: dc-door-in 0.35s cubic-bezier(0.2, 0.9, 0.2, 1) both; }
+.gauntlet-intro .dc-gi-row:nth-child(2) { animation-delay: 0.08s; } .gauntlet-intro .dc-gi-row:nth-child(3) { animation-delay: 0.16s; }
+.gauntlet-intro .dc-gi-lead { display: inline-flex; align-items: center; justify-content: center; width: 30px; flex: none; color: var(--dc-x); }
+.gauntlet-intro .dc-gi-lead b { font-size: 28px; line-height: 1; }
+.gauntlet-intro .dc-gi-word { flex: 1; }
+.gauntlet-intro .dc-gi-row .dc-pips i { background: var(--dc-x); }
+.gauntlet-intro .dc-gi-row.boss { background: rgba(255, 61, 90, 0.2); box-shadow: inset 0 0 0 2px rgba(255, 61, 90, 0.55); }
+.gauntlet-intro .dc-gi-row.boss .dc-gi-lead { color: var(--accent-destructive); }
+.gauntlet-intro .dc-gi-foot { width: 100%; gap: 8px; align-items: stretch; }
+.gauntlet-intro .dc-gi-foot .btn { gap: 8px; }
+.gauntlet-intro .dc-gi-foot .btn.solid { font-size: 22px; letter-spacing: 0.08em; }
+@media (prefers-reduced-motion: reduce) { .gauntlet-intro .dc-gi-row { animation: none; } }
+@media (max-height: 560px) {
+  .gauntlet-intro .modal.dc-gi { padding: 12px 14px 10px; gap: 8px; }
+  .gauntlet-intro .dc-gi-head .t-display { font-size: 30px; }
+  .gauntlet-intro .dc-gi-row { padding: 6px 12px; font-size: 15px; }
+}
+
+/* ── Aiming on a short screen with a pad or keys (battle.ts dockAim): the target's forecast is the
+ * bar's card, so nothing floats over the field; the callout steps aside while aiming. ── */
+.screen.battle.dc-dock-aim .coach.dc-callout { display: none; }
+.screen.battle .action-bar .unit-card.aim-card { flex: 1 1 210px; flex-direction: column; align-items: stretch; justify-content: center; gap: 3px; min-width: 0; padding: 2px 4px; }
+.screen.battle .aim-card .aim-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.screen.battle .aim-card .aim-ico { display: inline-flex; flex: none; color: var(--accent-destructive); }
+.screen.battle .aim-card.guard .aim-ico { color: var(--accent-primary); }
+.screen.battle .aim-card.win .aim-ico { color: var(--dc-x); }
+.screen.battle .aim-card .aim-name { font-family: var(--font-chrome); font-weight: 900; font-size: 15px; letter-spacing: 0.03em; text-transform: uppercase; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.screen.battle .aim-card.win .aim-name { color: var(--dc-x); }
+.screen.battle .aim-card .aim-head .pips { margin-left: auto; flex: none; }
+.screen.battle .aim-card .pips i { width: 7px; height: 7px; }
+.screen.battle .aim-card .aim-forecast { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 12px; row-gap: 0; margin: 0; padding: 0; border: 0; }
+.screen.battle .aim-card .aim-forecast .pf-row { grid-template-columns: 15px auto 1fr; gap: 4px; }
+.screen.battle .aim-card .aim-forecast .pf-k { font-size: 11px; }
+.screen.battle .aim-card .aim-forecast .pf-row b { font-size: 15px; text-align: right; }
+.screen.battle .aim-card .aim-how { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; color: var(--text-hint); }
+.screen.battle .aim-card .aim-how .dc-face { width: 22px; height: 22px; min-width: 22px; font-size: 11px; margin-left: auto; }
+.screen.battle .aim-card .coach-dots { display: flex; gap: 3px; }
+.screen.battle .aim-card .coach-dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255, 255, 255, 0.25); }
+.screen.battle .aim-card .coach-dots i.on { background: var(--dc-x); }
+
+/* ── Setup with a pad or keys: the board cursor's bar (Swap, Guard; or Add on an empty bay) ── */
+.screen.battle .bay-bar .bay-plus { display: flex; align-items: center; justify-content: center; color: var(--dc-accent); }
+.screen.battle .action-bar .btn.action.setup-swap, .screen.battle .action-bar .btn.action.setup-add { --b: var(--dc-accent); border-color: var(--dc-accent); }
+/* On a short screen the setup panel fills the left: the bar sits beside it, never over Start. */
+@media (max-width: 760px) and (max-height: 560px), (max-height: 560px) and (pointer: coarse) {
+  .screen.battle:has(.setup-panel) .action-bar { left: 316px; right: 8px; bottom: 8px; transform: none; width: auto; min-width: 0; max-width: none; flex-wrap: wrap; gap: 8px; padding: 6px 8px; }
+  .screen.battle:has(.setup-panel) .action-bar .unit-card { flex: 1 1 140px; }
+  .screen.battle:has(.setup-panel) .action-bar .unit-card .sprite.big { width: 40px; height: 40px; }
+  .screen.battle:has(.setup-panel) .action-bar .btn.action { min-width: 64px; }
+}
+/* The ship picker: B (Escape) closes it, so its badge sits by the ×. */
+.screen.battle .slot-editor .panel-head { gap: 6px; }
+.screen.battle .slot-editor .panel-head .dc-face { margin-left: auto; width: 24px; height: 24px; min-width: 24px; font-size: 12px; }
+.screen.battle .slot-editor .slot-opt:focus-visible, body.pad .screen.battle .slot-editor .slot-opt:focus { border-color: var(--dc-accent); }
+/* A screen reader's line for the docked aim (battle.ts refreshDock): heard, never seen. */
+.screen.battle .dc-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* ── The pad's (or keys') cursor over the board (battle.ts paintCursor): big enough for 480 lines ── */
+.screen.battle .dc-cursor { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 4; pointer-events: none; }
+.screen.battle .dc-cursor .dc-cursor-arrow { position: absolute; left: -14px; top: -46px; width: 28px; text-align: center; font-size: 24px; line-height: 1; color: var(--dc-accent);
+  text-shadow: 0 2px 0 var(--dc-deep), 0 0 8px rgba(0, 0, 0, 0.7); animation: dc-bob 0.7s ease-in-out infinite alternate; }
+.screen.battle .dc-cursor .dc-cursor-mark { position: absolute; display: none; }
+/* An empty bay: a filled orange plate with a white "+" (the ▼ over it: about 70 px in all). */
+.screen.battle .dc-cursor.bay .dc-cursor-mark { display: flex; align-items: center; justify-content: center; left: -21px; top: -21px; width: 42px; height: 42px; border-radius: 12px;
+  background: rgba(255, 106, 19, 0.6); border: 3px solid #fff; box-shadow: 0 0 0 3px var(--dc-accent), 0 0 20px rgba(255, 106, 19, 0.85); }
+.screen.battle .dc-cursor.bay .dc-cursor-mark::after { content: '+'; color: #fff; font-family: var(--font-chrome); font-weight: 900; font-size: 30px; line-height: 1; margin-top: -3px; }
+.screen.battle .dc-cursor.bay .dc-cursor-arrow { top: -54px; }
+/* Your selected ship: the ▼ over it (its selection ring is the view's). */
+.screen.battle .dc-cursor.ship .dc-cursor-arrow { top: -52px; }
+/* The picked target: an orange ring and the ▼; the other targets keep their plain brackets. */
+.screen.battle .dc-cursor.aim .dc-cursor-mark { display: block; left: -26px; top: -26px; width: 52px; height: 52px; border-radius: 50%; border: 3px solid var(--dc-accent);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85), inset 0 0 0 2px rgba(255, 255, 255, 0.5), 0 0 16px rgba(255, 106, 19, 0.85); }
+.screen.battle .dc-cursor.aim .dc-cursor-arrow { top: -60px; }
+.screen.battle .dc-cursor.aim.guard .dc-cursor-mark { border-color: var(--accent-primary); box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85), 0 0 16px rgba(41, 224, 255, 0.8); }
+.screen.battle .dc-cursor.aim.guard .dc-cursor-arrow { color: var(--accent-primary); }
+@keyframes dc-bob { from { translate: 0 -5px; } to { translate: 0 4px; } }
+@media (prefers-reduced-motion: reduce) { .screen.battle .dc-cursor .dc-cursor-arrow { animation: none; } }
+
+/* ── The ship picker is solid (nothing reads through it). On an upright phone it is a bottom sheet;
+ * on a short screen the bar steps aside while it is open, so the two never overlap. ── */
+.screen.battle .slot-editor.panel { --panel-tint: rgba(12, 32, 86, 0.985); backdrop-filter: none; -webkit-backdrop-filter: none; }
+@media (max-width: 760px) and (pointer: coarse) and (min-height: 561px) {
+  .screen.battle .slot-editor.sheet { position: absolute; left: 8px; right: 8px; bottom: 8px; top: auto; width: auto; max-height: min(70%, 560px); display: flex; flex-direction: column;
+    border-radius: 24px; box-shadow: 0 0 0 100vmax rgba(3, 5, 20, 0.6), 0 -10px 40px -10px rgba(0, 0, 0, 0.8); animation: dc-sheet-in 0.22s cubic-bezier(0.2, 0.9, 0.2, 1) both; }
+  .screen.battle .slot-editor.sheet .panel-body { flex: 1; min-height: 0; overflow-y: auto; }
+  .screen.battle .slot-editor.sheet .slot-opt { min-height: 56px; }
+  .screen.battle .slot-editor.sheet .panel-head .btn.icon { width: 44px; min-width: 44px; min-height: 44px; }
+  /* A ship picked in setup: its bar takes the START row's place in the sheet, with Done. */
+  .screen.battle .setup-panel > .action-bar.in-sheet { position: static; transform: none; left: auto; right: auto; bottom: auto; width: auto; min-width: 0; max-width: none;
+    margin: 0 12px 12px; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px; }
+  .screen.battle .setup-panel > .action-bar.in-sheet .unit-card { flex: 1 1 100%; }
+  .screen.battle .setup-panel > .action-bar.in-sheet .actions { flex: 1 1 100%; flex-wrap: nowrap; }
+  .screen.battle .setup-panel > .action-bar.in-sheet .actions > * { flex: 1 1 0; min-height: 56px; }
+  .screen.battle .setup-panel:has(> .action-bar.in-sheet) .setup-foot { display: none; }
+}
+@keyframes dc-sheet-in { from { translate: 0 30px; opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .screen.battle .slot-editor.sheet { animation: none; } }
+@media (max-width: 760px) and (max-height: 560px), (max-height: 560px) and (pointer: coarse) {
+  .screen.battle:has(.slot-editor) .action-bar { visibility: hidden; }
+  /* The cursor on the board: the panel folds to a strip (its heading and START), the board gets the
+   * room (battle.ts SLIM_SIDE: 8 + 104 + 8 px), and it opens again when the cursor leaves. */
+  .screen.battle .setup-panel.slim { width: 104px; }
+  .screen.battle .setup-panel.slim .setup-body { overflow: hidden; }
+  .screen.battle .setup-panel.slim .setup-body > :not(.dc-setup-head) { display: none; }
+  .screen.battle .setup-panel.slim .dc-setup-head { flex-direction: column; gap: 4px; text-align: center; }
+  .screen.battle .setup-panel.slim .dc-setup-head .t-display { font-size: 15px; line-height: 1.1; white-space: normal; overflow-wrap: anywhere; }
+  .screen.battle .setup-panel.slim .setup-foot { padding: 8px; flex-direction: column; }
+  .screen.battle .setup-panel.slim .setup-foot > :not(.dc-start) { display: none; }
+  .screen.battle .setup-panel.slim .dc-start { flex-direction: column; gap: 6px; width: 100%; min-height: 0; padding: 12px 4px; font-size: 16px; letter-spacing: 0.04em; }
+  .screen.battle:has(.setup-panel.slim) .action-bar { left: 120px; }
+}
+
+/* ── Results: Next names what changes (a bigger fleet, or a sharper computer) ── */
+.debrief-back .dc-debrief .db-next-w { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 3px; line-height: 1; }
+.debrief-back .dc-debrief .db-next-w small { font-size: 11px; letter-spacing: 0.04em; opacity: 0.92; }
+.debrief-back .dc-debrief .db-next-stars { letter-spacing: 0.04em; }

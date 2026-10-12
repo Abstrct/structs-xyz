@@ -10,10 +10,12 @@ import { easeInOutCubic, easeOutBack, easeOutCubic } from '../../core/util';
 import { type Ambit, AMBIT_COLOR, COMMAND_SHIP_ID, TYPES_BY_ID } from '../../data/catalogue';
 import { Effects } from '../../gfx/fx';
 import { getPixelModel, pixelMaterial, type PixelModel, type PixelUniforms } from '../../gfx/pixelModel';
-import { BattleSet, type SetOptions, TIER_Y, slotX } from './env';
+import { BattleSet, FIELD, type SetOptions, TIER_Y, slotStagger, slotX } from './env';
 import type { AttackDetail, Block, Chain, ChainEvent, ShotRow, SimStruct } from '../../sim/chain';
 
 export type SideV = 'player' | 'enemy';
+/** The battle deck's own slots (the planet and archive screens lay theirs out differently). */
+const fieldX = (side: SideV, slot: number, command: boolean) => slotX(side, slot, command);
 const TEAM: Record<SideV, number> = { player: 0x43cdb6, enemy: 0xee7d69 };
 const UNIT_SCALE = 0.82;
 /** Light each battleground bounces up into the hulls above it (linear). */
@@ -67,6 +69,35 @@ function padMaterial(color: number) {
         vec3 c = uColor * ((ring * 1.25 + halo + inner + brk * 1.4 + tick * 1.6) * uOpacity + pool * 0.6);
         c += vec3(0.85, 0.93, 1.0) * foam;
         gl_FragColor = vec4(c, shadow * 0.62);
+      }`,
+  });
+}
+
+/* A target mark: four corner brackets that breathe, facing the camera, over every ship the armed
+ * weapon can hit. The red floor ring alone read as a 2 px smear seen edge-on; this reads from any
+ * angle. A dark keyline under the red keeps it legible over sky, cloud, rock and sea. */
+function markMaterial() {
+  return new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, depthTest: false, side: THREE.DoubleSide,
+    uniforms: { uTime: { value: 0 } },
+    vertexShader: /* glsl */ `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: /* glsl */ `
+      uniform float uTime; varying vec2 vUv;
+      float bracket(vec2 q, float at, float w, float len) {
+        float bx = step(abs(q.x - at), w) * step(at - len, q.y) * step(q.y, at + w);
+        float by = step(abs(q.y - at), w) * step(at - len, q.x) * step(q.x, at + w);
+        return min(bx + by, 1.0);
+      }
+      void main() {
+        vec2 q = abs((vUv - 0.5) * 2.0);
+        float breathe = 0.5 + 0.5 * sin(uTime * 6.0);
+        float at = 0.84 - 0.08 * breathe;
+        float core = bracket(q, at, 0.045, 0.34);
+        float line = bracket(q, at, 0.09, 0.38);
+        if (line < 0.5) discard;
+        // Linear light: these come out as the kit's hot red (#FF3D2E) breathing toward orange.
+        vec3 red = mix(vec3(1.0, 0.046, 0.027), vec3(1.0, 0.25, 0.06), breathe * 0.6);
+        gl_FragColor = vec4(mix(vec3(0.05, 0.02, 0.12), red, core), core > 0.5 ? 1.0 : 0.7);
       }`,
   });
 }
@@ -159,7 +190,8 @@ export class UnitView {
     this.px.uBounce.value.copy(BOUNCE[this.ambit]);
     this.bounceNow.copy(BOUNCE[this.ambit]);
     this.mesh = new THREE.Mesh(this.base.geometry, this.material);
-    const k = this.command ? UNIT_SCALE * 1.15 : UNIT_SCALE;
+    this.k = (this.command ? UNIT_SCALE * 1.15 : UNIT_SCALE) * this.boost;
+    const k = this.k;
     this.mesh.scale.setScalar(k);
     if (this.side === 'enemy') this.mesh.scale.x *= -1;
     this.pivot.add(this.mesh);
@@ -183,7 +215,13 @@ export class UnitView {
     this.setHealth(this.health);
   }
 
-  get scale() { return this.command ? UNIT_SCALE * 1.15 : UNIT_SCALE; }
+  /** Hull size, fixed when the hull is made. On the compact deck (an upright phone, env.ts FIELD) every
+   * hull draws a little bigger: BattleView.build raises the boost for the hulls it makes, then puts it
+   * back, so the archive's and the planet's own hulls never inherit it. */
+  static boost = 1;
+  private readonly boost = UnitView.boost;
+  private k = UNIT_SCALE;
+  get scale() { return this.k; }
   get halfHeight() { return this.base.height * this.scale * 0.5; }
   get halfWidth() { return this.base.width * this.scale * 0.5; }
   get facing() { return this.side === 'player' ? 1 : -1; }
@@ -309,14 +347,16 @@ export class UnitView {
 }
 
 /* ── Floaters (DOM numbers and words over the board) ────────────────────── */
-interface Floater { el: HTMLElement; pos: THREE.Vector3; age: number; life: number; rise: number }
+/** A floater's centre x, kept so the whole word stays on screen (8 px from either edge). */
+const clampX = (x: number, half: number) => Math.min(window.innerWidth - half - 8, Math.max(half + 8, x));
+interface Floater { el: HTMLElement; pos: THREE.Vector3; age: number; life: number; rise: number; half?: number }
 
 export class BattleView {
   readonly group = new THREE.Group();
   readonly set: BattleSet;
   readonly fx = new Effects();
   /** Column x for a unit; the planet view swaps in its wider map. */
-  xFor: (side: SideV, slot: number, command: boolean, column: 'fleet' | 'planet') => number = (side, slot, command) => slotX(side, slot, command);
+  xFor: (side: SideV, slot: number, command: boolean, column: 'fleet' | 'planet') => number = fieldX;
   units = new Map<string, UnitView>();
   private tweens: Tween[] = [];
   private floaters: Floater[] = [];
@@ -357,8 +397,10 @@ export class BattleView {
     let y = TIER_Y[ambit] - 0.2;
     if (ambit === 'land') y = TIER_Y.land - 1.85 + halfHeight;
     if (ambit === 'water') y = TIER_Y.water - 1.75 + halfHeight * 0.55;
+    // The compact deck's staggered line (env.ts): every other slot a step back and up.
+    const [lift, depth] = this.xFor === fieldX ? slotStagger(slot, command) : [0, 0];
     // Command Ships sit a little back so they read as the flagship.
-    return new THREE.Vector3(x, y, command ? -0.6 : 0);
+    return new THREE.Vector3(x, y + lift, (command ? -0.6 : 0) + depth);
   }
 
   private buildGen = 0;
@@ -368,7 +410,10 @@ export class BattleView {
     const g = ++this.buildGen;
     this.clear();
     const list = Object.values(chain.structs);
+    // The compact deck (an upright phone) draws its hulls a little bigger too: its slots have the room.
+    UnitView.boost = this.xFor === fieldX && FIELD.compact ? 1.3 : 1;
     const views = list.map((s) => new UnitView(s.id, this.sideOf(s.owner, you), s));
+    UnitView.boost = 1;
     await Promise.all(views.map((v) => v.load()));
     if (g !== this.buildGen) { views.forEach((v) => v.dispose()); return false; }
     for (const v of views) {
@@ -384,6 +429,10 @@ export class BattleView {
 
   /* ── Sensors: an order seen in the mempool, drawn until its block lands ─ */
   private intent: { line: THREE.Line; reticle: THREE.Mesh; mat: THREE.LineDashedMaterial; rmat: THREE.ShaderMaterial } | null = null;
+  /** Target marks over the ships the armed weapon can hit (one shared material and quad). */
+  private marks = new Map<string, THREE.Mesh>();
+  private markMat: THREE.ShaderMaterial | null = null;
+  private markGeo: THREE.PlaneGeometry | null = null;
   showIntent(attackerId: string, targetId: string) {
     this.clearIntent();
     const a = this.units.get(attackerId), b = this.units.get(targetId);
@@ -436,12 +485,16 @@ export class BattleView {
   dispose() {
     this.buildGen++;
     this.clear();
+    this.markMat?.dispose(); this.markGeo?.dispose();
+    this.markMat = null; this.markGeo = null;
     this.set.dispose();
     this.fx.dispose();
   }
 
   clear() {
     this.clearIntent();
+    for (const m of this.marks.values()) this.group.remove(m);
+    this.marks.clear();
     this.wrecks = [];
     for (const u of this.units.values()) { this.group.remove(u.root); u.dispose(); }
     this.units.clear();
@@ -517,9 +570,11 @@ export class BattleView {
     // Place it now: floaters are often born between frames (after an await) and
     // would otherwise sit in the corner until the next overlay pass.
     const v = pos.clone().project(this.camera);
-    el.style.transform = `translate(${((v.x + 1) / 2) * window.innerWidth}px, ${((1 - v.y) / 2) * window.innerHeight}px) translate(-50%, -50%) scale(0.6)`;
     this.layer.appendChild(el);
-    this.floaters.push({ el, pos: pos.clone(), age: 0, life, rise: 1.2 });
+    // Kept whole on screen: a flagship at the deck's edge put "ALPHA DRIFT" half off a phone.
+    const half = el.offsetWidth / 2;
+    el.style.transform = `translate(${clampX(((v.x + 1) / 2) * window.innerWidth, half)}px, ${((1 - v.y) / 2) * window.innerHeight}px) translate(-50%, -50%) scale(0.6)`;
+    this.floaters.push({ el, pos: pos.clone(), age: 0, life, rise: 1.2, half });
   }
 
   /* ── Tethers: defender → ward ─────────────────────────────────────────── */
@@ -981,6 +1036,7 @@ export class BattleView {
         if (Math.random() < 0.35) this.fx.particles.spawn({ pos: w.pos.clone().add(jitter), vel: new THREE.Vector3((Math.random() - 0.5) * 1.2, 1.5 + Math.random() * 1.5, 0), color: 0xff8a3a, size: 0.12, life: 0.9, drag: 1.2, gravity: 0.6 });
       }
     }
+    this.updateMarks(t);
     if (this.intent) {
       const k = 0.5 + 0.5 * Math.sin(t * 10);
       this.intent.mat.opacity = 0.45 + k * 0.5;
@@ -991,6 +1047,33 @@ export class BattleView {
     this.set.update(sdt, t);
     this.fx.update(sdt);
     this.updateOverlay(sdt);
+  }
+
+  /** A mark on every ship the armed weapon can hit, facing the camera, sized to the hull. Only on
+   * the battle deck (the planet's own field draws its reticles in planetActions), and only on enemy
+   * hulls: a guard pick marks friends as targetable too, and they want no red. */
+  private updateMarks(t: number) {
+    const marking = this.xFor === fieldX;
+    for (const u of this.units.values()) {
+      const want = marking && u.targetable && u.side === 'enemy' && !u.destroyed && !!u.mesh && u.root.visible;
+      let m = this.marks.get(u.id);
+      if (!want) { if (m) { this.group.remove(m); this.marks.delete(u.id); } continue; }
+      if (!m) {
+        this.markMat ||= markMaterial();
+        this.markGeo ||= new THREE.PlaneGeometry(1, 1);
+        m = new THREE.Mesh(this.markGeo, this.markMat);
+        m.renderOrder = 30;
+        this.group.add(m);
+        this.marks.set(u.id, m);
+      }
+      m.position.copy(u.root.position);
+      m.position.y += u.pivot.position.y;
+      m.position.z += 1.2;
+      m.quaternion.copy(this.camera.quaternion);
+      m.scale.setScalar(Math.max(u.halfWidth, u.halfHeight) * 2.5 + 0.6);
+    }
+    // Reduced motion: the brackets hold still, half closed.
+    if (this.markMat) this.markMat.uniforms.uTime.value = this.reduceMotion ? 0.26 : t;
   }
 
   private updateOverlay(dt: number) {
@@ -1010,7 +1093,7 @@ export class BattleView {
       if (k >= 1) { f.el.remove(); this.floaters.splice(i, 1); continue; }
       v.copy(f.pos); v.y += easeOutCubic(Math.min(1, k * 1.6)) * f.rise;
       v.project(this.camera);
-      f.el.style.transform = `translate(${((v.x + 1) / 2) * w}px, ${((1 - v.y) / 2) * hgt}px) translate(-50%, -50%) scale(${k < 0.12 ? 0.6 + k * 4 : 1})`;
+      f.el.style.transform = `translate(${clampX(((v.x + 1) / 2) * w, f.half || 0)}px, ${((1 - v.y) / 2) * hgt}px) translate(-50%, -50%) scale(${k < 0.12 ? 0.6 + k * 4 : 1})`;
       f.el.style.opacity = String(k > 0.7 ? 1 - (k - 0.7) / 0.3 : 1);
     }
   }

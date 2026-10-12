@@ -1,7 +1,7 @@
 /* Service record: every move of yours that lands earns experience, and experience earns
  * rank. Kept per browser (it counts what this client did), across all your players. */
 import { txq, type TxJob } from '../wallet/queue';
-import { banner } from '../core/dom';
+import { banner, whenNoticesShow } from '../core/dom';
 import { audio } from '../core/audio';
 import { safeEach } from '../core/util';
 
@@ -69,7 +69,8 @@ class ServiceRecord {
     const before = this.rank;
     this.r.xp += xp;
     this.save();
-    if (this.rank > before) { audio.stinger('secure', 0.8); banner(RANKS[this.rank].toUpperCase(), 'PROMOTED', 'player', 2800); }
+    // The fanfare and its banner together (at PRESS START both wait for the doors).
+    if (this.rank > before) { const rank = RANKS[this.rank]; whenNoticesShow(() => { audio.stinger('secure', 0.8); banner(rank.toUpperCase(), 'PROMOTED', 'player', 2800); }); }
     safeEach(this.listeners, (f) => f(this.r));
   }
 

@@ -12,6 +12,8 @@
   /* The visible height. A phone browser's bars come and go: 100vh counts them, so anything sized
    * to it ran off the bottom; 100dvh doesn't. Older browsers keep 100vh. */
   --vh: 100vh;
+  /* The phone's bottom bar of hubs (below): 0 everywhere else. */
+  --tabbar-h: 0px;
 }
 @supports (height: 100dvh) { :root { --vh: 100dvh; } }
 
@@ -19,10 +21,11 @@
  * (A margin on a fixed box adds to its top/bottom offset, so each menu's own placement stands.)
  * `body >` outranks the original rules whatever order the build links the stylesheets in. */
 body > .shell { top: var(--sa-t); left: var(--sa-l); right: var(--sa-r); }
-body > #ui { inset: var(--sa-t) var(--sa-r) var(--sa-b) var(--sa-l); }
+body > #ui { inset: var(--sa-t) var(--sa-r) calc(var(--sa-b) + var(--tabbar-h)) var(--sa-l); }
 body > .hub-menu, body > .more-menu { margin-top: var(--sa-t); }
 body > .cp-dock { margin-top: var(--sa-t); margin-bottom: var(--sa-b); right: var(--sa-r); }
-body > .toasts { margin-bottom: var(--sa-b); }
+body > .toasts { margin-bottom: calc(var(--sa-b) + var(--tabbar-h)); }
+body > .ops-dock { margin-bottom: calc(var(--sa-b) + var(--tabbar-h)); }
 
 /* Touch: a quick tap is a tap (no double-tap zoom, and no wait for one). */
 @media (hover: none) and (pointer: coarse) {
@@ -111,3 +114,52 @@ body > .toasts { margin-bottom: var(--sa-b); }
   .screen.battle .drift { padding: 4px 8px; flex-direction: row; align-items: center; gap: 6px; }
   .screen.battle .drift .row { flex-wrap: nowrap; }
 }
+
+/* ── A phone held upright: the hubs move to a bar along the bottom, under the thumb ──
+ * Six equal tabs, each an icon over its name; the hub you're in is lit in its colour. The screens sit
+ * above it (#ui's bottom inset grows by --tabbar-h), its menus rise from it as a sheet, and the top
+ * bar gets its room back for the logo and the VMU. A fight takes the whole screen: the bar steps
+ * away while the battle's HUD is up (the flag and the results' Leave still get you out).
+ * Touch and tall only: a phone on its side keeps the hubs on top, and the TV view never sees this.
+ * `html body .shell` outranks dc.css and dc-nav.css in any link order. */
+@media (max-width: 760px) and (pointer: coarse) and (min-height: 561px) {
+  :root { --tabbar-h: 64px; }
+  html body .shell .topbar .hubs { position: fixed; left: 0; right: 0; bottom: 0; height: calc(var(--tabbar-h) + var(--sa-b)); padding: 4px calc(6px + var(--sa-r)) var(--sa-b) calc(6px + var(--sa-l));
+    display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; align-items: center; overflow: visible;
+    background: rgba(8, 13, 50, 0.97); border-top: 3px solid var(--dc-accent); box-shadow: 0 -10px 30px -14px rgba(0, 0, 0, 0.8); }
+  html body .shell .topbar[data-fit] .hubs .hub { width: auto; min-width: 0; height: 56px; min-height: 56px; padding: 2px 0 0; gap: 3px; flex-direction: column; justify-content: center;
+    border: 0; border-radius: 16px; background: none; box-shadow: none; }
+  html body .shell .topbar[data-fit] .hubs .hub .hub-ico { display: flex; align-items: center; justify-content: center; width: 50px; height: 30px; border-radius: 999px;
+    background: color-mix(in srgb, var(--hub) 14%, transparent); transition: background-color 0.15s; }
+  html body .shell .topbar[data-fit] .hubs .hub .hub-label { display: block; font-size: 12px; letter-spacing: 0.02em; font-style: italic; color: rgba(255, 255, 255, 0.72); }
+  html body .shell .topbar[data-fit] .hubs .hub:is(.active, [aria-expanded="true"]) .hub-ico { background: var(--hub); color: var(--dc-void); box-shadow: 0 0 0 2px #fff; }
+  html body .shell .topbar[data-fit] .hubs .hub:is(.active, [aria-expanded="true"]) .hub-label { color: #fff; }
+  html body .shell .topbar[data-fit] .hubs .hub::after { display: none; }
+  html body .shell .topbar[data-fit] .hubs .hub:focus-visible { outline-offset: -2px; }
+  /* The top bar: the logo and the VMU are back. */
+  html body .shell .topbar .brand { display: flex; align-items: center; min-height: 44px; }
+  html body .shell .topbar .brand-name { display: inline; font-size: 17px; }
+  html body .shell .topbar .vmu { display: flex; align-items: center; min-height: 44px; padding: 5px; }
+  html body .shell .topbar .vmu-lcd { width: 48px; height: 32px; }
+  html body .shell .topbar { justify-content: space-between; }
+  /* A hub's menu rises from the bar as a sheet. (hubs.ts places it under its button: not here.) */
+  body > .hub-menu { top: auto; left: 8px !important; right: 8px; width: auto; margin-top: 0;
+    bottom: calc(var(--tabbar-h) + var(--sa-b) + 8px); max-height: calc(var(--vh) - var(--tabbar-h) - var(--sa-b) - var(--sa-t) - 64px); }
+  /* In a fight the battlefield gets the whole screen; so does PRESS START (dc-nav.css hides the bars). */
+  body:has(.screen.battle .battle-top), body.press-start { --tabbar-h: 0px; }
+  html body:has(.screen.battle .battle-top) .shell .topbar .hubs { display: none; }
+}
+/* The sheet dims the screen behind it, the way a phone's sheets do. The dim is a real layer
+ * (hubs.ts adds it): a tap on it closes the sheet and goes no further. It stops above the bar, so the
+ * bar's tabs stay bright and still answer. */
+.hub-menu-back { display: none; }
+@media (max-width: 760px) and (pointer: coarse) and (min-height: 561px) {
+  body > .hub-menu-back { display: block; position: fixed; left: 0; right: 0; top: 0; bottom: calc(var(--tabbar-h) + var(--sa-b)); z-index: calc(var(--menu-z) + 4);
+    background: rgba(3, 5, 20, 0.55); animation: fadeIn 0.15s ease; }
+  body > .hub-menu.panel { box-shadow: 0 -10px 40px -10px rgba(0, 0, 0, 0.8); }
+}
+
+/* A toast reads on one line where it can: centred with left:50%, the stack only had half the
+ * screen's width to fill, so on a phone every toast wrapped to three or four lines. */
+body > .toasts { width: max-content; max-width: calc(100vw - 24px - var(--sa-l) - var(--sa-r)); }
+body > .toasts > .toast { max-width: 100%; }

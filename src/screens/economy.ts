@@ -19,17 +19,27 @@ import { wallet } from '../wallet/wallet';
 import { empire } from '../game/empire';
 import { gridHealth } from '../game/economy';
 import { eco } from '../ui/economy/data';
-import { alphaNum, alphaText, amount, blank, lockedNote, powerText, type EcoCtx } from '../ui/economy/kit';
+import { alphaNum, alphaText, amount, blank, lockedNote, powerText, section, tile, type EcoCtx } from '../ui/economy/kit';
+import { cache } from '../cache/idb';
 import { icon } from '../ui/icons';
 import { keepFocus } from '../ui/keepFocus';
 import { amountOf } from '../ui/economy/data';
 import { mountPower } from '../ui/economy/power';
 import { mountFuel } from '../ui/economy/fuel';
-import { marketSkeleton, mountMarket } from '../ui/economy/market';
+import { mountMarket } from '../ui/economy/market';
 import { mountBanks } from '../ui/economy/banks';
 import { mountTransfers } from '../ui/economy/transfers';
 
 type Tab = 'power' | 'fuel' | 'market' | 'banks' | 'transfers';
+/** A tab's top row of tiles as it last showed them, kept (IndexedDB) so the next visit can show
+ * them at once, dimmed and marked as the last visit's, while the testnet is read again. */
+interface TileSnap { label: string; value: string; ico: string; tone: string }
+interface TabSnap { at: number; height: number; tiles: TileSnap[] }
+const SNAP_NS = 'economy';
+const SNAP_TTL = 7 * 86_400_000;
+const TONES = ['', 'player', 'enemy', 'warn', 'neutral'] as const;
+/** A signal meter where a number is about to land (dc-polish.css). */
+const bars = () => h('span', { class: 'dcp-bars', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('i'));
 /* Tabs are icon pills, one word each. `plain` is the tab in one sentence for someone new: it is
  * the tab's hover and the Learn pill's; `lesson` the Academy lesson that teaches it. */
 const TABS: { id: Tab; label: string; icon: string; hint: string; plain: string; lesson?: string; mount: (c: EcoCtx) => void }[] = [
@@ -49,6 +59,9 @@ export class EconomyScreen extends PanelScreen {
   private status!: HTMLElement;
   private actorBox!: HTMLElement;
   private alert!: HTMLElement;
+  /** The screen's one live region (visually hidden): it says when a read starts and how it ended,
+   * so the waiting pills and wells can be rebuilt on every repaint without being announced. */
+  private live!: HTMLElement;
   /** Form drafts per acting account address ('' while read-only). */
   private drafts = new Map<string, Map<string, string>>();
   /** Wallet address this screen acts as (an account with a player); defaults to the active one. */
@@ -58,6 +71,10 @@ export class EconomyScreen extends PanelScreen {
   /** A pointer is pressed inside the body: a repaint now would swap the button under it. */
   private pressing = false;
   private gen = 0;
+  /** The last visit's tiles per tab (undefined: not asked yet; null: none kept). */
+  private last = new Map<string, TabSnap | null>();
+  /** What was last written per key, so an unchanged repaint writes nothing. */
+  private saved = new Map<string, string>();
 
   constructor(engine: Engine, navigate: (hash: string) => void) { super(engine, navigate, 'economy', 7.7); }
 
@@ -67,6 +84,7 @@ export class EconomyScreen extends PanelScreen {
     this.arg = params.arg;
     this.nav = h('nav', { class: 'eco-tabs dct-tabs', role: 'tablist' });
     this.status = h('span', { class: 't-tiny c-hint eco-status' });
+    this.live = h('span');
     this.actorBox = h('div', { class: 'eco-actor' });
     this.alert = h('div', { class: 'eco-alerthost' });
     this.body = h('div', { class: 'eco-body' });
@@ -76,8 +94,8 @@ export class EconomyScreen extends PanelScreen {
         h('div', { class: 'eco-title dct-title', title: 'Economy: power, fuel, the energy market, guild banks and sending alpha' },
           h('span', { class: 'dct-title-ico', html: icon('trade', 26) }), h('span', { class: 'eco-mark' }, 'Trade')),
         this.actorBox,
-        h('div', { class: 'row eco-headtools' }, this.status, h('button', { class: 'btn ghost dct-iconbtn', title: 'Refresh: read everything again', 'aria-label': 'Refresh', html: icon('replay', 18), onclick: () => { audio.play('select'); void eco.refresh(); this.paintStatus(); } }))),
-      this.nav, this.scroller));
+        h('div', { class: 'row eco-headtools' }, this.status, h('button', { class: 'btn ghost dct-iconbtn', title: 'Refresh: read everything again', 'aria-label': 'Refresh', html: icon('replay', 18), onclick: () => this.reread() }))),
+      this.nav, this.scroller, h('span', { class: 'dcp-sr', role: 'status' }, this.live)));
 
     // A repaint while typing would steal the caret, and one between mousedown and mouseup would
     // swap the button being clicked (blurring a field is what releases the first): hold both,
@@ -120,6 +138,14 @@ export class EconomyScreen extends PanelScreen {
     this.paint();
   }
 
+  /** Read everything again (Refresh, Retry): the screen shows the read at once, not when it ends. */
+  private reread() {
+    audio.play('select');
+    void eco.refresh();
+    this.paintStatus();
+    this.schedule(0);
+  }
+
   private schedule(ms = 120) {
     if (this.timer) return;
     this.timer = window.setTimeout(() => { this.timer = 0; this.paint(); }, ms);
@@ -143,14 +169,15 @@ export class EconomyScreen extends PanelScreen {
     const g = eco.galaxy;
     const expert = document.body.classList.contains('expert');
     // A word or two on screen; the whole story on hover.
-    this.status.textContent = eco.loading ? 'Reading…'
-      : eco.galaxyError ? (expert ? `LCD: ${eco.galaxyError}` : g ? `Galaxy not answering · ${ago(Date.now() - g.loadedAt)} old` : 'Galaxy not answering')
+    if (eco.loading) this.status.replaceChildren(bars(), 'Reading');
+    else this.status.textContent = eco.galaxyError ? (expert ? `LCD: ${eco.galaxyError}` : g ? `Galaxy not answering · ${ago(Date.now() - g.loadedAt)} old` : 'Galaxy not answering')
       : g ? `read ${ago(Date.now() - g.loadedAt)} ago · block ${g.height.toLocaleString()}` : '';
     this.status.title = eco.loading ? 'Reading the chain…'
       : eco.galaxyError ? (g ? `Couldn’t reach the game · showing what was read ${ago(Date.now() - g.loadedAt)} ago (${eco.galaxyError})` : `Couldn’t reach the game (${eco.galaxyError})`) : '';
     this.status.classList.toggle('c-enemy', !!eco.galaxyError && !eco.loading);
-    // The everyday read-out is an expert's detail; reading and trouble always show.
-    this.status.classList.toggle('x-only', !eco.loading && !eco.galaxyError);
+    // The everyday read-out is an expert's detail; a re-read and trouble always show. The first
+    // read has the body's receiving state, so the head stays quiet.
+    this.status.classList.toggle('x-only', (!eco.loading && !eco.galaxyError) || (eco.loading && !g && !eco.galaxyError));
   }
 
   private paintActor() {
@@ -194,12 +221,11 @@ export class EconomyScreen extends PanelScreen {
     const top = this.scroller.scrollTop;
     const host = h('div', { class: 'eco-tab tab-' + this.tab });
     host.dataset.gen = String(++this.gen);
+    // Said once per change, never per repaint.
+    const said = !eco.galaxy && eco.loading ? 'Reading the testnet…' : !eco.galaxy && eco.galaxyError ? 'Galaxy not answering' : '';
+    if (this.live.textContent !== said) this.live.textContent = said;
     if (!eco.galaxy) {
-      host.appendChild(eco.galaxyError
-        ? blank('health', 'Galaxy not answering', `Couldn’t reach the game right now (${eco.galaxyError}). Try again in a moment.`, ['Retry', () => { audio.play('select'); void eco.refresh(); this.paintStatus(); }])
-        // The Market's shape shows at once while the galaxy is read (it can take a while).
-        : this.tab === 'market' ? marketSkeleton()
-        : h('div', { class: 'eco-loading', title: 'Reading reactors, substations, providers and banks…' }, h('span', { class: 'dot pulse c-player' }), 'Reading…'));
+      host.append(...this.waiting(tab));
     } else {
       const me = this.me();
       const ctx: EcoCtx = {
@@ -212,5 +238,83 @@ export class EconomyScreen extends PanelScreen {
     }
     this.body.replaceChildren(host);
     this.scroller.scrollTop = top;
+    if (eco.galaxy) this.saveSnap(host);
+  }
+
+  private snapKey() { return `tiles:${this.tab}:${this.actor || '-'}`; }
+
+  /** The last visit's tiles for the tab on show; the first ask reads them (and repaints if the
+   * galaxy is still on its way). */
+  private snap(): TabSnap | null {
+    // Someone else's grid (#/economy/power/<1-x>) is read on demand: no last visit is kept for it.
+    if (this.arg) return null;
+    const key = this.snapKey();
+    if (!this.last.has(key)) {
+      this.last.set(key, null);
+      void cache.entry<TabSnap>(key, SNAP_NS).then((e) => {
+        const v = e?.v;
+        if (!v || !Array.isArray(v.tiles) || !v.tiles.length) return;
+        this.last.set(key, v);
+        if (!eco.galaxy && this.root?.isConnected) this.schedule();
+      }, () => { /* no cache: the receiving state stands alone */ });
+    }
+    return this.last.get(key) ?? null;
+  }
+
+  /** Keep the tab's top tiles as they are now, for the next visit's first paint. Only a live read
+   * is kept (never one shown after a failed re-read, never a peeked grid), and it is dated by when
+   * the testnet was read (the older of the galaxy's and the commander's read), not when it was saved. */
+  private saveSnap(host: HTMLElement) {
+    const row = host.querySelector('.eco-tiles');
+    const g = eco.galaxy;
+    if (!row || !g || eco.galaxyError || this.arg) return;
+    const me = this.me();
+    const at = Math.min(g.loadedAt, me?.loadedAt ?? Infinity);
+    const tiles: TileSnap[] = [...row.querySelectorAll<HTMLElement>(':scope > .eco-tile:not(.x-only)')].map((el) => ({
+      label: el.querySelector('.t-label')?.textContent?.trim() || '',
+      value: el.querySelector('.eco-big')?.textContent?.trim() || '',
+      ico: /\bk-([\w-]+)/.exec(el.querySelector('.eco-tile-ico')?.className || '')?.[1] || '',
+      tone: TONES.find((t) => t && el.classList.contains(t)) || '',
+    })).filter((t) => t.label && t.value && !t.value.includes('…'));
+    if (!tiles.length) return;
+    const key = this.snapKey(), json = JSON.stringify(tiles);
+    if (this.saved.get(key) === json) return;
+    this.saved.set(key, json);
+    void cache.set<TabSnap>(key, { at, height: g.height, tiles }, SNAP_TTL, SNAP_NS).catch(() => { /* best effort */ });
+  }
+
+  /** While the galaxy is read (6–15 s on a busy testnet): the receiving pill, the last visit's
+   * tiles dimmed under a clock (never passed off as live) or a signal meter where each number
+   * will land, and the tab's shape under a scan line. A failed read keeps the last visit too. */
+  private waiting(tab: (typeof TABS)[number]): Node[] {
+    const snap = this.snap();
+    const age = snap ? ago(Date.now() - snap.at) : '';
+    // A read under way (Retry, coming back after a failed visit) shows as one, not as the last failure.
+    const err = eco.loading ? '' : eco.galaxyError;
+    const row = h('div', { class: 'dcp-wait-row' },
+      // Decorative: the screen's live region says it once (this pill is rebuilt on every repaint).
+      err ? null : h('span', { class: 'dcp-rx', 'aria-hidden': 'true', title: 'Receiving: reading reactors, substations, providers and banks from the testnet…' },
+        h('span', { class: 'dcp-dish', html: icon(tab.icon, 16) }), bars(), 'Receiving'),
+      snap ? h('span', { class: 'dcp-last', title: `Read from the testnet ${age} ago (block ${snap.height.toLocaleString()}). Not live: the numbers update when the testnet answers.` },
+        h('span', { html: icon('clock', 14) }), 'Last visit', h('b', null, age)) : null);
+    const tiles = snap
+      ? h('div', { class: 'eco-tiles' }, ...snap.tiles.map((t) => {
+        const el = tile(t.label, t.value, null, TONES.find((x) => x === t.tone) || '', t.ico || undefined);
+        el.classList.add('dcp-stale');
+        el.title = `${t.label}: ${t.value}, read ${age} ago. Not live yet.`;
+        return el;
+      }))
+      // The Market's tiles are known by heart: a meter stands where each number will land.
+      : tab.id === 'market' ? h('div', { class: 'eco-tiles' },
+        tile('Best price', bars(), null, 'player', 'alpha'), tile('Sellers', bars(), null, '', 'market'), tile('Rented', bars(), null, '', 'queue'))
+      : null;
+    const body = err
+      ? blank('health', 'Galaxy not answering', `Couldn’t reach the game right now (${err}).${snap ? ' The dim numbers are from your last visit.' : ''} Try again in a moment.`, ['Retry', () => this.reread()])
+      : tab.id === 'market'
+        // The shop's shape: placeholder cards under a scan line.
+        ? section('Power shop', null, [h('div', { class: 'eco-cards dcp-sweep', 'aria-hidden': 'true' }, ...Array.from({ length: 4 }, () =>
+          h('div', { class: 'eco-card offer dct-skel' }, h('i', { class: 'w60' }), h('i', { class: 'big w40' }), h('i', { class: 'w30' }))))], { tone: 'player', icon: 'market' })
+        : h('div', { class: 'dcp-scan', title: 'Reading the testnet…', 'aria-hidden': 'true' }, h('span', { class: 'dcp-dish big', html: icon(tab.icon, 34) }));
+    return [row, tiles, body].filter((x): x is HTMLElement => !!x);
   }
 }

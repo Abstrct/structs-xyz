@@ -34,69 +34,6 @@
    361,
    64,
    14
-  ],
-  "div.topbar#1": [
-   0,
-   0,
-   640,
-   44,
-   14
-  ],
-  "button.hub[Base]#1": [
-   8,
-   1,
-   40,
-   40,
-   14
-  ],
-  "button.hub[Battle]#1": [
-   51,
-   1,
-   40,
-   40,
-   14
-  ],
-  "button.active.hub[Explore]#1": [
-   94,
-   1,
-   40,
-   40,
-   14
-  ],
-  "button.hub[Trade]#1": [
-   137,
-   1,
-   40,
-   40,
-   14
-  ],
-  "button.hub[Team]#1": [
-   180,
-   1,
-   40,
-   40,
-   14
-  ],
-  "button.hub[Lab]#1": [
-   223,
-   1,
-   40,
-   40,
-   14
-  ],
-  "button.empty.wallet-chip[Enlist]#1": [
-   455,
-   1,
-   77,
-   40,
-   14
-  ],
-  "button.vmu[VMU: An egg · win a battle to hatch it]#1": [
-   535,
-   2,
-   54,
-   38,
-   14
   ]
  },
  "/galaxy#hud": {
@@ -152,26 +89,26 @@
   "button.active.hub[Explore]#1": [
    94,
    1,
-   40,
+   118,
    40,
    14
   ],
   "button.hub[Trade]#1": [
-   137,
+   215,
    1,
    40,
    40,
    14
   ],
   "button.hub[Team]#1": [
-   180,
+   258,
    1,
    40,
    40,
    14
   ],
   "button.hub[Lab]#1": [
-   223,
+   301,
    1,
    40,
    40,
@@ -245,26 +182,26 @@
   "button.active.hub[Explore]#1": [
    94,
    1,
-   40,
+   118,
    40,
    14
   ],
   "button.hub[Trade]#1": [
-   137,
+   215,
    1,
    40,
    40,
    14
   ],
   "button.hub[Team]#1": [
-   180,
+   258,
    1,
    40,
    40,
    14
   ],
   "button.hub[Lab]#1": [
-   223,
+   301,
    1,
    40,
    40,
@@ -303,40 +240,40 @@
   "button.active.hub[Base]#1": [
    8,
    1,
-   40,
+   91,
    40,
    14
   ],
   "button.hub[Battle]#1": [
-   51,
+   102,
    1,
    40,
    40,
    14
   ],
   "button.hub[Explore]#1": [
-   94,
+   145,
    1,
    40,
    40,
    14
   ],
   "button.hub[Trade]#1": [
-   137,
+   188,
    1,
    40,
    40,
    14
   ],
   "button.hub[Team]#1": [
-   180,
+   231,
    1,
    40,
    40,
    14
   ],
   "button.hub[Lab]#1": [
-   223,
+   274,
    1,
    40,
    40,
@@ -417,33 +354,33 @@
   "button.active.hub[Battle]#1": [
    51,
    1,
-   40,
+   107,
    40,
    14
   ],
   "button.hub[Explore]#1": [
-   94,
+   161,
    1,
    40,
    40,
    14
   ],
   "button.hub[Trade]#1": [
-   137,
+   204,
    1,
    40,
    40,
    14
   ],
   "button.hub[Team]#1": [
-   180,
+   247,
    1,
    40,
    40,
    14
   ],
   "button.hub[Lab]#1": [
-   223,
+   290,
    1,
    40,
    40,
@@ -503,26 +440,26 @@
   "button.active.hub[Explore]#1": [
    94,
    1,
-   40,
+   118,
    40,
    14
   ],
   "button.hub[Trade]#1": [
-   137,
+   215,
    1,
    40,
    40,
    14
   ],
   "button.hub[Team]#1": [
-   180,
+   258,
    1,
    40,
    40,
    14
   ],
   "button.hub[Lab]#1": [
-   223,
+   301,
    1,
    40,
    40,
@@ -575,33 +512,33 @@
   "button.active.hub[Battle]#1": [
    51,
    1,
-   40,
+   107,
    40,
    14
   ],
   "button.hub[Explore]#1": [
-   94,
+   161,
    1,
    40,
    40,
    14
   ],
   "button.hub[Trade]#1": [
-   137,
+   204,
    1,
    40,
    40,
    14
   ],
   "button.hub[Team]#1": [
-   180,
+   247,
    1,
    40,
    40,
    14
   ],
   "button.hub[Lab]#1": [
-   223,
+   290,
    1,
    40,
    40,
@@ -623,7 +560,7 @@
   ]
  },
  "/codex/5": {
-  "div.codex-list.panel#1": [
+  "div.codex-list.more-right.panel#1": [
    8,
    340,
    624,
@@ -637,11 +574,11 @@
    48,
    14
   ],
-  "div.codex-detail.panel.player#1": [
+  "div.codex-detail.more-below.panel.player.snapped#1": [
    364,
    52,
    268,
-   280,
+   235,
    14
   ],
   "div.panel-head#2": [
@@ -675,33 +612,33 @@
   "button.active.hub[Battle]#1": [
    51,
    1,
-   40,
+   107,
    40,
    14
   ],
   "button.hub[Explore]#1": [
-   94,
+   161,
    1,
    40,
    40,
    14
   ],
   "button.hub[Trade]#1": [
-   137,
+   204,
    1,
    40,
    40,
    14
   ],
   "button.hub[Team]#1": [
-   180,
+   247,
    1,
    40,
    40,
    14
   ],
   "button.hub[Lab]#1": [
-   223,
+   290,
    1,
    40,
    40,
@@ -789,19 +726,19 @@
   "button.active.hub[Trade]#1": [
    137,
    1,
-   40,
+   102,
    40,
    14
   ],
   "button.hub[Team]#1": [
-   180,
+   242,
    1,
    40,
    40,
    14
   ],
   "button.hub[Lab]#1": [
-   223,
+   285,
    1,
    40,
    40,
@@ -938,12 +875,12 @@
   "button.active.hub[Team]#1": [
    180,
    1,
-   40,
+   95,
    40,
    14
   ],
   "button.hub[Lab]#1": [
-   223,
+   278,
    1,
    40,
    40,
@@ -1017,12 +954,12 @@
   "button.active.hub[Team]#1": [
    180,
    1,
-   40,
+   95,
    40,
    14
   ],
   "button.hub[Lab]#1": [
-   223,
+   278,
    1,
    40,
    40,
@@ -1322,40 +1259,40 @@
   "button.active.hub[Base]#1": [
    8,
    1,
-   40,
+   91,
    40,
    14
   ],
   "button.hub[Battle]#1": [
-   51,
+   102,
    1,
    40,
    40,
    14
   ],
   "button.hub[Explore]#1": [
-   94,
+   145,
    1,
    40,
    40,
    14
   ],
   "button.hub[Trade]#1": [
-   137,
+   188,
    1,
    40,
    40,
    14
   ],
   "button.hub[Team]#1": [
-   180,
+   231,
    1,
    40,
    40,
    14
   ],
   "button.hub[Lab]#1": [
-   223,
+   274,
    1,
    40,
    40,
@@ -1381,7 +1318,7 @@
    6,
    50,
    628,
-   424,
+   298,
    14
   ],
   "div.dc-ops-head.panel-head#1": [
@@ -1443,7 +1380,7 @@
   "button.active.hub[Lab]#1": [
    223,
    1,
-   40,
+   82,
    40,
    14
   ],
@@ -1472,7 +1409,7 @@
   ],
   "button.big.btn.solid#1": [
    228,
-   510,
+   512,
    76,
    40,
    11
@@ -1522,7 +1459,7 @@
   "button.active.hub[Lab]#1": [
    223,
    1,
-   40,
+   82,
    40,
    14
   ],
@@ -1608,26 +1545,26 @@
   "button.active.hub[Explore]#1": [
    94,
    1,
-   40,
+   118,
    40,
    14
   ],
   "button.hub[Trade]#1": [
-   137,
+   215,
    1,
    40,
    40,
    14
   ],
   "button.hub[Team]#1": [
-   180,
+   258,
    1,
    40,
    40,
    14
   ],
   "button.hub[Lab]#1": [
-   223,
+   301,
    1,
    40,
    40,

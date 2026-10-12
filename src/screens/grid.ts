@@ -1420,8 +1420,10 @@ export class GridScreen implements Screen {
     for (const s of d.subs) { const g = d.grids.get(s.id) || {}; cap += big(g.capacity); load += big(g.load); conns += Number(g.connectionCount || 0); }
     for (const r of d.reactors) fuel += big(d.grids.get(r.id)?.fuel);
     // A tile: a picture and a number; the picture's name is the tile's title (and its accessible label).
-    const tile = (pic: string, label: string, value: string, color = '', box = '') => h('div', { class: 'dw-tile ' + box, title: label },
-      h('span', { class: 'dw-ico', role: 'img', 'aria-label': label, style: color ? `color:${color}` : undefined, html: icon(pic, 18) }), h('b', { class: 'num' }, value));
+    // Where nothing hovers (the TV, phones, a pad) the tile also carries its word, small, under the number.
+    const tile = (pic: string, label: string, value: string, color = '', box = '', word = label.split(':')[0]) => h('div', { class: 'dw-tile ' + box, title: label },
+      h('span', { class: 'dw-ico', role: 'img', 'aria-label': label, style: color ? `color:${color}` : undefined, html: icon(pic, 18) }), h('b', { class: 'num' }, value),
+      h('span', { class: 'dw-cap', 'aria-hidden': 'true' }, word));
     const providers = d.providers.map((p) => h('div', { class: 'guild-row static' },
       h('i', { class: 'swatch', style: `background:${K_RENT}` }),
       h('span', { class: 'grow', style: 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, `${store.playerName(p.owner)} · ${p.substationId}`),
@@ -1441,8 +1443,8 @@ export class GridScreen implements Screen {
     const sec = (pic: string, word: string, title: string) => h('div', { class: 'dw-sec', title }, ico(pic, 16), h('span', { class: 't-label' }, word));
     this.els.summary.replaceChildren(
       h('div', { class: 'dw-tiles' },
-        tile('star', 'Reactors', String(d.reactors.length), 'var(--text-neutral-primary)'), tile('fuel', 'Fuel infused', formatAlpha(fuel.toString()), K_FUEL),
-        tile('station', 'Substations', String(d.subs.length), 'var(--accent-primary)'), tile('team', 'Connections', formatInt(conns), 'var(--accent-primary)'),
+        tile('star', 'Reactors', String(d.reactors.length), 'var(--text-neutral-primary)'), tile('fuel', 'Fuel infused', formatAlpha(fuel.toString()), K_FUEL, '', 'Fuel'),
+        tile('station', 'Substations', String(d.subs.length), 'var(--accent-primary)', '', 'Stations'), tile('team', 'Connections', formatInt(conns), 'var(--accent-primary)', '', 'Players'),
         tile('charge', 'Capacity: the power the grid can give', formatPower(cap), K_FLOW), tile('gauge', 'Load: the power in use', formatPower(load)),
         tile('send', 'Allocations', String(d.allocs.length), K_FLOW, 'x-only'), tile('alpha', 'Infusions', String(d.infusions.length), K_FUEL, 'x-only')),
       h('div', { class: 'divider' }),

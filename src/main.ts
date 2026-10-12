@@ -46,6 +46,9 @@ import { startPeek } from './ui/peek';
 import './styles/learn.css';
 // The Dreamcast skin re-points every token and primitive: it must come after all of them.
 import './styles/dc.css';
+// The hubs' names (after dc.css, which made them icons only).
+import './styles/dc-nav.css';
+import './styles/dc-polish.css';
 // The phone layer, last: safe areas, the visible height, touch taps (desktop doesn't move).
 import './styles/mobile.css';
 
@@ -163,7 +166,7 @@ async function route() {
     replaced = null;
     current = { name, screen, key: now && now.name === name ? name + JSON.stringify(now.params) : key };
     setActiveNav(name);
-    if (!sameScreen) engine.materialize();
+    if (!sameScreen) { engine.materialize(); riseIn(); }
     await fade(false);
     // The Academy counts screens seen; a screen opened for the first time explains itself.
     academy.visit(currentRoute());
@@ -195,7 +198,9 @@ function clearScreenUi() {
  * sit on the right; status and client tools fold into one dot and a More menu (the pro status
  * bar in settings spells the links and the block out again). */
 let hubNav: HubNav | null = null;
-function setActiveNav(_name: RouteName) { hubNav?.setActive(currentRoute()); }
+function setActiveNav(_name: RouteName) { hubNav?.setActive(currentRoute()); refitTopbar(); }
+/** Re-fit the bar (buildTopbar sets it): which hub is active changes its width when only that one is named. */
+let refitTopbar = () => {};
 
 function buildTopbar() {
   const mark = h('div', { class: 'brand-mark', html: MARK });
@@ -350,10 +355,20 @@ function buildTopbar() {
     for (const st of ['', 'tight', 'icons', 'min']) { bar.dataset.fit = st; if (hubNav!.el.scrollWidth <= hubNav!.el.clientWidth + 1) break; }
   };
   const queueFit = () => { if (!fitQueued) fitQueued = requestAnimationFrame(fit); };
+  refitTopbar = queueFit;
   window.addEventListener('resize', queueFit);
   new ResizeObserver(queueFit).observe(cluster);
   void document.fonts?.ready.then(queueFit);
   queueFit();
+}
+
+/** A new screen's panels rise into place as the fade lifts (dc-nav.css): only what is there on
+ * arrival, so later repaints never replay it. */
+let riseTimer = 0;
+function riseIn() {
+  document.body.classList.add('screen-rise');
+  clearTimeout(riseTimer);
+  riseTimer = window.setTimeout(() => document.body.classList.remove('screen-rise'), 900);
 }
 
 function toggleMute() {

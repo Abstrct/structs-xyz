@@ -26,6 +26,8 @@ import { togglePalette } from '../ui/palette';
 import { dailyScenario } from '../sim/fleets';
 import { matchupQuestion, priceQuestion, codeQuestion, type MatchupQuestion, type PriceQuestion, type CodeQuestion } from '../game/practice';
 import { dailyBest, dailyStreak } from './battle/record';
+import { AMBITS, AMBIT_NAME, TYPES_BY_ID } from '../data/catalogue';
+import { spriteDataUrl } from '../gfx/pixelModel';
 
 type Tab = Track['id'] | 'career' | 'glossary';
 /** What the main panel shows in a track: one lesson (by id), or the track's practice game. */
@@ -328,7 +330,15 @@ export class AcademyScreen extends PanelScreen {
     const next = () => { this.prq = priceQuestion(); this.prPick = null; audio.play('select'); this.focusQuiz = true; this.reveal = true; this.paint(); };
     return h('div', { class: 'ac-practice' },
       ...this.practiceHead(PRACTICE_NAME.economics, this.prStreak, Math.max(best, this.prStreak), 'Energy on the market is priced per kilowatt per day. Multiply to find the total.'),
-      h('div', { class: 'ac-q' }, q.q),
+      // The question as a sum of pictures: power × days × price = ?
+      h('div', { class: 'ac-sum', role: 'img', 'aria-label': q.q, title: q.q },
+        h('span', { class: 'ac-sum-t k-power', title: `${q.kw} kW of power` }, h('span', { html: icon('power', 22) }), h('b', null, String(q.kw)), h('small', null, 'kW')),
+        h('span', { class: 'ac-sum-op' }, '×'),
+        h('span', { class: 'ac-sum-t k-days', title: `for ${q.days} day${q.days === 1 ? '' : 's'}` }, h('span', { html: icon('clock', 22) }), h('b', null, String(q.days)), h('small', null, q.days === 1 ? 'day' : 'days')),
+        h('span', { class: 'ac-sum-op' }, '×'),
+        h('span', { class: 'ac-sum-t k-alpha', title: `${q.price} alpha per kW per day` }, h('span', { html: icon('alpha', 22) }), h('b', null, String(q.price)), h('small', null, 'per kW·day')),
+        h('span', { class: 'ac-sum-op' }, '='),
+        h('span', { class: 'ac-sum-t k-ask' + (answered ? ' shown' : '') }, h('span', { html: icon('alpha', 22) }), h('b', null, answered ? q.choices[q.answer].replace(/ alpha$/, '') : '?'))),
       h('div', { class: 'ac-choices' }, ...q.choices.map((c, i) => h('button', { class: 'ac-choice' + (answered && i === q.answer ? ' right' : answered && i === this.prPick ? (this.shake === 'prq' ? ' wrong shake' : ' wrong') : ''), disabled: answered, 'data-k': `pr:${i}`, onclick: () => choose(i) }, h('span', { class: 'ac-choice-n' }, String(i + 1)), c))),
       answered ? h('div', { class: 'ac-why ' + (right ? 'right' : 'wrong') }, right ? 'Right! ' : 'Not quite. ', q.why) : null,
       answered ? this.practiceNext(next, '/economy/market', 'market', 'Market') : null);
@@ -355,10 +365,24 @@ export class AcademyScreen extends PanelScreen {
     };
     const next = () => { this.cq = codeQuestion(); this.cqPick = null; audio.play('select'); this.focusQuiz = true; this.reveal = true; this.paint(); };
     const program = ['if (planet is used up)  return explore()', 'if (a machine is off and power allows)  return switchOn(machine)', 'if (a machine on its list is missing and nothing is being built)  return build(next one)', 'if (job == "raider")  return sail(meeting point, or "home")', 'if (job == "productive" and alpha > keep + 0.1)  return sendHome(alpha − keep)', 'return wait()'];
+    // The helper's situation as pictures: its job, its planet, its machines, its alpha and keep.
+    const s = q.s;
+    const fact = (ico: string, text: string, tone = '', title = text) => h('span', { class: 'ac-fact ' + tone, title }, h('span', { html: icon(ico, 16) }), text);
+    const facts = h('div', { class: 'ac-facts', role: 'img', 'aria-label': q.q },
+      fact('robot', s.job, 'job', `Its job is "${s.job}"`),
+      s.planetUsedUp ? fact('planet', 'used up', 'warn', 'Its planet is used up') : fact('planet', 'has ore', '', 'Its planet still has ore'),
+      s.machineOff ? fact('power', 'machine off', 'warn', 'A machine is switched off, and there is power for it') : fact('power', 'all on', '', 'All its machines are on'),
+      s.missing ? fact('build', s.building ? 'missing · building' : 'missing one', 'warn', s.building ? 'A machine on its list is missing, but another one is still being built' : 'A machine on its list is missing and nothing is being built') : fact('build', 'all built', '', 'Everything on its list is built'),
+      fact('alpha', String(s.alpha), '', `It holds ${s.alpha} alpha`),
+      fact('rules', `keep ${s.keep}`, '', `keep (the “send alpha home above” setting) is ${s.keep}`),
+      s.job === 'raider' ? fact('flag', s.rally || 'home', '', s.rally ? `The meeting point is ${s.rally}` : 'The meeting point is empty (home)') : null);
+    // Once answered, the program shows its work: the lines that didn't fit go dim, the one that ran lights up.
     return h('div', { class: 'ac-practice' },
       ...this.practiceHead(PRACTICE_NAME.technology, this.cqStreak, Math.max(best, this.cqStreak), 'A simplified copy of your robot helpers’ program (keep = the “send alpha home above” setting). Read it top to bottom: the first rule that fits is the move.'),
-      h('div', { class: 'robot-code ac-code', title: 'keep = the “send alpha home above” setting. The first rule that fits is the move.' }, ...program.map((line) => h('div', { class: 'ac-code-line' }, line))),
-      h('div', { class: 'ac-q' }, q.q),
+      facts,
+      h('div', { class: 'robot-code ac-code' + (answered ? ' ran' : ''), title: 'keep = the “send alpha home above” setting. The first rule that fits is the move.' },
+        ...program.map((line, i) => h('div', { class: 'ac-code-line' + (answered ? (i < q.line ? ' skip' : i === q.line ? ' run' : ' after') : '') }, line))),
+      h('div', { class: 'ac-q', title: q.q }, 'Which line runs?'),
       h('div', { class: 'ac-choices' }, ...q.choices.map((c, i) => h('button', { class: 'ac-choice mono' + (answered && i === q.answer ? ' right' : answered && i === this.cqPick ? (this.shake === 'cq' ? ' wrong shake' : ' wrong') : ''), disabled: answered, 'data-k': `cq:${i}`, onclick: () => choose(i) }, h('span', { class: 'ac-choice-n' }, String(i + 1)), c))),
       answered ? h('div', { class: 'ac-why ' + (right ? 'right' : 'wrong') }, right ? 'Right! ' : 'Not quite. ', q.why) : null,
       answered ? this.practiceNext(next, '/ops/orders', 'rules', 'Robot Rules') : null);
@@ -385,12 +409,31 @@ export class AcademyScreen extends PanelScreen {
     const next = () => { this.pq = matchupQuestion(); this.pAnswer = null; audio.play('select'); this.focusQuiz = true; this.reveal = true; this.paint(); };
     return h('div', { class: 'ac-practice' },
       ...this.practiceHead(PRACTICE_NAME.strategy, this.pStreak, Math.max(this.practiceBest(), this.pStreak), 'Endless questions made from the real units, using the same rules as battles. (Stealth left out.)'),
+      this.matchupBoard(q, answered),
       h('div', { class: 'ac-q' }, q.q),
       h('div', { class: 'ac-practice-row' },
         h('button', { class: 'ac-choice' + (answered && q.yes ? ' right' : answered && this.pAnswer === true ? (this.shake === 'pq' ? ' wrong shake' : ' wrong') : ''), disabled: answered, 'data-k': 'pq:yes', onclick: () => choose(true) }, h('span', { class: 'ac-choice-n' }, '1'), 'Yes'),
         h('button', { class: 'ac-choice' + (answered && !q.yes ? ' right' : answered && this.pAnswer === false ? (this.shake === 'pq' ? ' wrong shake' : ' wrong') : ''), disabled: answered, 'data-k': 'pq:no', onclick: () => choose(false) }, h('span', { class: 'ac-choice-n' }, '2'), 'No')),
       answered ? h('div', { class: 'ac-why ' + (right ? 'right' : 'wrong') }, right ? 'Right! ' : 'Not quite. ', q.why) : null,
       answered ? this.practiceNext(next, '/codex/' + q.attacker, 'book', 'Unit Guide') : null);
+  }
+
+  /** The question as a picture: the four layers top to bottom (space, air, land, water), the
+   * attacker on its layer on the left, the target on its layer on the right. Once answered, the
+   * shot shows as a hit (a tick) or out of reach (a cross). */
+  private matchupBoard(q: MatchupQuestion, answered: boolean): HTMLElement {
+    const unit = (id: number, side: 'player' | 'enemy') => {
+      const img = h('img', { alt: '' });
+      void spriteDataUrl(id).then((u) => { img.src = u; });
+      return h('span', { class: 'ac-mx-unit ' + side, title: TYPES_BY_ID[id]?.type || '' }, img);
+    };
+    const verdict = answered ? (q.yes ? h('span', { class: 'ac-mx-verdict yes', html: icon('check', 16), title: 'In reach' }) : h('span', { class: 'ac-mx-verdict no', title: 'Out of reach' }, '✕')) : null;
+    return h('div', { class: 'ac-mx', role: 'img', 'aria-label': q.q },
+      ...AMBITS.map((a) => h('div', { class: 'ac-mx-row ambit-' + a + (a === q.from || a === q.to ? ' lit' : '') },
+        h('span', { class: 'ac-mx-cell' }, a === q.from ? unit(q.attacker, 'player') : null),
+        h('span', { class: 'ac-mx-layer', title: AMBIT_NAME[a] }, h('span', { class: 'ac-mx-ico', html: icon(a, 16) }), h('span', { class: 'ac-mx-name' }, AMBIT_NAME[a]),
+          a === q.to ? h('span', { class: 'ac-mx-aim', html: icon('target', 14) }) : null),
+        h('span', { class: 'ac-mx-cell right' }, a === q.to ? unit(q.defender, 'enemy') : null, a === q.to ? verdict : null))));
   }
 
   /** The open lesson: its words (lessons are reading), then the quiz or the thing to do, and Try it. */

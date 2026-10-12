@@ -62,6 +62,9 @@ export class CodexScreen implements Screen {
   private targetRot = 0;
   private loadToken = 0;
   private cleanup: (() => void)[] = [];
+  /** Re-fits the card when its words change size (Expert, Larger text, a font arriving, the record). */
+  private fitObs: ResizeObserver | null = null;
+  private fitRaf = 0;
 
   constructor(private engine: Engine, private navigate: (h: string) => void) {
     this.scene.background = new THREE.Color(0x030409);
@@ -139,6 +142,8 @@ export class CodexScreen implements Screen {
 
   exit() {
     this.mxDismiss();
+    this.fitObs?.disconnect(); this.fitObs = null;
+    cancelAnimationFrame(this.fitRaf); this.fitRaf = 0;
     this.cleanup.forEach((f) => f());
     this.cleanup = [];
     // Pending test-fire volleys and model loads belong to this visit.
@@ -190,6 +195,74 @@ export class CodexScreen implements Screen {
     }
     this.camera.setViewOffset(w, hgt, (right - left) / 2, dy, w, hgt);
     this.camera.updateProjectionMatrix();
+    if (this.root?.isConnected) { this.fitDetail(); this.stripEdges(); }
+  }
+
+  /** The card stops at the end of a whole row (a row of stat chips, a weapon, a row of faces), never
+   * through the middle of one, and while more is below it a chevron sits on its foot (dc-lab.css).
+   * Run whenever the card's words or the room for it change. */
+  private fitDetail() {
+    const card = this.root.querySelector<HTMLElement>('.codex-detail');
+    const body = card?.querySelector<HTMLElement>(':scope > .panel-body');
+    if (!card || !body) return;
+    // Back to the stylesheet's limit (the wide layout's own limit is inline), then measure the room.
+    body.style.setProperty('max-height', this.layoutMode() === 'wide' ? 'calc(var(--vh, 100vh) - 170px)' : '');
+    card.classList.remove('snapped');
+    const room = body.clientHeight;
+    if (body.scrollHeight > room + 2) {
+      const top = body.getBoundingClientRect().top - body.scrollTop;
+      // Where a row ends: each block, each row of chips or faces. A boxed block (a weapon, a trait)
+      // counts whole, so the card never ends inside a box. The foot keeps a band for the chevron.
+      const BAND = 18;
+      let end = 0;
+      for (const el of body.querySelectorAll<HTMLElement>(':scope > *, :scope > .cx-sub > *, :scope > .cx-stats > .cx-stat, :scope > .cx-vs .cx-face, :scope > .field-record > *, :scope > .field-record .cx-stat, :scope > .cx-btns > *')) {
+        const r = el.getBoundingClientRect();
+        if (!r.height) continue;
+        const b = r.bottom - top;
+        if (b <= room - BAND && b > end) end = b;
+      }
+      // Never snap a card down to almost nothing: a short room keeps its plain fade.
+      if (end > room * 0.45) {
+        body.style.setProperty('max-height', `${Math.ceil(end + 4)}px`, 'important');
+        card.classList.add('snapped');
+      }
+    }
+    this.detailEdges();
+  }
+
+  /** Watch the card's head, its body and each block in it: any of them changing size (Expert or
+   * Larger text switched, a font swapping in, the record arriving, the card's room changing) re-fits
+   * the card on the next frame. The fit settles in a frame or two (its own resize reports nothing new). */
+  private watchDetail(card: HTMLElement) {
+    this.fitObs?.disconnect();
+    if (typeof ResizeObserver === 'undefined') return;
+    const body = card.querySelector<HTMLElement>(':scope > .panel-body');
+    if (!body) return;
+    this.fitObs = new ResizeObserver(() => {
+      if (this.fitRaf) return;
+      this.fitRaf = requestAnimationFrame(() => { this.fitRaf = 0; if (this.root.isConnected) this.fitDetail(); });
+    });
+    for (const el of [...card.children, ...body.children]) this.fitObs.observe(el);
+  }
+
+  /** The card's foot: a chevron while more is below, the fade only once it has been scrolled. */
+  private detailEdges() {
+    const card = this.root.querySelector<HTMLElement>('.codex-detail');
+    const body = card?.querySelector<HTMLElement>(':scope > .panel-body');
+    if (!card || !body) return;
+    card.classList.toggle('more-below', body.scrollTop + body.clientHeight < body.scrollHeight - 2);
+    card.classList.toggle('scrolled', body.scrollTop > 2);
+  }
+
+  /** The portrait strip (narrow screens): its edges fade where more units are, and a chevron points
+   * on while the strip runs past the right edge. */
+  private stripEdges() {
+    const list = this.root.querySelector<HTMLElement>('.codex-list');
+    const strip = list?.querySelector<HTMLElement>('.codex-scroll');
+    if (!list || !strip) return;
+    const sideways = strip.scrollWidth > strip.clientWidth + 2;
+    list.classList.toggle('more-left', sideways && strip.scrollLeft > 2);
+    list.classList.toggle('more-right', sideways && strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 2);
   }
 
   /* ── List ─────────────────────────────────────────────────────────────── */
@@ -217,6 +290,9 @@ export class CodexScreen implements Screen {
       h('div', { class: 't-tiny c-hint x-only', style: 'padding:8px 10px' }, `Mechanics from the testnet LCD at block ${CATALOGUE_HEIGHT.toLocaleString('en-US')}.`),
     );
     this.root.appendChild(list);
+    const strip = list.querySelector<HTMLElement>('.codex-scroll');
+    strip?.addEventListener('scroll', () => this.stripEdges(), { passive: true });
+    requestAnimationFrame(() => { if (list.isConnected) this.stripEdges(); });
   }
 
   /** Puts a tapped matrix cell's breakdown away on the next press anywhere but another cell
@@ -254,26 +330,50 @@ export class CodexScreen implements Screen {
       }
       return { e: best, how };
     };
+    // A tapped cell or tile shows its breakdown beside it (touch has no hover).
+    const pin = (e: Event, why: string) => {
+      if ((e as PointerEvent).pointerType === 'mouse') return;
+      const rc = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      showTooltip(rc.right, rc.bottom, h('div', { style: 'white-space:pre-line' }, why));
+      // Pinned beside its cell: the next touch anywhere but another cell puts it away.
+      window.addEventListener('pointerdown', this.mxDismiss, true); // one shared listener: re-adding it is a no-op
+    };
+    const whyOf = (a: StructType, b: StructType, r: { e: number; how: string }) => r.e ? `${a.type} → ${b.type}\n${r.how}\nExpected ${r.e.toFixed(2)} HP per attack (of ${b.maxHealth})` : `${a.type} cannot reach ${b.type}`;
+    const sprite = (t: StructType, cls: string) => { const img = h('img', { alt: '' }); void spriteDataUrl(t.id).then((u) => { img.src = u; }); return h('span', { class: 'mx-sprite ' + cls }, img); };
+    const close = h('button', { class: 'btn ghost icon', 'aria-label': 'Close', title: 'Close', onclick: () => { this.mxDismiss(); this.root.querySelector('.codex-matrix')?.remove(); } }, '✕');
+    const headEl = h('div', { class: 'panel-head', title: 'Best weapon that can reach, after accuracy, the target’s evasion (jamming vs smart, maneuvers vs ballistic) and armour. Guards, counters and stealth come on top. Hover or tap a cell for the breakdown.' },
+      h('span', { class: 'cx-title' }, h('span', { html: icon('battle', 16) }), h('span', { class: 't-label' }, 'Matchups')), h('span', { class: 't-tiny c-hint mx-sub' }, 'damage per attack'), close);
+    // Narrow screens (a phone, the TV): no grid of numbers. One row per attacker: its picture and name,
+    // then every target as a picture with a tick (in reach, greener the harder it hits) or a cross.
+    if (this.layoutMode() !== 'wide') {
+      const rowsEl = fleet.map((a) => h('div', { class: 'mx-line' },
+        h('button', { class: 'mx-who', title: `Show ${a.type}`, 'aria-label': a.type, onclick: () => { void this.show(a.id, true); } }, sprite(a, 'att'), h('span', { class: 'mx-name' }, a.type)),
+        h('div', { class: 'mx-targets' }, ...fleet.map((b) => {
+          const r = expected(a, b);
+          const k = Math.min(1, r.e / 2);
+          const why = whyOf(a, b, r);
+          return h('span', { class: 'mx-t' + (r.e ? ' hit' : ' miss'), title: why, role: 'img', 'aria-label': why.split('\n')[0], style: r.e ? `--k:${(0.25 + k * 0.75).toFixed(2)}` : '', onclick: (e: Event) => pin(e, why) },
+            sprite(b, 'tgt'), h('b', { class: 'mx-mark' }, r.e ? '✓' : '✕'));
+        }))));
+      const box = h('div', { class: 'codex-matrix panel compact', onclick: (e: Event) => { if (!(e.target as HTMLElement).closest('.mx-t')) hideTooltip(); } },
+        headEl,
+        h('div', { class: 'panel-body col mx-list scroll', onscroll: () => hideTooltip() }, ...rowsEl));
+      this.root.appendChild(box);
+      return;
+    }
     const head = h('tr', null, h('th', { class: 't-label c-hint' }, 'Attacker ▸ target'), fleet.map((t) => h('th', { class: 'mx-col', title: t.type }, h('span', null, t.classAbbreviation || t.type))));
     const rows = fleet.map((a) => h('tr', null,
       h('th', { class: 'mx-row', onclick: () => { void this.show(a.id, true); } }, a.type),
       fleet.map((b) => {
         const r = expected(a, b);
         const k = Math.min(1, r.e / 2);
-        const why = r.e ? `${a.type} → ${b.type}\n${r.how}\nExpected ${r.e.toFixed(2)} HP per attack (of ${b.maxHealth})` : `${a.type} cannot reach ${b.type}`;
+        const why = whyOf(a, b, r);
         // The title covers hover; a tap (touch has no hover) opens the same breakdown beside the cell.
-        return h('td', { class: 'mx-cell' + (r.e ? '' : ' none'), title: why, onclick: (e: Event) => {
-          if ((e as PointerEvent).pointerType === 'mouse') return;
-          const rc = (e.currentTarget as HTMLElement).getBoundingClientRect();
-          showTooltip(rc.right, rc.bottom, h('div', { style: 'white-space:pre-line' }, why));
-          // Pinned beside its cell: the next touch anywhere but another cell puts it away.
-          window.addEventListener('pointerdown', this.mxDismiss, true); // one shared listener: re-adding it is a no-op
-        }, style: r.e ? `background: rgba(67,205,182,${0.12 + k * 0.6}); color: ${k > 0.6 ? '#0b1a20' : 'var(--text-body)'}` : '' }, r.e ? r.e.toFixed(1) : '·');
+        return h('td', { class: 'mx-cell' + (r.e ? '' : ' none'), title: why, onclick: (e: Event) => pin(e, why),
+          style: r.e ? `background: rgba(67,205,182,${0.12 + k * 0.6}); color: ${k > 0.6 ? '#0b1a20' : 'var(--text-body)'}` : '' }, r.e ? r.e.toFixed(1) : '·');
       })));
     const box = h('div', { class: 'codex-matrix panel', onclick: (e: Event) => { if (!(e.target as HTMLElement).closest('.mx-cell')) hideTooltip(); } },
-      h('div', { class: 'panel-head', title: 'Best weapon that can reach, after accuracy, the target’s evasion (jamming vs smart, maneuvers vs ballistic) and armour. Guards, counters and stealth come on top. Hover or tap a cell for the breakdown.' },
-        h('span', { class: 'cx-title' }, h('span', { html: icon('battle', 16) }), h('span', { class: 't-label' }, 'Matchups')), h('span', { class: 't-tiny c-hint' }, 'damage per attack'),
-        h('button', { class: 'btn ghost icon', 'aria-label': 'Close', title: 'Close', onclick: () => { this.mxDismiss(); box.remove(); } }, '✕')),
+      headEl,
       h('div', { class: 'panel-body col' },
         h('div', { class: 'scroll', style: 'overflow:auto', onscroll: () => hideTooltip() }, h('table', { class: 'matrix' }, h('thead', null, head), h('tbody', null, rows)))));
     this.root.appendChild(box);
@@ -340,6 +440,7 @@ export class CodexScreen implements Screen {
     // The panel is rebuilt: the cursor stays on its control (paint, damage), or, when the unit itself
     // changed under it (a Hits portrait), lands on the unit's own tile in the list.
     keepFocus(this.root, () => this.renderDetail(t), () => this.root.querySelector<HTMLElement>('.cx-item.active'));
+    this.fitDetail();
   }
 
   /** The outgoing hull comes apart into light that drains back into the lens. */
@@ -404,7 +505,7 @@ export class CodexScreen implements Screen {
     })) : h('span', { class: 'dc-num c-hint', title: 'None' }, '—');
     const lore = STRUCT_LORE[t.id];
     const about = h('button', { class: 'btn ghost mini cx-about' + (this.why ? ' active' : ''), 'data-k': 'cx:about', 'aria-pressed': this.why ? 'true' : 'false', title: 'About: the story and the words behind the pictures',
-      onclick: () => { this.why = !this.why; audio.play('select'); detail.classList.toggle('dc-why', this.why); about.classList.toggle('active', this.why); about.setAttribute('aria-pressed', this.why ? 'true' : 'false'); } },
+      onclick: () => { this.why = !this.why; audio.play('select'); detail.classList.toggle('dc-why', this.why); about.classList.toggle('active', this.why); about.setAttribute('aria-pressed', this.why ? 'true' : 'false'); this.fitDetail(); } },
     h('span', { html: icon('help', 14) }), 'About');
 
     const detail = h('div', { class: 'codex-detail panel ' + (this.faction === 'enemy' ? 'enemy' : 'player') + (this.why ? ' dc-why' : '') },
@@ -449,6 +550,8 @@ export class CodexScreen implements Screen {
         ),
       ));
     this.root.appendChild(detail);
+    this.watchDetail(detail);
+    detail.querySelector<HTMLElement>(':scope > .panel-body')?.addEventListener('scroll', () => this.detailEdges(), { passive: true });
   }
 
   /** Expert detail inside a title (titles can't hold an .x-only span). */
@@ -484,6 +587,7 @@ export class CodexScreen implements Screen {
       el.replaceChildren(head(), body);
       const watch = last;
       if (watch) el.append(h('button', { class: 'btn ghost mini', style: 'align-self:flex-start', title: 'Watch it fight', onclick: () => { audio.play('select'); this.navigate('/combat/' + watch); } }, h('span', { html: icon('play', 12) }), 'Watch'));
+      this.fitDetail();
     }).catch(() => el.replaceChildren(head(), h('div', { class: 't-tiny c-hint' }, 'The combat archive could not be read.')));
     return el;
   }
@@ -593,7 +697,8 @@ export class CodexScreen implements Screen {
       e.preventDefault();
       void this.show(ids[(e.key === 'ArrowDown' || e.key === 'ArrowRight' ? i + 1 : i - 1 + ids.length) % ids.length], true);
       const tile = this.root.querySelector<HTMLElement>('.cx-item.active');
-      if (tile) { tile.focus({ preventScroll: true }); tile.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+      // The strip brings the cursor's portrait to its middle, clear of the edge fades.
+      if (tile) { tile.focus({ preventScroll: true }); tile.scrollIntoView({ block: 'nearest', inline: 'center' }); }
     };
     c.addEventListener('pointerdown', down);
     window.addEventListener('pointermove', move);

@@ -34,83 +34,6 @@
    881,
    158,
    14
-  ],
-  "div.topbar#1": [
-   0,
-   0,
-   1440,
-   44,
-   14
-  ],
-  "a.brand#1": [
-   12,
-   7,
-   133,
-   28,
-   14
-  ],
-  "button.hub[Base]#1": [
-   157,
-   2,
-   38,
-   38,
-   14
-  ],
-  "button.hub[Battle]#1": [
-   201,
-   2,
-   38,
-   38,
-   14
-  ],
-  "button.active.hub[Explore]#1": [
-   245,
-   2,
-   38,
-   38,
-   14
-  ],
-  "button.hub[Trade]#1": [
-   289,
-   2,
-   38,
-   38,
-   14
-  ],
-  "button.hub[Team]#1": [
-   333,
-   2,
-   38,
-   38,
-   14
-  ],
-  "button.hub[Lab]#1": [
-   377,
-   2,
-   38,
-   38,
-   14
-  ],
-  "button.btn.cp-dock-btn.ghost.icon[Chat]#1": [
-   1107,
-   3,
-   36,
-   36,
-   12
-  ],
-  "button.empty.wallet-chip[Enlist]#1": [
-   1151,
-   4,
-   87,
-   34,
-   14
-  ],
-  "button.vmu[VMU: An egg · win a battle to hatch it]#1": [
-   1246,
-   -2,
-   66,
-   46,
-   14
   ]
  },
  "/galaxy#hud": {
@@ -159,61 +82,61 @@
   "button.hub[Base]#1": [
    157,
    2,
-   38,
+   91,
    38,
    14
   ],
   "button.hub[Battle]#1": [
-   201,
+   254,
    2,
-   38,
+   107,
    38,
    14
   ],
   "button.active.hub[Explore]#1": [
-   245,
+   368,
    2,
-   38,
+   118,
    38,
    14
   ],
   "button.hub[Trade]#1": [
-   289,
+   491,
    2,
-   38,
+   102,
    38,
    14
   ],
   "button.hub[Team]#1": [
-   333,
+   599,
    2,
-   38,
+   95,
    38,
    14
   ],
   "button.hub[Lab]#1": [
-   377,
+   700,
    2,
-   38,
+   82,
    38,
    14
   ],
   "button.btn.cp-dock-btn.ghost.icon[Chat]#1": [
-   1107,
+   1139,
    3,
    36,
    36,
    12
   ],
   "button.empty.wallet-chip[Enlist]#1": [
-   1151,
+   1183,
    4,
    87,
    34,
    14
   ],
   "button.vmu[VMU: An egg · win a battle to hatch it]#1": [
-   1246,
+   1278,
    -2,
    66,
    46,
@@ -225,7 +148,7 @@
    16,
    60,
    320,
-   728,
+   684,
    14
   ],
   "div.dcb-head.panel-head#1": [
@@ -239,7 +162,7 @@
    1140,
    60,
    284,
-   824,
+   170,
    14
   ],
   "div.dcb-head.panel-head#2": [
@@ -287,61 +210,61 @@
   "button.hub[Base]#1": [
    157,
    2,
-   38,
+   91,
    38,
    14
   ],
   "button.hub[Battle]#1": [
-   201,
+   254,
    2,
-   38,
+   107,
    38,
    14
   ],
   "button.active.hub[Explore]#1": [
-   245,
+   368,
    2,
-   38,
+   118,
    38,
    14
   ],
   "button.hub[Trade]#1": [
-   289,
+   491,
    2,
-   38,
+   102,
    38,
    14
   ],
   "button.hub[Team]#1": [
-   333,
+   599,
    2,
-   38,
+   95,
    38,
    14
   ],
   "button.hub[Lab]#1": [
-   377,
+   700,
    2,
-   38,
+   82,
    38,
    14
   ],
   "button.btn.cp-dock-btn.ghost.icon[Chat]#1": [
-   1107,
+   1139,
    3,
    36,
    36,
    12
   ],
   "button.empty.wallet-chip[Enlist]#1": [
-   1151,
+   1183,
    4,
    87,
    34,
    14
   ],
   "button.vmu[VMU: An egg · win a battle to hatch it]#1": [
-   1246,
+   1278,
    -2,
    66,
    46,
@@ -373,61 +296,61 @@
   "button.active.hub[Base]#1": [
    157,
    2,
-   38,
+   91,
    38,
    14
   ],
   "button.hub[Battle]#1": [
-   201,
+   254,
    2,
-   38,
+   107,
    38,
    14
   ],
   "button.hub[Explore]#1": [
-   245,
+   368,
    2,
-   38,
+   118,
    38,
    14
   ],
   "button.hub[Trade]#1": [
-   289,
+   491,
    2,
-   38,
+   102,
    38,
    14
   ],
   "button.hub[Team]#1": [
-   333,
+   599,
    2,
-   38,
+   95,
    38,
    14
   ],
   "button.hub[Lab]#1": [
-   377,
+   700,
    2,
-   38,
+   82,
    38,
    14
   ],
   "button.btn.cp-dock-btn.ghost.icon[Chat]#1": [
-   1107,
+   1139,
    3,
    36,
    36,
    12
   ],
   "button.empty.wallet-chip[Enlist]#1": [
-   1151,
+   1183,
    4,
    87,
    34,
    14
   ],
   "button.vmu[VMU: An egg · win a battle to hatch it]#1": [
-   1246,
+   1278,
    -2,
    66,
    46,
@@ -494,61 +417,61 @@
   "button.hub[Base]#1": [
    157,
    2,
-   38,
+   91,
    38,
    14
   ],
   "button.active.hub[Battle]#1": [
-   201,
+   254,
    2,
-   38,
+   107,
    38,
    14
   ],
   "button.hub[Explore]#1": [
-   245,
+   368,
    2,
-   38,
+   118,
    38,
    14
   ],
   "button.hub[Trade]#1": [
-   289,
+   491,
    2,
-   38,
+   102,
    38,
    14
   ],
   "button.hub[Team]#1": [
-   333,
+   599,
    2,
-   38,
+   95,
    38,
    14
   ],
   "button.hub[Lab]#1": [
-   377,
+   700,
    2,
-   38,
+   82,
    38,
    14
   ],
   "button.btn.cp-dock-btn.ghost.icon[Chat]#1": [
-   1107,
+   1139,
    3,
    36,
    36,
    12
   ],
   "button.empty.wallet-chip[Enlist]#1": [
-   1151,
+   1183,
    4,
    87,
    34,
    14
   ],
   "button.vmu[VMU: An egg · win a battle to hatch it]#1": [
-   1246,
+   1278,
    -2,
    66,
    46,
@@ -587,61 +510,61 @@
   "button.hub[Base]#1": [
    157,
    2,
-   38,
+   91,
    38,
    14
   ],
   "button.hub[Battle]#1": [
-   201,
+   254,
    2,
-   38,
+   107,
    38,
    14
   ],
   "button.active.hub[Explore]#1": [
-   245,
+   368,
    2,
-   38,
+   118,
    38,
    14
   ],
   "button.hub[Trade]#1": [
-   289,
+   491,
    2,
-   38,
+   102,
    38,
    14
   ],
   "button.hub[Team]#1": [
-   333,
+   599,
    2,
-   38,
+   95,
    38,
    14
   ],
   "button.hub[Lab]#1": [
-   377,
+   700,
    2,
-   38,
+   82,
    38,
    14
   ],
   "button.btn.cp-dock-btn.ghost.icon[Chat]#1": [
-   1107,
+   1139,
    3,
    36,
    36,
    12
   ],
   "button.empty.wallet-chip[Enlist]#1": [
-   1151,
+   1183,
    4,
    87,
    34,
    14
   ],
   "button.vmu[VMU: An egg · win a battle to hatch it]#1": [
-   1246,
+   1278,
    -2,
    66,
    46,
@@ -680,61 +603,61 @@
   "button.hub[Base]#1": [
    157,
    2,
-   38,
+   91,
    38,
    14
   ],
   "button.active.hub[Battle]#1": [
-   201,
+   254,
    2,
-   38,
+   107,
    38,
    14
   ],
   "button.hub[Explore]#1": [
-   245,
+   368,
    2,
-   38,
+   118,
    38,
    14
   ],
   "button.hub[Trade]#1": [
-   289,
+   491,
    2,
-   38,
+   102,
    38,
    14
   ],
   "button.hub[Team]#1": [
-   333,
+   599,
    2,
-   38,
+   95,
    38,
    14
   ],
   "button.hub[Lab]#1": [
-   377,
+   700,
    2,
-   38,
+   82,
    38,
    14
   ],
   "button.btn.cp-dock-btn.ghost.icon[Chat]#1": [
-   1107,
+   1139,
    3,
    36,
    36,
    12
   ],
   "button.empty.wallet-chip[Enlist]#1": [
-   1151,
+   1183,
    4,
    87,
    34,
    14
   ],
   "button.vmu[VMU: An egg · win a battle to hatch it]#1": [
-   1246,
+   1278,
    -2,
    66,
    46,
@@ -756,11 +679,11 @@
    48,
    14
   ],
-  "div.codex-detail.panel.player#1": [
+  "div.codex-detail.more-below.panel.player.snapped#1": [
    1054,
    60,
    370,
-   782,
+   759,
    14
   ],
   "div.panel-head#2": [
@@ -794,61 +717,61 @@
   "button.hub[Base]#1": [
    157,
    2,
-   38,
+   91,
    38,
    14
   ],
   "button.active.hub[Battle]#1": [
-   201,
+   254,
    2,
-   38,
+   107,
    38,
    14
   ],
   "button.hub[Explore]#1": [
-   245,
+   368,
    2,
-   38,
+   118,
    38,
    14
   ],
   "button.hub[Trade]#1": [
-   289,
+   491,
    2,
-   38,
+   102,
    38,
    14
   ],
   "button.hub[Team]#1": [
-   333,
+   599,
    2,
-   38,
+   95,
    38,
    14
   ],
   "button.hub[Lab]#1": [
-   377,
+   700,
    2,
-   38,
+   82,
    38,
    14
   ],
   "button.btn.cp-dock-btn.ghost.icon[Chat]#1": [
-   1107,
+   1139,
    3,
    36,
    36,
    12
   ],
   "button.empty.wallet-chip[Enlist]#1": [
-   1151,
+   1183,
    4,
    87,
    34,
    14
   ],
   "button.vmu[VMU: An egg · win a battle to hatch it]#1": [
-   1246,
+   1278,
    -2,
    66,
    46,
@@ -908,61 +831,61 @@
   "button.hub[Base]#1": [
    157,
    2,
-   38,
+   91,
    38,
    14
   ],
   "button.hub[Battle]#1": [
-   201,
+   254,
    2,
-   38,
+   107,
    38,
    14
   ],
   "button.hub[Explore]#1": [
-   245,
+   368,
    2,
-   38,
+   118,
    38,
    14
   ],
   "button.active.hub[Trade]#1": [
-   289,
+   491,
    2,
-   38,
+   102,
    38,
    14
   ],
   "button.hub[Team]#1": [
-   333,
+   599,
    2,
-   38,
+   95,
    38,
    14
   ],
   "button.hub[Lab]#1": [
-   377,
+   700,
    2,
-   38,
+   82,
    38,
    14
   ],
   "button.btn.cp-dock-btn.ghost.icon[Chat]#1": [
-   1107,
+   1139,
    3,
    36,
    36,
    12
   ],
   "button.empty.wallet-chip[Enlist]#1": [
-   1151,
+   1183,
    6,
    87,
    30,
    14
   ],
   "button.vmu[VMU: An egg · win a battle to hatch it]#1": [
-   1246,
+   1278,
    -2,
    66,
    46,
@@ -974,7 +897,7 @@
    10,
    52,
    1420,
-   838,
+   358,
    14
   ],
   "div.dct-guild-head.panel-head#1": [
@@ -1064,61 +987,61 @@
   "button.hub[Base]#1": [
    157,
    2,
-   38,
+   91,
    38,
    14
   ],
   "button.hub[Battle]#1": [
-   201,
+   254,
    2,
-   38,
+   107,
    38,
    14
   ],
   "button.hub[Explore]#1": [
-   245,
+   368,
    2,
-   38,
+   118,
    38,
    14
   ],
   "button.hub[Trade]#1": [
-   289,
+   491,
    2,
-   38,
+   102,
    38,
    14
   ],
   "button.active.hub[Team]#1": [
-   333,
+   599,
    2,
-   38,
+   95,
    38,
    14
   ],
   "button.hub[Lab]#1": [
-   377,
+   700,
    2,
-   38,
+   82,
    38,
    14
   ],
   "button.btn.cp-dock-btn.ghost.icon[Chat]#1": [
-   1107,
+   1139,
    3,
    36,
    36,
    12
   ],
   "button.empty.wallet-chip[Enlist]#1": [
-   1151,
+   1183,
    4,
    87,
    34,
    14
   ],
   "button.vmu[VMU: An egg · win a battle to hatch it]#1": [
-   1246,
+   1278,
    -2,
    66,
    46,
@@ -1157,61 +1080,61 @@
   "button.hub[Base]#1": [
    157,
    2,
-   38,
+   91,
    38,
    14
   ],
   "button.hub[Battle]#1": [
-   201,
+   254,
    2,
-   38,
+   107,
    38,
    14
   ],
   "button.hub[Explore]#1": [
-   245,
+   368,
    2,
-   38,
+   118,
    38,
    14
   ],
   "button.hub[Trade]#1": [
-   289,
+   491,
    2,
-   38,
+   102,
    38,
    14
   ],
   "button.active.hub[Team]#1": [
-   333,
+   599,
    2,
-   38,
+   95,
    38,
    14
   ],
   "button.hub[Lab]#1": [
-   377,
+   700,
    2,
-   38,
+   82,
    38,
    14
   ],
   "button.btn.cp-dock-btn.ghost.icon[Chat]#1": [
-   1107,
+   1139,
    3,
    36,
    36,
    12
   ],
   "button.empty.wallet-chip[Enlist]#1": [
-   1151,
+   1183,
    4,
    87,
    34,
    14
   ],
   "button.vmu[VMU: An egg · win a battle to hatch it]#1": [
-   1246,
+   1278,
    -2,
    66,
    46,
@@ -1313,61 +1236,61 @@
   "button.hub[Base]#1": [
    157,
    2,
-   38,
+   91,
    38,
    14
   ],
   "button.hub[Battle]#1": [
-   201,
+   254,
    2,
-   38,
+   107,
    38,
    14
   ],
   "button.hub[Explore]#1": [
-   245,
+   368,
    2,
-   38,
+   118,
    38,
    14
   ],
   "button.hub[Trade]#1": [
-   289,
+   491,
    2,
-   38,
+   102,
    38,
    14
   ],
   "button.hub[Team]#1": [
-   333,
+   599,
    2,
-   38,
+   95,
    38,
    14
   ],
   "button.hub[Lab]#1": [
-   377,
+   700,
    2,
-   38,
+   82,
    38,
    14
   ],
   "button.btn.cp-dock-btn.ghost.icon[Chat]#1": [
-   1107,
+   1139,
    3,
    36,
    36,
    12
   ],
   "button.empty.wallet-chip[Enlist]#1": [
-   1151,
+   1183,
    4,
    87,
    34,
    14
   ],
   "button.vmu[VMU: An egg · win a battle to hatch it]#1": [
-   1246,
+   1278,
    -2,
    66,
    46,
@@ -1379,7 +1302,7 @@
    10,
    52,
    1420,
-   838,
+   466,
    14
   ],
   "div.dc-ops-head.panel-head#1": [
@@ -1518,61 +1441,61 @@
   "button.active.hub[Base]#1": [
    157,
    2,
-   38,
+   91,
    38,
    14
   ],
   "button.hub[Battle]#1": [
-   201,
+   254,
    2,
-   38,
+   107,
    38,
    14
   ],
   "button.hub[Explore]#1": [
-   245,
+   368,
    2,
-   38,
+   118,
    38,
    14
   ],
   "button.hub[Trade]#1": [
-   289,
+   491,
    2,
-   38,
+   102,
    38,
    14
   ],
   "button.hub[Team]#1": [
-   333,
+   599,
    2,
-   38,
+   95,
    38,
    14
   ],
   "button.hub[Lab]#1": [
-   377,
+   700,
    2,
-   38,
+   82,
    38,
    14
   ],
   "button.btn.cp-dock-btn.ghost.icon[Chat]#1": [
-   1107,
+   1139,
    3,
    36,
    36,
    12
   ],
   "button.empty.wallet-chip[Enlist]#1": [
-   1151,
+   1183,
    4,
    87,
    34,
    14
   ],
   "button.vmu[VMU: An egg · win a battle to hatch it]#1": [
-   1246,
+   1278,
    -2,
    66,
    46,
@@ -1584,7 +1507,7 @@
    10,
    52,
    1420,
-   838,
+   296,
    14
   ],
   "div.dc-ops-head.panel-head#1": [
@@ -1618,61 +1541,61 @@
   "button.hub[Base]#1": [
    157,
    2,
-   38,
+   91,
    38,
    14
   ],
   "button.hub[Battle]#1": [
-   201,
+   254,
    2,
-   38,
+   107,
    38,
    14
   ],
   "button.hub[Explore]#1": [
-   245,
+   368,
    2,
-   38,
+   118,
    38,
    14
   ],
   "button.hub[Trade]#1": [
-   289,
+   491,
    2,
-   38,
+   102,
    38,
    14
   ],
   "button.hub[Team]#1": [
-   333,
+   599,
    2,
-   38,
+   95,
    38,
    14
   ],
   "button.active.hub[Lab]#1": [
-   377,
+   700,
    2,
-   38,
+   82,
    38,
    14
   ],
   "button.btn.cp-dock-btn.ghost.icon[Chat]#1": [
-   1107,
+   1139,
    3,
    36,
    36,
    12
   ],
   "button.empty.wallet-chip[Enlist]#1": [
-   1151,
+   1183,
    4,
    87,
    34,
    14
   ],
   "button.vmu[VMU: An egg · win a battle to hatch it]#1": [
-   1246,
+   1278,
    -2,
    66,
    46,
@@ -1689,7 +1612,7 @@
   ],
   "button.big.btn.solid#1": [
    328,
-   294,
+   295,
    100,
    48,
    11
@@ -1711,61 +1634,61 @@
   "button.hub[Base]#1": [
    157,
    2,
-   38,
+   91,
    38,
    14
   ],
   "button.hub[Battle]#1": [
-   201,
+   254,
    2,
-   38,
+   107,
    38,
    14
   ],
   "button.hub[Explore]#1": [
-   245,
+   368,
    2,
-   38,
+   118,
    38,
    14
   ],
   "button.hub[Trade]#1": [
-   289,
+   491,
    2,
-   38,
+   102,
    38,
    14
   ],
   "button.hub[Team]#1": [
-   333,
+   599,
    2,
-   38,
+   95,
    38,
    14
   ],
   "button.active.hub[Lab]#1": [
-   377,
+   700,
    2,
-   38,
+   82,
    38,
    14
   ],
   "button.btn.cp-dock-btn.ghost.icon[Chat]#1": [
-   1107,
+   1139,
    3,
    36,
    36,
    12
   ],
   "button.empty.wallet-chip[Enlist]#1": [
-   1151,
+   1183,
    4,
    87,
    34,
    14
   ],
   "button.vmu[VMU: An egg · win a battle to hatch it]#1": [
-   1246,
+   1278,
    -2,
    66,
    46,
@@ -1832,61 +1755,61 @@
   "button.hub[Base]#1": [
    157,
    2,
-   38,
+   91,
    38,
    14
   ],
   "button.hub[Battle]#1": [
-   201,
+   254,
    2,
-   38,
+   107,
    38,
    14
   ],
   "button.active.hub[Explore]#1": [
-   245,
+   368,
    2,
-   38,
+   118,
    38,
    14
   ],
   "button.hub[Trade]#1": [
-   289,
+   491,
    2,
-   38,
+   102,
    38,
    14
   ],
   "button.hub[Team]#1": [
-   333,
+   599,
    2,
-   38,
+   95,
    38,
    14
   ],
   "button.hub[Lab]#1": [
-   377,
+   700,
    2,
-   38,
+   82,
    38,
    14
   ],
   "button.btn.cp-dock-btn.ghost.icon[Chat]#1": [
-   1107,
+   1139,
    3,
    36,
    36,
    12
   ],
   "button.empty.wallet-chip[Enlist]#1": [
-   1151,
+   1183,
    4,
    87,
    34,
    14
   ],
   "button.vmu[VMU: An egg · win a battle to hatch it]#1": [
-   1246,
+   1278,
    -2,
    66,
    46,

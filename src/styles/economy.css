@@ -2,7 +2,8 @@
  * red. Sections are bracketed panels; meters glow; nothing is rounded. */
 @import './deck.css';
 
-.economy .eco-frame { position: absolute; left: 50%; transform: translateX(-50%); top: 10px; bottom: 12px; width: min(1320px, calc(100vw - 28px));
+/* As tall as what is in it (top-anchored), growing to the floor; a long tab scrolls inside. */
+.economy .eco-frame { position: absolute; left: 50%; transform: translateX(-50%); top: 10px; bottom: auto; max-height: calc(100% - 22px); width: min(1320px, calc(100vw - 28px));
   display: flex; flex-direction: column; background: var(--panel-tex), linear-gradient(180deg, rgba(12,18,27,.88), rgba(8,12,19,.84)); border: 1px solid var(--hair);
   backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 30px 80px rgba(0,0,0,.5); animation: ecoIn .45s cubic-bezier(.2,.9,.2,1); }
 /* Lit corners (before) and a gold light along the top edge (after). */
@@ -33,11 +34,10 @@
 .economy .etab.on { color: #F7CD7E; background: linear-gradient(180deg, transparent, rgba(235,170,73,.1)); text-shadow: 0 0 12px rgba(235,170,73,.55); }
 .economy .etab.on::after { content: ''; position: absolute; left: 8px; right: 8px; bottom: -1px; height: 2px; background: var(--text-neutral-primary); box-shadow: 0 0 10px var(--text-neutral-primary); }
 
-.economy .eco-scroll { flex: 1; min-height: 0; padding: 14px 16px 28px; }
+.economy .eco-scroll { flex: 0 1 auto; min-height: 0; padding: 14px 16px 28px; }
 .economy .eco-alerthost:not(:empty) { margin-bottom: 12px; }
 .economy .eco-tab { display: flex; flex-direction: column; gap: 14px; animation: ecoFade .3s ease; }
 @keyframes ecoFade { from { opacity: 0; transform: translateY(4px); } }
-.economy .eco-loading { display: flex; align-items: center; gap: 10px; padding: 40px 10px; justify-content: center; color: var(--text-hint); }
 .economy .eco-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
 .economy .eco-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .economy .eco-hide { display: none !important; }
@@ -194,7 +194,7 @@
   .economy .eco-cols { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 720px) {
-  .economy .eco-frame { top: 0; bottom: 0; width: 100vw; border-left: 0; border-right: 0; }
+  .economy .eco-frame { top: 0; bottom: auto; max-height: 100%; width: 100vw; border-left: 0; border-right: 0; }
   .economy .eco-head { flex-wrap: wrap; gap: 8px 12px; padding: 8px 12px; }
   .economy .eco-mark { font-size: 16px; letter-spacing: .3em; }
   .economy .eco-sub { display: none; }

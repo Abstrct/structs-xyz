@@ -68,8 +68,11 @@ body.expert .x-contents { display: contents; }
 body.expert .tb-conn { display: none; }
 
 /* ── The More menu ──────────────────────────────────────────────────────── */
+/* Never taller than the room under the top bar (the console's 480 lines once hid Sound, Picture and
+ * Health below the screen's edge): a long menu scrolls inside itself. */
 .more-menu { position: fixed; top: 46px; z-index: calc(var(--menu-z) + 5); width: min(300px, calc(100vw - 16px)); padding: 6px; display: flex; flex-direction: column; gap: 1px;
-  --panel-tint: linear-gradient(180deg, rgba(10,16,24,.96), rgba(7,11,17,.94)); animation: modalIn .16s cubic-bezier(.2,.9,.2,1); }
+  max-height: calc(var(--vh, 100vh) - 54px - var(--sa-t, 0px) - var(--sa-b, 0px) - var(--tabbar-h, 0px)); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+  --panel-tint: linear-gradient(180deg, #1A2E8E, #101F66); animation: modalIn .16s cubic-bezier(.2,.9,.2,1); }
 .mm-item { appearance: none; display: grid; grid-template-columns: 20px 1fr auto; gap: 8px; align-items: center; padding: 8px 10px; background: none; border: 1px solid transparent; color: var(--text-body); text-align: left; cursor: pointer; font: inherit; }
 .mm-item:hover, .mm-item:focus-visible { background: rgba(150,190,204,.08); border-color: var(--hair); outline: none; }
 .mm-ico { color: var(--accent-primary); display: inline-flex; }
@@ -79,7 +82,7 @@ body.expert .tb-conn { display: none; }
 
 /* ── Guide cards ────────────────────────────────────────────────────────── */
 .guide-card { --hub: var(--accent-primary); position: fixed; top: 56px; left: 50%; transform: translateX(-50%); z-index: calc(var(--menu-z) - 1); width: min(460px, calc(100vw - 16px)); padding: 12px 14px 12px;
-  --tone: var(--hub); --tone-line: color-mix(in srgb, var(--hub) 70%, transparent); --panel-tint: linear-gradient(180deg, rgba(10,18,26,.95), rgba(7,12,18,.93)); border-color: color-mix(in srgb, var(--hub) 45%, transparent);
+  --tone: var(--hub); --tone-line: color-mix(in srgb, var(--hub) 70%, transparent); --panel-tint: linear-gradient(180deg, #1A2E8E, #101F66); border-color: color-mix(in srgb, var(--hub) 45%, transparent);
   display: flex; flex-direction: column; gap: 8px; animation: guideIn .32s cubic-bezier(.2,.9,.2,1); box-shadow: 0 24px 60px -16px rgba(0,0,0,.85), 0 0 30px -10px color-mix(in srgb, var(--hub) 40%, transparent); }
 @keyframes guideIn { from { opacity: 0; transform: translate(-50%, -8px); } }
 @media (prefers-reduced-motion: reduce) { .guide-card { animation: none; } }

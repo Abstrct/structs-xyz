@@ -486,6 +486,12 @@ canvas#gl.dc { image-rendering: pixelated; }
 .mm-label { font-family: var(--font-chrome); font-weight: 900; font-size: 15px; letter-spacing: 0.02em; }
 kbd.mm-hint { font-size: 11px; padding: 0 6px; }
 .more-menu { width: min(240px, calc(100vw - 16px)); }
+/* Short screens (the console's 640×480, a phone on its side): two columns, so every row is on the
+ * screen at once and the pad's cursor reaches it. The rule between the halves spans both. */
+@media (max-height: 560px) {
+  .more-menu { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; column-gap: 4px; row-gap: 2px; width: min(440px, calc(100vw - 16px)); }
+  .more-menu .mm-sep { grid-column: 1 / -1; }
+}
 
 /* ── Battle pop-ups: big italic numbers with a hard drop shadow ─────────── */
 .floater { font-weight: 900; letter-spacing: 0.02em; color: #fff; text-shadow: 0 3px 0 var(--dc-deep), 0 0 2px var(--dc-deep); }
@@ -610,7 +616,7 @@ button.vmu:focus-visible { outline: 3px solid var(--dc-accent); outline-offset: 
  * 480-line screen elsewhere they drop to the bottom edge, clear of filters and tabs. */
 @media (max-height: 560px) { .toasts { bottom: 10px; } }
 body:has(.screen.battle) .toasts { top: 190px; bottom: auto; }
-@media (max-width: 760px) { body:has(.screen.battle) .toasts { top: 148px; } }
+@media (max-width: 760px) { body:has(.screen.battle) .toasts { top: 164px; } }
 /* While aiming, the "Fire! / Command Ship in reach" pill sits on top of the action bar: a coach
  * docked above the bar steps up by the pill's height so its OK is never under it. */
 .screen.battle:has(.action-bar .targeting-hint) .coach { margin-bottom: 52px; }

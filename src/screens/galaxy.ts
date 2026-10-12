@@ -8,7 +8,7 @@ import { tip } from '../ui/dcbase';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { PIXEL_RATIO, type Engine, type Screen } from '../core/engine';
-import { copyText, h, hideTooltip, portrait, showTooltip, toast } from '../core/dom';
+import { copyText, h, hideTooltip, holdNotices, portrait, showTooltip, toast } from '../core/dom';
 import { audio } from '../core/audio';
 import { wallet } from '../wallet/wallet';
 import { openVault } from '../ui/vault';
@@ -22,6 +22,8 @@ import { Effects } from '../gfx/fx';
 import type { Planet } from '../gfx/planet';
 import { GALAXY_RADIUS, planetPosition } from './galaxyLayout';
 import { dailyScenario } from '../sim/fleets';
+import { RANKS, record as service, xpFor } from '../game/record';
+import { dailyBest, dailyStreak, loadRecord } from './battle/record';
 import { latestAttacks, summarize, type CombatRecord } from '../chain/combat';
 import { commander } from '../chain/commander';
 import { enlisting } from '../game/enlist';
@@ -269,7 +271,11 @@ export class GalaxyScreen implements Screen {
     for (const item of store.feed.slice(-40)) this.addFeedRow(item, false);
     this.renderStats();
     if (params.focus) this.focusTimer = window.setTimeout(() => { if (this.root.isConnected) this.focusPlanet(params.focus, true); }, 400);
-    if (!this.titleShown) { this.titleShown = true; if (!params.focus) this.showTitle(); }
+    // The title shows once a visit, and again when a screen sends you back to the menu (a battle's
+    // Leave sets the flag): you land on the doors, not on the bare map.
+    let toMenu = false;
+    try { toMenu = sessionStorage.getItem('structs.menu') === '1'; sessionStorage.removeItem('structs.menu'); } catch { /* storage blocked */ }
+    if ((!this.titleShown || toMenu) && !this.titleUp) { this.titleShown = true; if (!params.focus) this.showTitle(); }
   }
 
   /** Roster and planets; a failure retries every 15 s while the galaxy is on screen. */
@@ -292,6 +298,8 @@ export class GalaxyScreen implements Screen {
   }
 
   exit() {
+    document.body.classList.remove('press-start');
+    holdNotices(false);
     clearTimeout(this.diveTimer);
     clearTimeout(this.retryTimer);
     clearTimeout(this.combatRetry);
@@ -644,6 +652,12 @@ export class GalaxyScreen implements Screen {
     const set = (key: string, value: string, cls = '') => {
       const t = this.stats[key];
       if (!t) return;
+      // Still on its way from the chain: a signal meter where the number will land (dc-polish.css).
+      if (value === '…') {
+        if (!t.n.querySelector('.dcp-bars')) t.n.replaceChildren(h('span', { class: 'dcp-bars', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('i')));
+        t.el.setAttribute('aria-label', t.name('loading'));
+        return;
+      }
       t.n.textContent = value;
       t.n.className = 'num ' + cls;
       t.pic.className = 'dw-ico ' + cls;
@@ -796,6 +810,7 @@ export class GalaxyScreen implements Screen {
     const close = () => {
       if (o.classList.contains('out')) return;
       o.classList.add('out');
+      document.body.classList.remove('press-start');
       this.titleUp = false;
       this.root.classList.remove('titled');
       window.removeEventListener('keydown', key);
@@ -803,7 +818,9 @@ export class GalaxyScreen implements Screen {
       window.removeEventListener('pointerdown', poke, true);
       window.removeEventListener('focusin', poke, true);
       clearTimeout(demoAt); clearInterval(demoTour);
-      offE(); offW();
+      offE(); offW(); offR();
+      window.removeEventListener('structs:progress', onProgress);
+      holdNotices(false);
       this.closeTitle = null;
       setTimeout(() => o.remove(), 600);
       // The galaxy's guide card waits for the title to step aside.
@@ -833,12 +850,51 @@ export class GalaxyScreen implements Screen {
       door('target', 'enemy', 'Battle', `Practice battle · today: ${daily.name}`, go('/sim')),
       door('academy', 'academy', 'Learn', academy.doneCount ? `Academy: ${academy.doneCount} of ${academy.total} lessons` : 'Academy: quick lessons with XP', go('/academy')),
       door('explore', 'secondary', 'Watch', 'The live galaxy', go(null)));
+    // The memory card: a returning player's rank, wins, today's daily and best gauntlet, one tap each.
+    // (A first visit has nothing to show, so it shows nothing.)
+    const save = h('div', { class: 'dc-save', role: 'group', 'aria-label': 'Your record' });
+    const paintSave = () => {
+      const rec = loadRecord(), xp = service.r.xp;
+      save.hidden = !rec.battles && !xp;
+      if (save.hidden) { save.replaceChildren(); return; }
+      const best = dailyBest(daily.key), streak = dailyStreak(daily.key);
+      let gauntlet = 0;
+      try { gauntlet = Number(localStorage.getItem('structs.gauntlet.best') || 0); } catch { /* none */ }
+      const rank = service.rank, next = RANKS[rank + 1];
+      const chip = (cls: string, ico: string, title: string, href: string, ...body: (Node | string | null)[]) =>
+        h('a', { class: 'dc-save-chip ' + cls, href, title, 'aria-label': title, 'data-k': cls.split(' ')[0], onclick: (e: Event) => {
+          e.preventDefault();
+          // Coming back, you're past PRESS START: the doors wait.
+          try { sessionStorage.setItem('structs.started', '1'); } catch { /* ignore */ }
+          go(href)();
+        } }, h('span', { class: 'dc-save-ico', html: icon(ico, 20) }), ...body);
+      // A repaint keeps the link in focus (a pad or keyboard player may be standing on it).
+      const was = save.contains(document.activeElement) ? (document.activeElement as HTMLElement).dataset.k : '';
+      save.replaceChildren(...[
+        chip('rank', 'rank', next ? `${RANKS[rank]} · ${formatInt(xp)} XP · ${formatInt(xpFor(rank + 1) - xp)} to ${next}` : `${RANKS[rank]} · ${formatInt(xp)} XP`, '/ops/record',
+          h('span', { class: 'dc-save-col' }, h('span', { class: 'dc-save-k' }, RANKS[rank]), h('i', { class: 'dc-save-bar' }, h('b', { style: `width:${Math.round(service.progress * 100)}%` })))),
+        rec.battles ? chip('wins', 'crown', `Battles won: ${rec.wins} of ${rec.battles}`, '/sim', h('span', { class: 'dc-save-n' }, formatInt(rec.wins))) : null,
+        chip('daily' + (best?.won ? ' won' : best ? '' : ' fresh'), 'daily', `Today: ${daily.name} · ${daily.twist.name}${best ? ' · ' + (best.won ? 'won' : 'not won yet') : ' · not played yet'}${streak > 1 ? ` · ${streak}-day streak` : ''}`, '/sim/daily',
+          h('span', { class: 'dc-save-n' }, best?.won ? '★' : best ? '…' : 'NEW'), streak > 1 ? h('span', { class: 'dc-save-sub' }, `${streak}×`) : null),
+        gauntlet ? chip('gauntlet', 'flag', `Gauntlet: best ${gauntlet} of 5 rounds`, '/sim', h('span', { class: 'dc-save-n' }, `${gauntlet}/5`)) : null,
+      ].filter((x): x is HTMLAnchorElement => !!x));
+      if (was) save.querySelector<HTMLElement>(`[data-k="${was}"]`)?.focus({ preventScroll: true });
+    };
+    paintSave();
+    // Missions credited late, a promotion, a daily won in another tab: the card keeps up.
+    const offR = service.onChange(() => paintSave());
+    const onProgress = () => paintSave();
+    window.addEventListener('structs:progress', onProgress);
     // START then A should be a fight, not a form: a visitor without a commander lands on Battle.
     const firstDoor = () => (wallet.active?.playerId ? doors.querySelector('.dc-door') : doors.querySelector('.dc-door.enemy')) as HTMLElement | null;
     const open = () => {
       if (o.classList.contains('menu')) return;
       wake();
       o.classList.add('menu');
+      // The bars come in with the doors (dc-nav.css): PRESS START is the logo and the galaxy alone.
+      // Rewards that landed meanwhile (missions credited, a promotion) play now, one by one.
+      document.body.classList.remove('press-start');
+      holdNotices(false);
       audio.play('confirm');
       try { sessionStorage.setItem('structs.started', '1'); } catch { /* ignore */ }
       firstDoor()?.focus({ preventScroll: true });
@@ -849,7 +905,7 @@ export class GalaxyScreen implements Screen {
     const o = h('div', { class: 'title-overlay dc-title' + (started ? ' menu' : '') },
       h('div', { class: 'title-inner' },
         h('div', { class: 'dc-logo' }, h('span', { class: 'dc-mark', html: MARK }), h('h1', { class: 'title-mark' }, 'STRUCTS')),
-        press, doors),
+        press, doors, save),
       h('div', { class: 'title-foot' }, stats,
         h('div', { class: 'title-links' },
           h('a', { href: 'https://playstructs.com', target: '_blank', rel: 'noopener' }, 'playstructs.com'),
@@ -857,6 +913,8 @@ export class GalaxyScreen implements Screen {
     // …and on a touch screen, a tap anywhere (but the links) is START.
     o.addEventListener('click', (e) => { if (!(e.target as Element).closest('a, button')) open(); });
     this.root.appendChild(o);
+    document.body.classList.toggle('press-start', !started);
+    holdNotices(!started);
     const key = (e: KeyboardEvent) => {
       if (!o.isConnected) { window.removeEventListener('keydown', key); return; }
       // A modal on top (the vault, a confirm) takes its own Enter and Escape; so does anything that
@@ -868,15 +926,24 @@ export class GalaxyScreen implements Screen {
       if (at0 && at0 !== document.body && at0.tagName !== 'CANVAS' && !o.contains(at0)) return;
       if (e.key === 'Escape') { e.preventDefault(); audio.play('confirm'); close(); return; }
       // PRESS START means any button: a letter, a number, Enter, Space or an arrow (Tab still walks).
+      // A memory-card link in focus (Tab got there) opens like any link: Enter is its own.
+      const inSave = !!save && save.contains(document.activeElement);
+      if (inSave && e.key === 'Enter') return;
       if (!o.classList.contains('menu')) {
         if (!e.metaKey && !e.ctrlKey && !e.altKey && (e.key.length === 1 || e.key === 'Enter' || e.key.startsWith('Arrow'))) { e.preventDefault(); open(); }
         return;
       }
-      // Left and right walk the doors; Enter opens the one in focus.
+      // Two rows: left and right walk the doors (or the card's links), down steps to the card and up
+      // back to the doors; Enter opens the one in focus. (The pad's d-pad arrives as these arrows.)
       const all = [...doors.querySelectorAll<HTMLElement>('.dc-door')];
-      const at = all.indexOf(document.activeElement as HTMLElement);
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); all[(at + 1) % all.length]?.focus(); audio.play('hover', 0.6); }
-      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); all[(at - 1 + all.length) % all.length]?.focus(); audio.play('hover', 0.6); }
+      const chips = save ? [...save.querySelectorAll<HTMLElement>('.dc-save-chip')] : [];
+      const row = inSave ? chips : all;
+      const at = row.indexOf(document.activeElement as HTMLElement);
+      const to = (el: HTMLElement | null | undefined) => { e.preventDefault(); if (el) { el.focus(); audio.play('hover', 0.6); } };
+      if (e.key === 'ArrowRight') to(row[(at + 1) % row.length]);
+      else if (e.key === 'ArrowLeft') to(row[(at - 1 + row.length) % row.length]);
+      else if (e.key === 'ArrowDown') to(inSave ? null : chips.length ? chips[Math.min(Math.max(at, 0), chips.length - 1)] : all[(at + 1) % all.length]);
+      else if (e.key === 'ArrowUp') to(inSave ? all[Math.min(Math.max(at, 0), all.length - 1)] : all[(at - 1 + all.length) % all.length]);
       else if (e.key === 'Enter' && at < 0) { e.preventDefault(); firstDoor()?.click(); }
     };
     window.addEventListener('keydown', key);

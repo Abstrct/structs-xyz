@@ -8,7 +8,7 @@ import { wallet } from '../../wallet/wallet';
 import { formatAlpha, formatInt, formatPower, humanize } from '../../core/util';
 import { grass } from '../../grass/grass';
 import type { BucketVolume, PlayerMetric, StatBucket } from '../../guild/api';
-import { section, slot, tile, type IntelCtx } from './common';
+import { section, slot, tile, waiting, type IntelCtx } from './common';
 import { barList, columns, lineChart, SERIES, sparkline } from './chart';
 
 /** Stable colour per category (identity, not rank). */
@@ -45,8 +45,8 @@ export function mountStats(ctx: IntelCtx) {
     const mlabels = Array.from({ length: minutes }, (_, i) => (i === minutes - 1 ? 'now' : `−${minutes - 1 - i}m`));
     live.replaceChildren(
       h('div', { class: 'tiles' },
-        tile('Block', grass.height ? formatInt(grass.height) : '…', 'the game clock', '', 'clock'),
-        tile('Block time', avg ? avg.toFixed(1) + ' s' : '…', `${gaps.length} blocks measured`, '', 'clock'),
+        tile('Block', grass.height ? formatInt(grass.height) : waiting(), 'the game clock', '', 'clock'),
+        tile('Block time', avg ? avg.toFixed(1) + ' s' : waiting(), `${gaps.length} blocks measured`, '', 'clock'),
         tile('Messages', formatInt(grass.received), 'since this page opened', '', 'news'),
         tile('Signal', formatInt(per[per.length - 1] || 0) + '/min', sparkline(per.slice(-15), SERIES[0], 100, 18), '', 'health')),
       h('div', { class: 'chart-card' }, h('div', { class: 't-label', title: 'Seconds between blocks' }, 'Block gaps'), columns(gaps.slice(-80), labels.slice(-80), { color: SERIES[2], format: (v) => v.toFixed(1) + ' s' })),

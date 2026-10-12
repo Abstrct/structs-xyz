@@ -20,6 +20,8 @@ import { kids } from '../ui/opsDock';
 import { replaceRoute } from '../core/nav';
 import { icon } from '../ui/icons';
 import { keepFocus } from '../ui/keepFocus';
+import { store } from '../chain/store';
+import { humanize } from '../core/util';
 
 /** Groups, in the order a commander reaches for them: a picture and a word each (the full name on
  * hover). Inside a group a message drops the group's own word ("Struct Attack" is "Attack" under Structs). */
@@ -40,6 +42,78 @@ const EVERYDAY = 'Everyday';
 const START_HERE = ['MsgStructAttack', 'MsgStructBuildInitiate', 'MsgFleetMove', 'MsgPlanetExplore', 'MsgStructDefenseSet', 'MsgPlayerSend'];
 
 const human = (n: string) => n.replace(/^Msg/, '').replace(/([a-z])([A-Z])/g, '$1 $2');
+
+/* ── Fields in plain words ────────────────────────────────────────────────
+ * Each box gets a name a player would use ("Your ship", "Targets"); the field's real name (the one
+ * in the code below it) sits small beside it, so the form still teaches the code. */
+const LABELS: Record<string, string> = {
+  operatingStructId: 'Your ship', targetStructId: 'Targets', weaponSystem: 'Weapon', structId: 'Your struct', structTypeId: 'What to build',
+  operatingAmbit: 'Layer', ambit: 'Layer', slot: 'Slot', playerId: 'Player', planetId: 'Planet', fleetId: 'Fleet', guildId: 'Guild',
+  defenderStructId: 'Guard', protectedStructId: 'Protect', destinationLocationId: 'Go to', locationType: 'Kind of place',
+  substationId: 'Substation', reactorId: 'Reactor', allocationId: 'Allocation', providerId: 'Provider', agreementId: 'Agreement', infusionId: 'Infusions',
+  amount: 'Amount', infuseAmount: 'Amount', to_address: 'Send to', from_address: 'From', address: 'Address', primaryAddress: 'Main address',
+  delegator_address: 'Your address', validator_address: 'Validator', name: 'Name', playerName: 'Name', pfp: 'Picture', endpoint: 'Web address',
+  permissions: 'Permissions', permission: 'Permission', objectId: 'Object', power: 'Power', capacity: 'Capacity', duration: 'Duration',
+  proof: 'Proof', nonce: 'Nonce', rate: 'Price', accessPolicy: 'Who can rent', owner: 'Owner', controller: 'Controller', guildRank: 'Rank', rank: 'Rank',
+};
+/** The same field can mean something else in one message. */
+const LABELS_BY_MSG: Record<string, Record<string, string>> = {
+  MsgFleetMove: { destinationLocationId: 'Fly to' },
+  MsgStructBuildInitiate: { playerId: 'Builder', operatingAmbit: 'Build on layer' },
+  MsgStructMove: { ambit: 'To layer', slot: 'To slot' },
+};
+function labelFor(msg: string, f: FieldSpec): string {
+  return LABELS_BY_MSG[msg]?.[f.name] || LABELS[f.name] || humanize(f.name.replace(/_?[iI]ds?$/, '')) || f.name;
+}
+/** A box that must be filled for the move to make sense (the proto marks none, so: the ids, the
+ * amounts and the names a move acts on; pictures, web addresses and other extras are optional). */
+const OPTIONAL = new Set(['pfp', 'endpoint', 'pfpClientRenderAttributes', 'playerPfp', 'playerPfpClientRenderAttributes', 'controller', 'owner', 'entrySubstationId', 'migrationSubstationId', 'proofPubKey', 'proofSignature']);
+const NEEDED_NUMBERS = new Set(['structTypeId', 'amountAlpha', 'amountToken', 'power', 'capacity', 'duration', 'capacityIncrease', 'capacityDecrease', 'durationIncrease']);
+function isRequired(f: FieldSpec): boolean {
+  if (OPTIONAL.has(f.name) || f.kind === 'bool' || f.kind === 'enum' || f.kind === 'msg') return false;
+  if (f.kind === 'string' || f.kind === 'coin' || f.kind === 'dec') return true;
+  return NEEDED_NUMBERS.has(f.name);
+}
+const isEmpty = (v: unknown) => v === undefined || v === '' || (Array.isArray(v) && !v.length);
+
+/** A plausible example for one box: the commander's own ids where there are some, else real ids
+ * from the galaxy, else ids of the right shape. */
+function exampleFor(msg: string, f: FieldSpec): string {
+  const me = wallet.active?.playerId ? empire.players.get(wallet.active.playerId) : undefined;
+  const mine = me ? [...empire.allStructs()].filter(([p]) => p.playerId === me.playerId).map(([, s]) => s) : [];
+  const armed = mine.filter((s) => s.type?.category === 'fleet' && !s.destroyed);
+  const someone = [...store.players.values()].find((p) => p.name && p.id !== me?.playerId && p.planetId);
+  const pick = (k: number) => [...store.players.values()][k];
+  switch (f.name) {
+    case 'operatingStructId': case 'structId': return armed[0]?.id || mine[0]?.id || '5-1204';
+    case 'targetStructId': return '5-1388';
+    case 'defenderStructId': return armed[0]?.id || '5-1204';
+    case 'protectedStructId': return armed[1]?.id || mine[1]?.id || '5-1205';
+    case 'weaponSystem': return 'primaryWeapon';
+    case 'playerId': case 'objectId': return me?.playerId || someone?.id || '1-404';
+    case 'planetId': return me?.planetId || someone?.planetId || '2-1';
+    case 'destinationLocationId': return someone?.planetId || pick(1)?.planetId || '2-7';
+    case 'fleetId': return me?.fleetId || someone?.fleetId || '9-1';
+    case 'guildId': return me?.guildId || [...store.guilds.keys()][0] || '0-1';
+    case 'structTypeId': return msg === 'MsgStructBuildInitiate' ? '5' : '1';
+    case 'operatingAmbit': case 'ambit': return msg === 'MsgStructBuildInitiate' ? 'air' : 'space';
+    case 'slot': return '0';
+    case 'locationType': return 'planet';
+    case 'name': case 'playerName': return 'Starlight Crew';
+    case 'nonce': return '1';
+    case 'proof': return '0000a1b2c3d4e5f6';
+  }
+  if (/[aA]ddress$/.test(f.name)) return me?.address || someone?.primaryAddress || '';
+  if (/substationId$/i.test(f.name)) return '4-1';
+  if (/reactorId$/.test(f.name)) return '3-1';
+  if (/allocationId$/.test(f.name)) return '6-1';
+  if (/providerId$/.test(f.name)) return '10-1';
+  if (/agreementId$/.test(f.name)) return '11-1';
+  if (f.kind === 'coin') return f.repeated ? '1000000ualpha' : '1000000';
+  if (f.kind === 'dec') return '0.05';
+  if (f.kind.startsWith('uint') || f.kind.startsWith('int')) return '1';
+  return '';
+}
 
 /** Charge-spending messages (ante maps.go) and the type field that prices them. */
 const CHARGED = new Set(['MsgStructActivate', 'MsgStructAttack', 'MsgStructBuildInitiate', 'MsgStructDefenseClear', 'MsgStructDefenseSet', 'MsgStructMove', 'MsgStructStealthActivate', 'MsgStructStealthDeactivate', 'MsgStructTrash']);
@@ -81,6 +155,13 @@ export class ForgeScreen extends PanelScreen {
     this.openGroup = this.current ? (GROUPS.find((g) => g.re.test(this.current!))?.label ?? EVERYDAY) : EVERYDAY;
     this.paintList();
     this.paintForm();
+    // Arriving on a message (a link, a lesson): its row sits in the middle of the list, not below
+    // the fold (on a phone the list is a short box over the form).
+    const on = this.list.querySelector<HTMLElement>('.fg-item.on');
+    if (on) {
+      const box = this.list.getBoundingClientRect(), r = on.getBoundingClientRect();
+      if (r.top < box.top || r.bottom > box.bottom) this.list.scrollTop += r.top - box.top - (box.height - r.height) / 2;
+    }
     // A vault unlocking (or locking) only changes who signs: the boxes keep what was typed.
     this.cleanup.push(wallet.onChange(() => (this.formSync ? this.formSync() : this.paintForm())));
   }
@@ -130,22 +211,46 @@ export class ForgeScreen extends PanelScreen {
     const code = h('code', { class: 'fg-code-line' });
     const status = h('div', { class: 't-tiny fg-status' });
     const fields = spec.fields.filter((f) => !(f.name === 'creator' || f.name === 'authority'));
+    /** The boxes still empty that the move needs, in plain words. */
+    const missing = () => fields.filter((f) => isRequired(f) && isEmpty(values[f.name]));
+    const setters = new Map<string, (v: string) => void>();
+    const boxes = new Map<string, HTMLElement>();
     const refresh = () => {
       const msg = this.build(name, spec, values);
       // Drafting without a vault is fine; only the signer is missing.
       const errs = validateMsg(msg).filter((e) => wallet.active || !/needs a creator/.test(e));
+      const need = missing();
       let bytes = 0;
       try { bytes = encodeMsg(msg).length; } catch { /* reported by validate */ }
       out.textContent = JSON.stringify({ '@type': msg.typeUrl, ...msg.value }, null, 2);
       code.textContent = callFor(name, fields.map((f) => f.name), values);
-      status.className = 't-tiny fg-status ' + (errs.length ? 'c-enemy' : 'c-player');
-      status.replaceChildren(...(errs.length ? [errs.join(' · ')] : [h('span', { html: icon('check', 14) }), 'Valid', h('span', { class: 'x-only' }, ` · ${bytes} bytes on the wire`)]));
+      for (const [k, el] of boxes) el.classList.toggle('need', need.some((f) => f.name === k));
+      // Valid only when the move is whole: every box it needs is filled and the chain's encoder takes it.
+      status.className = 't-tiny fg-status ' + (errs.length ? 'c-enemy' : need.length ? 'c-warn' : 'c-player');
+      status.replaceChildren(...(errs.length ? [errs.join(' · ')]
+        : need.length ? [h('span', { html: icon('help', 14) }), `Fill in: ${need.map((f) => labelFor(name, f)).join(', ')}`]
+        : [h('span', { html: icon('check', 14) }), 'Ready', h('span', { class: 'x-only' }, ` · ${bytes} bytes on the wire`)]));
     };
-    const inputs = fields.map((f) => this.field(name, f, values, refresh));
+    const inputs = fields.map((f) => { const el = this.field(name, f, values, refresh, setters); boxes.set(f.name, el); return el; });
+    const fillExample = () => {
+      for (const f of fields) { const v = exampleFor(name, f); const set = setters.get(f.name); if (v && set) set(v); }
+      audio.play('select');
+      refresh();
+    };
+    const example = h('button', { class: 'btn ghost fg-example', title: 'Fill every box with an example: your own ships if you have a commander, otherwise real-looking ids. Then read it as code.', onclick: fillExample },
+      h('span', { html: icon('dice', 14) }), 'Example');
     const queue = h('button', { class: 'btn solid big', title: 'Queue it: sign and send this message' }, h('span', { class: 'dc-face a' }, 'A'), 'Queue') as HTMLButtonElement;
     const simWord = h('span', null, 'Dry run');
     const sim = h('button', { class: 'btn secondary big', title: 'Dry run: ask the chain whether it would accept this, without sending it' }, h('span', { class: 'dc-face x' }, 'X'), simWord) as HTMLButtonElement;
+    /** Pressed with boxes still empty: say which, and nothing else happens. */
+    const blocked = () => {
+      if (!missing().length) return false;
+      audio.play('deny'); refresh();
+      status.classList.remove('flash'); void status.offsetWidth; status.classList.add('flash');
+      return true;
+    };
     queue.addEventListener('click', async () => {
+      if (blocked()) return;
       if (wallet.state !== 'unlocked') { openVault(); return; }
       try {
         const msg = this.build(name, spec, values);
@@ -160,6 +265,10 @@ export class ForgeScreen extends PanelScreen {
       } catch (e) { audio.play('deny'); toast((e as Error).message, 'enemy'); }
     });
     sim.addEventListener('click', async () => {
+      // A dry run asks the chain, which only answers a real account: without a commander it is off
+      // (its title says why), never a surprise Enlist window. A locked vault opens to unlock.
+      if (simOff()) { audio.play('deny'); status.className = 't-tiny fg-status c-warn'; status.replaceChildren(h('span', { html: icon('lock', 14) }), 'Dry run needs a commander'); return; }
+      if (blocked()) return;
       if (wallet.state !== 'unlocked') { openVault(); return; }
       sim.disabled = true; simWord.textContent = 'Running…';
       try {
@@ -175,6 +284,14 @@ export class ForgeScreen extends PanelScreen {
       } finally { sim.disabled = false; simWord.textContent = 'Dry run'; }
     });
     const noSigner = 'No commander yet: you can build a message and see it as code, but testing or sending it needs a commander.';
+    const simOff = () => wallet.state !== 'locked' && !(wallet.state === 'unlocked' && wallet.active?.playerId);
+    const paintButtons = () => {
+      const off = simOff();
+      sim.classList.toggle('is-off', off);
+      sim.setAttribute('aria-disabled', off ? 'true' : 'false');
+      sim.title = off ? 'Dry run needs a commander: it asks the chain, and the chain only answers a real account. Enlist (top bar) to try it.' : 'Dry run: ask the chain whether it would accept this, without sending it';
+      queue.title = wallet.state === 'empty' ? 'Queue it: sending a move needs a commander, so this opens Enlist' : 'Queue it: sign and send this message';
+    };
     // Who signs: redrawn on its own when the vault changes, so typed values stay put.
     const signer = h('span', { class: 'fg-slot' });
     const signerNote = h('div', { class: 'fg-slot' });
@@ -185,7 +302,8 @@ export class ForgeScreen extends PanelScreen {
       signerNote.replaceChildren(...(acct ? [] : [h('div', { class: 'fg-signer t-tiny c-hint dc-hint' }, noSigner)]));
     };
     paintSigner();
-    this.formSync = () => { paintSigner(); refresh(); };
+    paintButtons();
+    this.formSync = () => { paintSigner(); paintButtons(); refresh(); };
     this.form.replaceChildren(...kids(
       h('div', { class: 'fg-head' },
         h('div', { class: 't-display c-player', title: spec.doc || human(name) }, human(name)),
@@ -199,7 +317,7 @@ export class ForgeScreen extends PanelScreen {
       h('div', { class: 'fg-code', title: 'A move is a command plus named details, just like calling a function. Fill in the boxes and watch it change.' },
         h('span', { class: 'fg-code-k' }, h('span', { html: icon('code', 14) }), h('span', { class: 't-label c-hint' }, 'As code')), code,
         h('span', { class: 't-tiny c-hint dc-hint' }, 'A move is a command plus named details, just like calling a function. Fill in the boxes and watch it change.')),
-      h('div', { class: 'fg-actions row wrap' }, queue, sim,
+      h('div', { class: 'fg-actions row wrap' }, queue, sim, example,
         h('button', { class: 'btn ghost', title: 'Copy as a structsd command', onclick: () => copyText(cliFor(spec, values), 'structsd command copied') }, h('span', { html: icon('terminal', 14) }), 'structsd'),
         h('button', { class: 'btn ghost', title: 'Copy the JSON', onclick: () => copyText(out.textContent || '', 'JSON copied') }, h('span', { html: icon('copy', 14) }), 'JSON')),
       status, out));
@@ -215,9 +333,11 @@ export class ForgeScreen extends PanelScreen {
   }
 
   /** One input for one proto field, with smart defaults and pickers. */
-  private field(msg: string, f: FieldSpec, values: Record<string, unknown>, changed: () => void): HTMLElement {
+  private field(msg: string, f: FieldSpec, values: Record<string, unknown>, changed: () => void, setters?: Map<string, (v: string) => void>): HTMLElement {
     const id = `fg-${f.name}`;
-    const label = h('label', { class: 'fg-label', for: id, title: f.doc || undefined }, h('span', { class: 't-label' }, f.name), h('span', { class: 't-tiny c-hint' }, kindLabel(f)));
+    // The box's name in plain words, its name in the code small beside it; the kind is an expert's.
+    const label = h('label', { class: 'fg-label', for: id, title: [`${labelFor(msg, f)} (${f.name} in the code)`, f.doc].filter(Boolean).join('\n') },
+      h('span', { class: 't-label' }, labelFor(msg, f)), h('span', { class: 'fg-code-name mono' }, f.name), h('span', { class: 't-tiny c-hint x-only' }, kindLabel(f)));
     // The field's own documentation: on hover, while you are in the box, or under the ? button.
     const doc = f.doc ? h('div', { class: 't-tiny c-hint fg-fdoc' }, f.doc) : null;
     const set = (v: unknown) => { values[f.name] = v; changed(); };
@@ -226,6 +346,7 @@ export class ForgeScreen extends PanelScreen {
       const sel = h('select', { class: 'input', id }, ...(ENUMS[f.enum!] || []).map(([n]) => h('option', { value: n }, n))) as HTMLSelectElement;
       sel.addEventListener('change', () => set(sel.value));
       values[f.name] = sel.value;
+      setters?.set(f.name, (v) => { if ([...sel.options].some((o) => o.value === v)) { sel.value = v; sel.dispatchEvent(new Event('change')); } });
       input = sel;
     } else if (f.kind === 'bool') {
       const cb = h('input', { type: 'checkbox', id }) as HTMLInputElement;
@@ -236,6 +357,7 @@ export class ForgeScreen extends PanelScreen {
       const den = h('input', { class: 'input', placeholder: 'denom', value: 'ualpha' }) as HTMLInputElement;
       const upd = () => set(amt.value ? { denom: den.value.trim(), amount: amt.value.trim() } : undefined);
       amt.addEventListener('input', upd); den.addEventListener('input', upd);
+      setters?.set(f.name, (v) => { amt.value = v; den.value = den.value || 'ualpha'; upd(); });
       input = h('div', { class: 'row' }, amt, den);
     } else if (f.kind === 'msg') {
       const sub: Record<string, unknown> = {};
@@ -255,8 +377,9 @@ export class ForgeScreen extends PanelScreen {
         if (f.repeated) set(v ? v.split(/[\s,]+/).filter(Boolean) : undefined);
         else set(v || undefined);
       });
+      setters?.set(f.name, (v) => { inp.value = v; inp.dispatchEvent(new Event('input')); });
     }
-    return h('div', { class: 'fg-field' }, label, input, doc);
+    return h('div', { class: 'fg-field' + (isRequired(f) ? ' req' : '') }, label, input, doc);
   }
 }
 
@@ -267,14 +390,16 @@ function kindLabel(f: FieldSpec) {
 
 function placeholderFor(f: FieldSpec): string {
   if (f.kind === 'coin' && f.repeated) return '100ualpha, 5uguild.0-1';
+  if (f.name === 'targetStructId') return 'like 5-1388 (one or more)';
   if (f.repeated) return 'comma or space separated';
   if (f.kind === 'dec') return '0.05';
   if (/address/i.test(f.name)) return 'structs1…';
-  if (/playerId$/.test(f.name)) return '1-…';
-  if (/planetId$/.test(f.name)) return '2-…';
-  if (/structId$/i.test(f.name) || /StructId$/.test(f.name)) return '5-…';
-  if (/fleetId$/.test(f.name)) return '9-…';
-  if (/guildId$/.test(f.name)) return '0-…';
+  if (/playerId$/.test(f.name)) return 'like 1-404';
+  if (/planetId$/.test(f.name) || f.name === 'destinationLocationId') return 'like 2-7';
+  if (f.name === 'weaponSystem') return 'primaryWeapon';
+  if (/structId$/i.test(f.name) || /StructId$/.test(f.name)) return 'like 5-1204';
+  if (/fleetId$/.test(f.name)) return 'like 9-1';
+  if (/guildId$/.test(f.name)) return 'like 0-1';
   if (/substationId$/i.test(f.name)) return '4-…';
   if (/reactorId$/.test(f.name)) return '3-…';
   if (/allocationId$/.test(f.name)) return '6-…';

@@ -46,8 +46,12 @@ export function tip<T extends HTMLElement>(el: T, label: string, hint = '', kind
  * Its name says the number too ("Alpha 12.5 g"), unless the label already does. */
 export function vital(ico: string, value: string | Node, label: string, hint = '', cls = '', ...after: Kid[]): HTMLElement {
   const name = typeof value === 'string' && /\d/.test(value) && !label.includes(value.replace(/^→\s*/, '')) ? `${label} ${value}` : label;
-  return tip(h('span', { class: 'dcb-vital ' + cls, tabindex: 0 },
-    h('span', { class: 'dcb-ico', html: icon(ico, 20) }), h('b', { class: 'dcb-n' }, value), ...after.filter((x): x is Node | string => !!x)), name, hint);
+  // Where nothing hovers (touch, a pad in hand) the icon gets its word, small, after the number
+  // (dc-base.css shows it). A dash means "nothing to show": Expert keeps it, everyone else skips it.
+  const empty = value === '—' ? ' empty' : '';
+  return tip(h('span', { class: 'dcb-vital ' + cls + empty, tabindex: 0 },
+    h('span', { class: 'dcb-ico', html: icon(ico, 20) }), h('b', { class: 'dcb-n' }, value), h('span', { class: 'dcb-cap', 'aria-hidden': 'true' }, label.split(':')[0]),
+    ...after.filter((x): x is Node | string => !!x)), name, hint);
 }
 
 /** A panel's title bar: an icon and a word or two (`hint` in its tip), then anything on its right. */

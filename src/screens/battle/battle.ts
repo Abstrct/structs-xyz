@@ -24,8 +24,9 @@ import { createNebulaSky, createStarfield, tickSpace } from '../../gfx/space';
 import { spriteDataUrl } from '../../gfx/pixelModel';
 import { BattleView, type UnitView } from './view';
 import { BattleSession, predictAttack, type Outcome } from './session';
-import { addBattleLights, slotX, TIER_Y, WORLD_PALETTES } from './env';
+import { addBattleLights, FIELD, fieldHalfWidth, portraitField, slotStagger, slotX, TIER_Y, WORLD_PALETTES } from './env';
 import { currentRoute, routeUrl } from '../../core/nav';
+import '../../styles/dc-battle.css';
 
 type Phase = 'setup' | 'deploy' | 'battle' | 'debrief' | 'replay';
 type Targeting = { kind: 'attack'; ws: WeaponSystem } | { kind: 'guard' } | null;
@@ -47,6 +48,46 @@ function face(btn: 'a' | 'b' | 'x' | 'y', key: string | null): HTMLElement | nul
 const say = (m: Record<'pad' | 'keys' | 'touch', string>) => m[inputMode()];
 /** Fleet sizes in words, so "Easy" only ever means the computer's skill. */
 const SIZE_WORD: Record<Preset, string> = { easy: 'Small', difficult: 'Medium', hard: 'Large', random: 'Random' };
+
+/** How far (px) a tap reaches for the nearest ship: a thumb-sized target (44 px) around every hull. */
+const FINGER_REACH = 44;
+
+/** mobile.css's upright-phone layout, where the hubs are a 64 px bar along the bottom. */
+const TABBAR_QUERY = '(max-width: 760px) and (pointer: coarse) and (min-height: 561px)';
+
+/** The TV setup panel folded to a strip while the pad's cursor is on the board (dc-battle.css
+ * .setup-panel.slim: 8 px margin + 104 px strip + 8 px gap). */
+const SLIM_SIDE = 120;
+
+/** The results' Next ▸ climbs one rung at a time: a bigger fleet, then a sharper computer, never both at once. */
+const LADDER: { preset: Preset; difficulty: Difficulty }[] = [
+  { preset: 'easy', difficulty: 'easy' }, { preset: 'difficult', difficulty: 'easy' }, { preset: 'difficult', difficulty: 'difficult' },
+  { preset: 'hard', difficulty: 'difficult' }, { preset: 'hard', difficulty: 'hard' },
+];
+
+/** Each daily twist's picture, beside its name on the Daily tile. */
+const TWIST_ICON: Record<string, string> = { standard: 'counter', outnumbered: 'ship', battered: 'health', 'no-guards': 'shield', orbit: 'space', fortress: 'crown' };
+
+/** Two glyphs the kit's set lacks, drawn the same way (24×24, round 2.6 strokes in currentColor):
+ * a hand (you fly your fleet) and a door with an arrow out of it (retreat). */
+const glyph = (body: string, size: number) => `<svg class="ico" viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+const HAND = (size: number) => glyph('<path d="M8 12.5 V6 A1.6 1.6 0 0 1 11.2 6 V11 M11.2 10.5 V4.6 A1.6 1.6 0 0 1 14.4 4.6 V11 M14.4 10.8 V6.2 A1.6 1.6 0 0 1 17.6 6.2 V13.5 C17.6 18.5 15 21 11.5 21 C8.8 21 7.4 19.6 6 17.3 L3.8 13.6 A1.5 1.5 0 0 1 6.4 12.1 L8 14"/>', size);
+const EXIT = (size: number) => glyph('<path d="M13 4 H6 A2 2 0 0 0 4 6 V18 A2 2 0 0 0 6 20 H13 M10 12 H21 M17 8 L21 12 L17 16"/>', size);
+
+/** A weapon's one word, under its icon: the last word of its name ("Chimera Missile" → Missile), or
+ * a plainer word where that one says little. The full name stays in the button's title. */
+const WEAPON_WORD: Record<string, string> = { 'Mass Accelerator': 'Cannon', 'Attack Run': 'Strafe', 'AA-Cannons': 'Flak', 'Smart weapon': 'Fire', 'Ballistic weapon': 'Fire', Weapon: 'Fire' };
+const weaponWord = (label: string) => WEAPON_WORD[label] || label.split(/\s+/).pop() || 'Fire';
+
+/** The control each coach step is about: its callout points there. */
+const COACH_ANCHOR: Record<string, string> = {
+  arm: '.action-bar .btn.action.weapon:not(:disabled)',
+  aim: '.action-bar .btn.action.weapon.active',
+  // "A move needs its ⚡": the ⚡ on the weapon's button (the HUD's battery drains as it says).
+  charge: '.action-bar .btn.action.weapon .a-cost',
+  guard: '.action-bar .btn.action.secondary',
+  drift: '.action-bar .drift',
+};
 
 export class BattleScreen implements Screen {
   readonly scene = new THREE.Scene();
@@ -205,13 +246,24 @@ export class BattleScreen implements Screen {
     this.root.remove();
     this.replay = null;
     dismissConfirms();
-    document.querySelectorAll('.debrief-back, .gauntlet-back, .slot-editor').forEach((n) => n.remove());
+    // A run whose card never answered Go was never started.
+    if (document.querySelector('.gauntlet-intro')) this.dropUnstartedGauntlet();
+    document.querySelectorAll('.debrief-back, .gauntlet-back, .gauntlet-intro, .slot-editor').forEach((n) => n.remove());
     this.forfeitIfEngaged();
   }
 
   resize(_w: number, hgt: number) {
     this.view?.fx.setScale(hgt, this.camera.fov);
     this.fitCamera();
+  }
+
+  /** Build the board on the deck this view wants (compact on an upright phone), framed to match. */
+  private buildBoard(chain: Chain) {
+    // Compact on an upright phone, and in setup on a narrow screen (the TV's 640×480), where the
+    // setup panel leaves the board a narrow strip; a fight there is short of height, not width.
+    const compact = portraitField() || (this.phase === 'setup' && window.innerWidth <= 760);
+    if (compact !== FIELD.compact) { FIELD.compact = compact; this.fitCamera(); }
+    return this.view.build(chain, YOU.id);
   }
 
   /* Fit the board into the part of the viewport no panel covers: a side
@@ -227,7 +279,7 @@ export class BattleScreen implements Screen {
     // bands, as the stylesheet lays them out. A desktop mouse never counts as the phone.
     const coarse = matchMedia('(pointer: coarse)').matches;
     const short = (w <= 760 || coarse) && hgt <= 560;
-    const side = this.phase === 'setup' ? (short ? 316 : w > 760 ? 346 : 0) : 0;
+    const side = this.phase === 'setup' ? (short ? (this.slimSetup ? SLIM_SIDE : 316) : w > 760 ? 346 : 0) : 0;
     // The battle log docks on the right from 1100px up, when it shows (always in a replay).
     const right = this.phase !== 'setup' && w > 1100 && (this.showLog || this.phase === 'replay') ? 300 : 0;
     const usableW = w - side - right;
@@ -235,17 +287,21 @@ export class BattleScreen implements Screen {
     const compact = narrow || short;
     // On a phone the setup sheet covers the lower 55%: fit the board above it.
     // (A phone on its side packs its HUD tighter still, mobile.css: about 170 px of it.)
-    const hud = this.phase === 'setup' ? (narrow && !short ? hgt * 0.55 + 50 : 60) : compact ? (short ? (coarse && hgt <= 450 ? 170 : 230) : 360) : 300;
+    // An upright phone's bottom bar of hubs (mobile.css, the same query) shows during setup; a fight
+    // hides it. (Asked of the screen, not the CSS variable: that still reads 0 while a fight's HUD
+    // is on its way out.)
+    const tab = this.phase === 'setup' && matchMedia(TABBAR_QUERY).matches ? 64 : 0;
+    const hud = this.phase === 'setup' ? (narrow && !short ? hgt * 0.55 + 50 + tab : 60) : compact ? (short ? (coarse && hgt <= 450 ? 170 : 230) : 360) : 300;
     const usableH = Math.max(160, hgt - hud);
     const t = Math.tan((this.camera.fov * Math.PI) / 360);
-    // A phone held upright is short of width, not height: frame the field closer (the Command Ships
-    // sit at ±19.4, so 22.5 still shows them whole) and every ship draws about a fifth bigger.
-    const halfW = narrow && !short ? 22.5 : 26.5, halfH = 11.8;
+    // A phone held upright is short of width, not height: frame the field closer. On the compact
+    // deck (env.ts FIELD) the Command Ships sit at ±13.25 in a staggered line and the hulls draw nearly twice as big.
+    const halfW = (narrow && !short) || (FIELD.compact && this.phase === 'setup') ? fieldHalfWidth() : 26.5, halfH = 11.8;
     const distW = halfW / (t * (usableW / hgt));
     const distH = halfH / (t * (usableH / hgt));
     this.fitDist = Math.max(distW, distH, 34);
     if (side) this.camera.setViewOffset(w, hgt, -side / 2, -14, w, hgt);
-    else if (narrow && !short && this.phase === 'setup') this.camera.setViewOffset(w, hgt, 0, hgt / 2 - (44 + hgt * 0.45) / 2, w, hgt);
+    else if (narrow && !short && this.phase === 'setup') this.camera.setViewOffset(w, hgt, 0, hgt / 2 - (44 + hgt * 0.45 - tab) / 2, w, hgt);
     // A tall phone frames the field a little high, toward the HUD, leaving the action bar room below.
     else if (this.phase !== 'setup') this.camera.setViewOffset(w, hgt, right / 2, compact ? (short ? -10 : 34) : -12, w, hgt);
     else this.camera.clearViewOffset();
@@ -267,6 +323,9 @@ export class BattleScreen implements Screen {
     this.session = null;
     this.chain = null;
     this.selected = null;
+    this.bayCursor = null;
+    this.pendingCursor = null;
+    this.boardKeys = false;
     this.targeting = null;
     this.held = null;
     document.querySelectorAll('.debrief-back, .banner').forEach((n) => n.remove());
@@ -296,9 +355,18 @@ export class BattleScreen implements Screen {
     this.preview = { chain, idMap, reverse };
     const world = hash32('world:' + this.seed + (this.gauntlet ? ':' + this.gauntlet.round : ''));
     this.view.set.setWorld({ palette: WORLD_PALETTES[world % WORLD_PALETTES.length], seed: (world % 997) / 37 });
-    await this.view.build(chain, YOU.id);
+    await this.buildBoard(chain);
     if (token !== this.buildToken) return;
     this.buildGhosts();
+    // A pad's (or keys') pick keeps the cursor on its slot: the new ship, or the bay it emptied.
+    const pc = this.pendingCursor;
+    this.pendingCursor = null;
+    if (pc && this.phase === 'setup') {
+      const sid = pc.unitId ? idMap[pc.unitId] : undefined;
+      if (sid) { this.selected = sid; this.bayCursor = null; } else { this.selected = null; this.bayCursor = { ambit: pc.ambit, slot: pc.slot }; }
+    }
+    if (this.bayCursor && !this.ghosts.children.some((m) => m.userData.ghost?.ambit === this.bayCursor!.ambit && m.userData.ghost?.slot === this.bayCursor!.slot)) this.bayCursor = null;
+    this.paintBayCursor();
     this.refreshSelectionVisuals();
     // The card reads the preview chain (guards, wards): redraw it from the new one.
     if (this.phase === 'setup') this.renderActionBar();
@@ -307,19 +375,173 @@ export class BattleScreen implements Screen {
   private clearGhosts() {
     // Ghost geometry and materials are shared (GHOST below), so clearing only detaches.
     for (const g of [...this.ghosts.children]) this.ghosts.remove(g);
+    this.dropGhostHover();
+  }
+  /** The empty frame under the mouse in setup: it swells a little, and the cursor says "click". */
+  private ghostHover: THREE.Object3D | null = null;
+  /** The mouse left the frame (or the frames went): back to its size, and the cursor to an arrow. */
+  private dropGhostHover() {
+    if (!this.ghostHover) return;
+    this.ghostHover.scale.setScalar(this.isCursorBay(this.ghostHover) ? 1.25 : 1);
+    this.ghostHover = null;
+    if (!this.hovered) this.engine.canvas.style.cursor = 'default';
   }
 
-  /* Empty player slots during setup: clickable frames to add a struct. */
+  /* ── Setup with a pad or keys: the board cursor ─────────────────────────
+   * The cursor is your selected ship or an empty bay (lit orange). The d-pad walks the bays and your
+   * ships (and off the left edge, back to the panel); A (Enter) opens the ship picker there; X (G)
+   * sets a guard; B (Escape) goes back to the panel. START (Space) or the Start button fights. */
+  private bayCursor: { ambit: Ambit; slot: number } | null = null;
+  /** Where the cursor lands once the picker's change is on the board (the preview rebuilds first). */
+  private pendingCursor: { unitId: string | null; ambit: Ambit; slot: number } | null = null;
+  private isCursorBay(m: THREE.Object3D) { const g = m.userData.ghost, b = this.bayCursor; return !!b && !!g && g.ambit === b.ambit && g.slot === b.slot; }
+  private paintBayCursor() {
+    const base = this.gauntlet || this.daily ? GHOST.lockedMat : GHOST.mat;
+    for (const m of this.ghosts.children as THREE.Mesh[]) {
+      const on = this.isCursorBay(m);
+      m.material = on ? GHOST.focusMat : base;
+      if (m !== this.ghostHover) m.scale.setScalar(on ? 1.25 : 1);
+    }
+  }
+  /** Your ships and the editable bays, where they are on screen. */
+  private boardCells() {
+    const out: { ship?: string; bay?: { ambit: Ambit; slot: number }; x: number; y: number }[] = [];
+    const c = this.preview?.chain;
+    if (!c) return out;
+    for (const st of Object.values(c.structs)) if (st.owner === YOU.id) { const p = this.view.screenOf(st.id); if (p) out.push({ ship: st.id, x: p.x, y: p.y }); }
+    if (!this.gauntlet && !this.daily) for (const m of this.ghosts.children) {
+      const g = m.userData.ghost as { ambit: Ambit; slot: number } | undefined;
+      if (!g) continue;
+      const v = m.getWorldPosition(new THREE.Vector3()).project(this.camera);
+      out.push({ bay: g, x: (v.x + 1) / 2 * window.innerWidth, y: (1 - v.y) / 2 * window.innerHeight });
+    }
+    return out;
+  }
+  private cursorCell(cells = this.boardCells()) {
+    const b = this.bayCursor, s = this.selectedStruct();
+    return cells.find((x) => (b && x.bay && x.bay.ambit === b.ambit && x.bay.slot === b.slot) || (!b && s && s.owner === YOU.id && x.ship === s.id)) || null;
+  }
+  private onBoard() { const s = this.selectedStruct(); return this.phase === 'setup' && (!!this.bayCursor || (!!s && s.owner === YOU.id)); }
+  /** The nearest cell in a direction from a point (straight ahead beats off to the side, as pad.ts does). */
+  private nearestCell(from: { x: number; y: number }, key: string, skip?: object | null) {
+    const [dx, dy] = key === 'ArrowUp' ? [0, -1] : key === 'ArrowDown' ? [0, 1] : key === 'ArrowLeft' ? [-1, 0] : [1, 0];
+    let best: ReturnType<BattleScreen['boardCells']>[number] | null = null, bestScore = Infinity;
+    for (const cell of this.boardCells()) {
+      if (skip && ((cell.ship && cell.ship === (skip as { ship?: string }).ship) || (cell.bay && cell.bay === (skip as { bay?: unknown }).bay))) continue;
+      const x = cell.x - from.x, y = cell.y - from.y, along = x * dx + y * dy;
+      if (along <= 4) continue;
+      const score = along + 2 * Math.abs(x * dy - y * dx);
+      if (score < bestScore) { bestScore = score; best = cell; }
+    }
+    return best;
+  }
+  private cursorTo(cell: { ship?: string; bay?: { ambit: Ambit; slot: number } }) {
+    audio.play('hover');
+    this.boardKeys = true;
+    if (cell.ship) { this.select(cell.ship); return; }
+    this.select(null);
+    this.bayCursor = cell.bay!;
+    this.paintBayCursor();
+    this.renderActionBar();
+  }
+  /** A d-pad step on the board; false when there is nothing that way. */
+  private moveBoard(key: string) {
+    const cur = this.cursorCell();
+    const next = cur && this.nearestCell(cur, key, cur);
+    if (!next) return false;
+    this.cursorTo(next);
+    return true;
+  }
+  /** Onto the board from the panel (or from nothing): the cell nearest the panel's right edge. */
+  private enterBoard(from: DOMRect | null) {
+    const origin = from ? { x: from.right, y: from.top + from.height / 2 } : { x: 0, y: window.innerHeight / 2 };
+    const cell = this.nearestCell(origin, 'ArrowRight') || this.boardCells()[0];
+    if (!cell) return false;
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    this.cursorTo(cell);
+    return true;
+  }
+  /** The pad's (or keys') cursor drawn big over the board, where a 480-line screen can see it: a
+   * bouncing ▼ over a filled orange plate on an empty bay, a ▼ over your selected ship, and while
+   * aiming a ▼ and an orange ring on the picked target (the other targets keep their plain brackets). */
+  private cursorEl: HTMLElement | null = null;
+  private cursorV = new THREE.Vector3();
+  private paintCursor() {
+    let at: { x: number; y: number } | null = null, mode = '';
+    const toScreen = (v: THREE.Vector3) => { v.project(this.camera); return { x: (v.x + 1) / 2 * window.innerWidth, y: (1 - v.y) / 2 * window.innerHeight }; };
+    const unitAt = (id: string) => { const u = this.view.units.get(id); return u ? toScreen(this.cursorV.copy(u.center())) : null; };
+    if (this.phase === 'setup' && this.boardKeys) {
+      const bay = this.bayCursor ? this.ghosts.children.find((m) => this.isCursorBay(m)) : null;
+      const s = this.selectedStruct();
+      if (bay) { at = toScreen(bay.getWorldPosition(this.cursorV)); mode = 'bay'; }
+      else if (!this.bayCursor && s && s.owner === YOU.id && !this.targeting) { at = unitAt(s.id); mode = 'ship'; }
+    } else if ((this.phase === 'battle' || this.phase === 'setup') && this.targeting) {
+      const id = this.aimId || (this.dockAim() ? this.hovered : null);
+      if (id && this.validTargets().has(id)) { at = unitAt(id); mode = 'aim' + (this.targeting.kind === 'guard' ? ' guard' : ''); }
+    }
+    if (!at) { if (this.cursorEl) this.cursorEl.style.display = 'none'; return; }
+    if (!this.cursorEl?.isConnected) {
+      this.cursorEl = h('div', { class: 'dc-cursor', 'aria-hidden': 'true' }, h('i', { class: 'dc-cursor-mark' }), h('b', { class: 'dc-cursor-arrow' }, '▼'));
+      this.root.appendChild(this.cursorEl);
+    }
+    const cls = 'dc-cursor ' + mode;
+    if (this.cursorEl.className !== cls) this.cursorEl.className = cls;
+    this.cursorEl.style.display = '';
+    this.cursorEl.style.transform = `translate(${Math.round(at.x)}px, ${Math.round(at.y)}px)`;
+  }
+
+  /** The setup panel's nearest control in a direction (straight ahead beats off to the side), or null. */
+  private panelStep(panel: HTMLElement, from: HTMLElement, key: string): HTMLElement | null {
+    const [dx, dy] = key === 'ArrowUp' ? [0, -1] : key === 'ArrowDown' ? [0, 1] : key === 'ArrowLeft' ? [-1, 0] : [1, 0];
+    const r0 = from.getBoundingClientRect(), cx = r0.left + r0.width / 2, cy = r0.top + r0.height / 2;
+    let best: HTMLElement | null = null, bestScore = Infinity;
+    for (const el of panel.querySelectorAll<HTMLElement>('button:not([disabled]), a[href]')) {
+      if (el === from || !el.getClientRects().length) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2 || r.bottom < 0 || r.top > window.innerHeight) continue;
+      const x = r.left + r.width / 2 - cx, y = r.top + r.height / 2 - cy, along = x * dx + y * dy, side = Math.abs(x * dy - y * dx);
+      // Only what lies that way (a 45° cone): Right from Start is the board, not the Daily tile above it.
+      if (along <= 4 || side > along) continue;
+      const score = along + 2 * side;
+      if (score < bestScore) { bestScore = score; best = el; }
+    }
+    return best;
+  }
+
+  /** Back to the panel: nothing selected, the cursor on Start. */
+  private leaveBoard() {
+    this.select(null);
+    this.root.querySelector<HTMLElement>('.setup-panel .dc-start')?.focus({ focusVisible: true } as FocusOptions);
+    audio.play('hover', 0.6);
+  }
+  /** A (Enter) on the cursor: the ship picker for that bay, or to swap that ship. */
+  private editAtCursor() {
+    if (this.phase !== 'setup') return;
+    if (this.gauntlet || this.daily) { audio.play('deny'); toast(this.gauntlet ? 'Gauntlet fleets grow only through reinforcements' : 'The daily fleet is the same for everyone', 'warn', 1600); return; }
+    const cell = this.cursorCell();
+    const at = cell ? { x: cell.x + 28, y: cell.y - 40 } : { x: window.innerWidth / 2, y: 80 };
+    const keys = inputMode() !== 'touch';
+    audio.play('select');
+    if (this.bayCursor) { this.openSlotEditor(this.bayCursor.ambit, this.bayCursor.slot, null, at, keys); return; }
+    const s = this.selectedStruct();
+    const du = s && s.owner === YOU.id ? this.draftUnit(s.id) : undefined;
+    if (du) this.openSlotEditor(du.ambit, du.slot, du, at, keys);
+  }
+
+  /* Empty player slots during setup: clickable frames to add a struct. Each shows a breathing "+";
+   * a gauntlet's or a daily's fleet is fixed, so its empty frames show no "+" (and stay dim). */
   private buildGhosts() {
     this.clearGhosts();
     if (this.phase !== 'setup') return;
+    const mat = this.gauntlet || this.daily ? GHOST.lockedMat : GHOST.mat;
     for (const ambit of AMBITS) {
       for (let slot = 0; slot < 4; slot++) {
         if (this.draft.some((u) => u.side === 'player' && u.type !== COMMAND_SHIP_ID && u.ambit === ambit && u.slot === slot)) continue;
-        const m = new THREE.Mesh(GHOST.plate, GHOST.mat);
+        const m = new THREE.Mesh(GHOST.plate, mat);
         m.renderOrder = 3;
         const y = ambit === 'land' ? TIER_Y.land - 0.85 : ambit === 'water' ? TIER_Y.water - 1.0 : TIER_Y[ambit] - 0.2;
-        m.position.set(slotX('player', slot, false), y, 0);
+        const [lift, depth] = slotStagger(slot, false);
+        m.position.set(slotX('player', slot, false), y + lift, depth);
         m.userData.ghost = { ambit, slot };
         const pick = new THREE.Mesh(GHOST.pick, GHOST.pickMat);
         pick.userData.ghost = { ambit, slot };
@@ -367,13 +589,19 @@ export class BattleScreen implements Screen {
         // The finer controls fold away behind a gear: a first battle needs only a fleet size and Start.
         h('button', { class: 'setup-more' + (this.moreOpts ? ' open' : ''), 'aria-expanded': this.moreOpts ? 'true' : 'false', 'aria-label': 'More options', title: `${cap(this.difficulty)} computer · ${this.spectate ? 'autopilot' : 'you fly'} · ${this.blockMs / 1000} s turns`,
           onclick: () => { audio.play('select'); this.moreOpts = !this.moreOpts; this.renderSetup(); if (this.moreOpts) this.root.querySelector('.setup-more-body')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } },
-          h('span', { html: icon('gear', 18) }), h('span', { class: 'setup-more-sum' }, `${'★'.repeat(this.difficulty === 'easy' ? 1 : this.difficulty === 'difficult' ? 2 : 3)} · ${this.spectate ? 'Auto' : 'You'} · ${this.blockMs / 1000} s`)),
+          // The summary in pictures: the computer's stars, a hand (you fly) or a robot (autopilot), the turn clock.
+          h('span', { html: icon('gear', 18) }), h('span', { class: 'setup-more-sum', 'aria-hidden': 'true' },
+            h('span', { class: 'sm-part sm-stars' }, ...Array.from({ length: this.difficulty === 'easy' ? 1 : this.difficulty === 'difficult' ? 2 : 3 }, () => h('span', { html: icon('star', 14) }))),
+            h('span', { class: 'sm-part sm-who', html: this.spectate ? icon('robot', 18) : HAND(18) }),
+            h('span', { class: 'sm-part sm-pace' }, h('span', { html: icon('clock', 15) }), `${this.blockMs / 1000}s`)),
+          // It opens: the chevron says so (and turns when it has).
+          h('span', { class: 'setup-more-chev', html: icon('down', 16) })),
         this.moreOpts ? h('div', { class: 'col setup-more-body' },
           h('div', { class: 'choice-row', title: 'Computer skill' }, h('span', { class: 'dc-opt-ico', html: icon('robot', 18) }), diffBtns),
           h('div', { class: 'choice-row', title: 'Who flies your fleet' },
             h('span', { class: 'dc-opt-ico', html: icon('ship', 18) }),
-            h('button', { class: 'btn choice small' + (!this.spectate ? ' active' : ''), onclick: () => { audio.play('select'); this.spectate = false; this.renderSetup(); } }, 'You'),
-            h('button', { class: 'btn choice small' + (this.spectate ? ' active' : ''), disabled: !!g || !!this.daily, title: g ? 'A gauntlet run is flown, not watched' : this.daily ? 'A daily is flown, not watched' : 'The computer flies both sides', onclick: () => { audio.play('select'); this.spectate = true; this.renderSetup(); } }, 'Auto')),
+            h('button', { class: 'btn choice small' + (!this.spectate ? ' active' : ''), title: 'You fly your fleet', onclick: () => { audio.play('select'); this.spectate = false; this.renderSetup(); } }, h('span', { class: 'sm-who', html: HAND(16) }), 'You'),
+            h('button', { class: 'btn choice small' + (this.spectate ? ' active' : ''), disabled: !!g || !!this.daily, title: g ? 'A gauntlet run is flown, not watched' : this.daily ? 'A daily is flown, not watched' : 'The computer flies both sides', onclick: () => { audio.play('select'); this.spectate = true; this.renderSetup(); } }, h('span', { class: 'sm-who', html: icon('robot', 16) }), 'Auto')),
           h('div', { class: 'choice-row', title: 'Turn length (block time)' }, blockBtns)) : null,
         h('div', { class: 'dc-versus', title: this.daily || g ? 'Your ships are fixed. Select one and press G to change who it guards.' : 'Click one of your ships to swap it, or an empty frame to add one. Select a ship and press G to choose who it guards.' },
           h('span', { class: 'c-player', html: icon('ship', 22) }), h('b', { class: 'c-player' }, String(youCount)),
@@ -405,8 +633,10 @@ export class BattleScreen implements Screen {
     return h('button', { class: 'btn choice daily' + (this.daily ? ' active' : ''), title: [`Daily Challenge: ${d.name}`, `${d.twist.name}: ${d.twist.note}`, best ? 'Best today: ' + describeDaily(best) : 'The same battle for everyone today', `Next in ${untilTomorrow()}`].join('\n'),
       onclick: () => { if (this.daily) return; audio.play('select'); this.startDaily(); } },
       h('span', { class: 'dc-ch-ico', html: icon('daily', 26) }), h('span', null, 'Daily'),
-      // Time left on today's battle reads as a countdown: the clock says so.
-      h('span', { class: 'sub dc-left' }, best?.won ? '★' : streak ? `${streak}×` : [h('span', { html: icon('clock', 13) }), untilTomorrow()]));
+      // Picked, it names today's twist (what makes it different), with its picture. Otherwise the time
+      // left on today's battle reads as a countdown: the clock says so.
+      this.daily ? h('span', { class: 'sub dc-left dc-twist' }, h('span', { html: icon(TWIST_ICON[d.twist.id] || 'daily', 13) }), d.twist.name)
+        : h('span', { class: 'sub dc-left' }, best?.won ? '★' : streak ? `${streak}×` : [h('span', { html: icon('clock', 13) }), untilTomorrow()]));
   }
 
   private startDaily() {
@@ -435,6 +665,13 @@ export class BattleScreen implements Screen {
   private saveGauntletBest(n: number) { try { if (n > this.gauntletBest()) localStorage.setItem('structs.gauntlet.best', String(n)); } catch { /* ignore */ } window.dispatchEvent(new Event('structs:progress')); }
 
   private startGauntlet() {
+    // Back on the intro card puts everything as it was (a daily, a shared battle, the pace, Auto).
+    const before = { scenario: this.scenario, daily: this.daily, spectate: this.spectate, blockMs: this.blockMs, difficulty: this.difficulty, draft: this.gauntlet ? null : this.draft.map((u) => ({ ...u })) };
+    this.gauntletUndo = () => {
+      Object.assign(this, { scenario: before.scenario, daily: before.daily, spectate: before.spectate, blockMs: before.blockMs, difficulty: before.difficulty });
+      if (before.draft) this.draft = before.draft;
+      return !!before.draft;
+    };
     const seed = Math.random().toString(36).slice(2, 8);
     const fleet = layout('difficult', seed).filter((u) => u.side === 'player');
     this.gauntlet = { round: 1, fleet, seed, engaged: false, over: false, fought: 0, reinforce: false };
@@ -442,7 +679,66 @@ export class BattleScreen implements Screen {
     this.daily = null;
     this.spectate = false;        // a run is flown, not watched
     this.blockMs = 2000;
-    this.loadGauntletRound();
+    // A run starts with its rules on one card (the round's own banner waits for Go).
+    this.loadGauntletRound(true);
+    this.showGauntletIntro();
+  }
+
+  /** Undoes a run's start while its intro card is up (Back, or leaving the screen): true if the setup
+   * before it came back whole. */
+  private gauntletUndo: (() => boolean) | null = null;
+  /** Put a run down before it began (its card never answered Go): the setup is as it was. */
+  private dropUnstartedGauntlet(): boolean {
+    const undo = this.gauntletUndo;
+    this.gauntletUndo = null;
+    this.gauntlet = null;
+    return undo ? undo() : false;
+  }
+
+  /** The gauntlet's rules, once per run: five rounds, wounds carry over, a boss at the end. Go (A,
+   * Enter) starts round 1's setup; Back (B, Escape) puts the run down before it begins. */
+  private showGauntletIntro() {
+    document.querySelectorAll('.gauntlet-intro').forEach((n) => n.remove());
+    const g = this.gauntlet;
+    if (!g) return;
+    const boss = GAUNTLET_ROUNDS[GAUNTLET_ROUNDS.length - 1];
+    const close = (go: boolean) => {
+      if (!back.isConnected) return;
+      back.remove();
+      window.removeEventListener('keydown', key, true);
+      if (this.gauntlet !== g || !this.root.isConnected) return;
+      audio.play(go ? 'confirm' : 'select');
+      if (!go) { this.toSetup(!this.dropUnstartedGauntlet()); return; }
+      this.gauntletUndo = null;
+      const r = GAUNTLET_ROUNDS[g.round - 1];
+      banner(`ROUND ${g.round}`, `GAUNTLET · ${r.name.toUpperCase()}`, 'neutral', 1600);
+      if (inputMode() === 'pad') requestAnimationFrame(() => this.root.querySelector<HTMLElement>('.dc-start')?.focus({ focusVisible: true } as FocusOptions));
+    };
+    const key = (e: KeyboardEvent) => {
+      if (!back.isConnected) { window.removeEventListener('keydown', key, true); return; }
+      const modals = document.querySelectorAll('.modal-back');
+      if (modals[modals.length - 1] !== back) return;
+      if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); close(false); return; }
+      // A held Enter (the one that picked the tile) mustn't also answer the card.
+      if (e.key === 'Enter' && e.repeat) { e.preventDefault(); e.stopImmediatePropagation(); return; }
+      // Enter on a button presses that button; anywhere else it is Go.
+      if (e.key === 'Enter' && !(document.activeElement instanceof HTMLButtonElement && back.contains(document.activeElement))) { e.preventDefault(); e.stopImmediatePropagation(); close(true); }
+    };
+    const row = (cls: string, title: string, lead: Node, word: string, extra?: Node) =>
+      h('div', { class: 'dc-gi-row ' + cls, title }, h('span', { class: 'dc-gi-lead' }, lead), h('span', { class: 'dc-gi-word' }, word), extra || null);
+    const back = h('div', { class: 'modal-back gauntlet-intro', onclick: (e: Event) => { if (e.target === back) close(true); } },
+      h('div', { class: 'modal panel neutral dc-gi', role: 'dialog', 'aria-label': 'Gauntlet: five rounds, wounds carry over, a boss at the end' },
+        h('div', { class: 'dc-gi-head' }, h('span', { class: 'dc-gi-flag', html: icon('flag', 34) }), h('span', { class: 't-display' }, 'Gauntlet')),
+        h('div', { class: 'dc-gi-rows' },
+          row('rounds', 'Five battles in a row. Each win sends a new ship.', h('b', null, '5'), 'Rounds', h('span', { class: 'dc-pips' }, ...[1, 2, 3, 4, 5].map(() => h('i')))),
+          row('wounds', 'Ships you lose stay lost, and damage carries into the next round', h('span', { html: icon('health', 24) }), 'Wounds carry over'),
+          row('boss', `Round 5: the ${boss.name}, a big fleet on ${cap(boss.difficulty)}`, h('span', { html: icon('crown', 24) }), 'Boss at the end')),
+        h('div', { class: 'row dc-gi-foot' },
+          h('button', { class: 'btn ghost', title: 'Not now', onclick: () => close(false) }, face('b', 'Esc'), 'Back'),
+          h('button', { class: 'btn solid big grow', 'data-primary': '', onclick: () => close(true) }, face('a', '⏎'), 'Go!'))));
+    document.body.appendChild(back);
+    window.addEventListener('keydown', key, true);
+    requestAnimationFrame(() => back.querySelector<HTMLElement>('[data-primary]')?.focus({ preventScroll: true, focusVisible: inputMode() === 'pad' } as FocusOptions));
   }
 
   /** Back to the run: owe a reinforcement pick first, then the next round's setup. */
@@ -474,14 +770,14 @@ export class BattleScreen implements Screen {
     });
   }
 
-  private loadGauntletRound() {
+  private loadGauntletRound(quiet = false) {
     const g = this.gauntlet!;
     g.engaged = false;
     const r = GAUNTLET_ROUNDS[g.round - 1];
     this.difficulty = r.difficulty;
     this.draft = [...g.fleet.map((u) => ({ ...u })), ...gauntletEnemy(g.round, g.seed)];
     this.toSetup(false);
-    banner(`ROUND ${g.round}`, `GAUNTLET · ${r.name.toUpperCase()}`, 'neutral', 1600);
+    if (!quiet) banner(`ROUND ${g.round}`, `GAUNTLET · ${r.name.toUpperCase()}`, 'neutral', 1600);
   }
 
   /** After a won round: survivors keep their wounds; dead hulls stay dead. */
@@ -542,14 +838,18 @@ export class BattleScreen implements Screen {
     return encodeBattle({ units: this.draft, difficulty: this.difficulty, blockMs: this.blockMs, title: this.scenario || undefined });
   }
 
-  /* Fleet editor popover for a player slot. */
-  private openSlotEditor(ambit: Ambit, slot: number, existing: Unit | null, at: { x: number; y: number }) {
+  /* Fleet editor popover for a player slot. `keys`: opened by a pad or the keyboard, so the cursor
+   * starts on an option, the d-pad (arrows) walks them, A (Enter) picks, B (Escape) closes, and the
+   * board cursor stays on the slot afterwards. */
+  private openSlotEditor(ambit: Ambit, slot: number, existing: Unit | null, at: { x: number; y: number }, keys = false) {
     document.querySelectorAll('.slot-editor').forEach((n) => n.remove());
     const isCmd = existing?.type === COMMAND_SHIP_ID;
     const opts = isCmd ? [] : FLEET_TYPES.filter((t) => t.id !== COMMAND_SHIP_ID && fits(t.id, ambit));
-    const close = () => ed.remove();
+    const close = () => { ed.remove(); window.removeEventListener('pointerdown', off, true); if (this.editorClose === close) this.editorClose = null; };
+    this.editorClose = close;
     const choose = (typeId: number | null) => {
       audio.play('confirm');
+      if (keys) this.pendingCursor = { unitId: typeId != null ? unitId('player', typeId, ambit, slot) : null, ambit, slot };
       if (existing) this.draft = this.draft.filter((u) => u !== existing);
       // Wards pointing at a removed hull lose their ward.
       if (existing) for (const u of this.draft) if (u.protects === existing.id) u.protects = null;
@@ -566,6 +866,7 @@ export class BattleScreen implements Screen {
     const moveCmd = (a: Ambit) => {
       audio.play('confirm');
       if (existing) existing.ambit = a;
+      if (keys && existing) this.pendingCursor = { unitId: existing.id, ambit: a, slot: existing.slot };
       close();
       this.renderSetup();
       void this.buildPreview();
@@ -574,16 +875,39 @@ export class BattleScreen implements Screen {
       ? AMBITS.map((a) => h('button', { class: 'btn ghost', disabled: existing?.ambit === a, onclick: () => moveCmd(a) }, AMBIT_NAME[a]))
       : opts.map((t) => h('button', { class: 'slot-opt' + (existing?.type === t.id ? ' active' : ''), onclick: () => choose(t.id) },
         h('img', { class: 'slot-img', alt: '', 'data-type': String(t.id) }), h('span', { class: 'grow' }, h('div', null, t.type), h('div', { class: 't-tiny c-hint' }, roleOf(t)))));
-    const ed = h('div', { class: 'slot-editor panel player', style: `left:${Math.min(at.x, window.innerWidth - 300)}px; top:${Math.min(at.y, window.innerHeight - 380)}px` },
-      h('div', { class: 'panel-head' }, h('span', { class: 't-label' }, isCmd ? 'Command Ship layer' : `${AMBIT_NAME[ambit]} · slot ${slot + 1}`), h('button', { class: 'btn ghost icon', onclick: close, 'aria-label': 'Close' }, '×')),
-      h('div', { class: 'panel-body col scroll', style: 'max-height:320px' }, list,
+    // On an upright phone the picker is a bottom sheet (dc-battle.css); elsewhere it opens by the slot.
+    const sheet = matchMedia(TABBAR_QUERY).matches;
+    const ed = h('div', { class: 'slot-editor panel player' + (sheet ? ' sheet' : ''), role: 'dialog', 'aria-label': isCmd ? 'Command Ship layer' : `Pick a ship for ${AMBIT_NAME[ambit]} slot ${slot + 1}`, style: sheet ? undefined : `left:${Math.max(8, Math.min(at.x, window.innerWidth - 300))}px; top:${Math.max(48, Math.min(at.y, window.innerHeight - 380))}px` },
+      h('div', { class: 'panel-head' }, h('span', { class: 't-label' }, isCmd ? 'Command Ship layer' : `${AMBIT_NAME[ambit]} · slot ${slot + 1}`), face('b', 'Esc'), h('button', { class: 'btn ghost icon', onclick: close, 'aria-label': 'Close' }, '×')),
+      h('div', { class: 'panel-body col scroll', style: sheet ? undefined : 'max-height:320px' }, list,
         existing && !isCmd ? h('button', { class: 'btn danger', onclick: () => choose(null) }, 'Remove ship') : null),
     );
     this.root.appendChild(ed);
     ed.querySelectorAll<HTMLImageElement>('img.slot-img').forEach((img) => { void spriteDataUrl(Number(img.dataset.type)).then((u) => { img.src = u; }); });
-    const off = (e: PointerEvent) => { if (!ed.contains(e.target as Node)) { close(); window.removeEventListener('pointerdown', off, true); } };
-    setTimeout(() => window.addEventListener('pointerdown', off, true), 0);
+    function off(e: PointerEvent) { if (!ed.contains(e.target as Node)) close(); }
+    setTimeout(() => { if (ed.isConnected) window.addEventListener('pointerdown', off, true); }, 0);
+    // The d-pad (arrows) walks the options and Remove; B (Escape) closes; keys stay inside the picker.
+    const items = () => [...ed.querySelectorAll<HTMLButtonElement>('.panel-body button:not(:disabled)')];
+    ed.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); audio.play('select'); close(); return; }
+      if (e.key.startsWith('Arrow') || e.key === 'Tab') {
+        e.preventDefault(); e.stopPropagation();
+        const all = items();
+        if (!all.length) return;
+        const back = e.key === 'ArrowUp' || e.key === 'ArrowLeft' || (e.key === 'Tab' && e.shiftKey);
+        const next = all[(all.indexOf(document.activeElement as HTMLButtonElement) + (back ? -1 : 1) + all.length) % all.length];
+        next.focus({ focusVisible: true } as FocusOptions);
+        next.scrollIntoView({ block: 'nearest' });
+        audio.play('hover', 0.6);
+      }
+    });
+    // Opened by a pad or keys, it lives where the focus is: focus taken elsewhere (the pad's Back to the
+    // hubs, a Tab out) closes it, so it never sits orphaned over the board.
+    if (keys) ed.addEventListener('focusout', (e) => { const to = (e as FocusEvent).relatedTarget; if (to instanceof Element && !ed.contains(to)) close(); });
+    if (keys) requestAnimationFrame(() => { const first = ed.querySelector<HTMLButtonElement>('.slot-opt.active') || items()[0]; first?.focus({ focusVisible: true } as FocusOptions); first?.scrollIntoView({ block: 'nearest' }); });
   }
+  /** Closes the open ship picker, however it was opened. */
+  private editorClose: (() => void) | null = null;
 
   /* ── Engage ───────────────────────────────────────────────────────────── */
   private async engage() {
@@ -619,7 +943,7 @@ export class BattleScreen implements Screen {
     this.lastBattery = { you: -1, cpu: -1 };
     const session = this.session;
     const current = () => this.session === session && this.phase === 'deploy';
-    if (!(await this.view.build(this.chain, YOU.id)) || !current()) return;
+    if (!(await this.buildBoard(this.chain)) || !current()) return;
     this.renderBattleHud();
     await this.view.deploy();
     for (const n of [3, 2, 1]) {
@@ -637,17 +961,31 @@ export class BattleScreen implements Screen {
     this.session.start();
     this.selectFirst();
     // Step 1 needs a ship with something in reach: if the Command Ship has nothing, start on one that does.
-    if (!this.coachSeen('arm')) {
-      const sel = this.selectedStruct();
-      if (sel && !this.weaponsReady(sel).some((w) => w.targets.length)) {
-        const ready = Object.values(this.chain!.structs).find((x) => x.owner === YOU.id && !this.chain!.isDestroyed(x) && this.weaponsReady(x).some((w) => w.targets.length));
-        if (ready) this.select(ready.id);
-      }
-    }
+    if (!this.coachSeen('arm')) this.pickReadyShip();
     // A first battle walks through its first shot in three steps, each waiting until it is done
     // (only when a shot is possible: a step nothing can finish would just hold the clock).
     const canShoot = Object.values(this.chain!.structs).some((x) => x.owner === YOU.id && !this.chain!.isDestroyed(x) && this.weaponsReady(x).some((w) => w.targets.length));
-    if (!this.spectate && canShoot) this.coach('arm', 'Step 1 of 3 · Weapon', { pad: 'Press A', keys: 'Press 1, or click a weapon', touch: 'Tap a weapon below' }, true);
+    // Step 1 waits for the ENGAGE banner to clear, so the two never stack over the fleet. A player
+    // quicker than the banner has found the weapon alone: step 1 counts as done, and step 2 (or 3) follows.
+    if (!this.spectate && canShoot && !this.coachSeen('arm')) setTimeout(() => {
+      if (this.session !== session || this.phase !== 'battle') return;
+      const shot = (m?: Msg) => !!m && String(m['@type']).endsWith('MsgStructAttack');
+      if (shot(session.pending?.msg) || shot(this.held?.msg)) { this.coachMark('arm'); this.coachMark('aim'); return; }
+      if (this.targeting?.kind === 'attack') { this.coachMark('arm'); this.coach('aim', 'Step 2 of 3 · Fire', { pad: 'D-pad picks, A fires', keys: 'Click a ship in red brackets (or Enter)', touch: 'Tap a ship in red brackets, then Fire' }, true); return; }
+      // Another ship (or an enemy) may have been picked meanwhile: the step starts on one of yours that can shoot.
+      if (!this.targeting) this.pickReadyShip();
+      this.coach('arm', 'Step 1 of 3 · Weapon', { pad: 'Press A', keys: 'Press 1, or click a weapon', touch: 'Tap a weapon below' }, true);
+    }, 1500);
+  }
+
+  /** Keep the selection if it is a ship of yours with an enemy in reach; otherwise select one that has. */
+  private pickReadyShip() {
+    const c = this.chain;
+    if (!c) return;
+    const can = (x: SimStruct | null | undefined) => !!x && x.owner === YOU.id && !c.isDestroyed(x) && this.weaponsReady(x).some((w) => w.targets.length);
+    if (can(this.selectedStruct())) return;
+    const ready = Object.values(c.structs).find((x) => can(x));
+    if (ready) this.select(ready.id);
   }
 
   private selectFirst() {
@@ -804,6 +1142,7 @@ export class BattleScreen implements Screen {
 
   private select(id: string | null) {
     this.clearAim();
+    if (this.bayCursor) { this.bayCursor = null; this.paintBayCursor(); }
     this.selected = id;
     this.targeting = null;
     this.refreshSelectionVisuals();
@@ -874,21 +1213,22 @@ export class BattleScreen implements Screen {
       audio.play('deny');
       toast('✕ Withdrawn', '', 1200);
     } }, '✕');
-    const pauseBtn = h('button', { class: 'btn ghost mini', title: 'Pause (Space)', 'aria-label': 'Pause', onclick: () => this.togglePause() }, '❚❚');
+    const pauseBtn = h('button', { class: 'btn ghost mini hud-pause', title: 'Pause (Space)', 'aria-label': 'Pause', html: icon('pause', 16), onclick: () => this.togglePause() });
     const center = h('div', { class: 'block-card panel', title: 'Turn: one block of the chain' },
       h('div', { class: 'spread' }, h('span', { class: 't-label c-hint' }, h('span', { class: 's-only' }, 'Turn'), h('span', { class: 'x-only' }, 'Block')), h('span', { class: 't-label c-hint' }, nextIn)),
       blockNum, blockBar, h('div', { class: 'row', style: 'justify-content:center; gap:6px' }, order, cancel),
       h('div', { class: 'row wrap block-ctl', style: 'justify-content:center; gap:4px; margin-top:4px' }, pauseBtn,
         h('button', { class: 'btn ghost mini', disabled: !!this.gauntlet || !!this.daily, title: this.gauntlet || this.daily ? 'Pace is fixed for this run' : 'Turn length: 2 s training or 6 s real game pace', onclick: (e: Event) => { this.blockMs = this.blockMs === 2000 ? 6000 : 2000; if (this.session) { this.session.blockMs = this.blockMs; this.session.blockClock = Math.min(this.session.blockClock, this.blockMs - 1); } (e.currentTarget as HTMLElement).textContent = `${this.blockMs / 1000}s`; toast(`${this.blockMs / 1000} s turns`, '', 1400); } }, `${this.blockMs / 1000}s`),
         h('button', { class: 'btn ghost mini', title: 'Battle log', 'aria-label': 'Battle log', 'aria-pressed': this.showLog ? 'true' : 'false', onclick: (e: Event) => { this.showLog = !this.showLog; try { localStorage.setItem('structs.battle.log', this.showLog ? '1' : '0'); } catch { /* ignore */ } (e.currentTarget as HTMLElement).setAttribute('aria-pressed', this.showLog ? 'true' : 'false'); this.root.querySelector('.battle-log')?.classList.toggle('shut', !this.showLog); this.fitCamera(); } }, h('span', { html: icon('queue', 14) })),
-        h('button', { class: 'btn danger mini', title: 'Retreat', 'aria-label': 'Retreat', onclick: () => {
+        // Retreat reads as leaving: a red door with an arrow out of it.
+        h('button', { class: 'btn danger mini hud-retreat', title: this.gauntlet ? 'Retreat: pull out and end the gauntlet run' : 'Retreat: pull out and end the battle', 'aria-label': 'Retreat', onclick: () => {
           const wasPaused = this.paused;
           if (!wasPaused) this.togglePause();
           void confirmBox('Retreat', this.gauntlet ? 'Pull your fleet out? This ends your gauntlet run.' : 'Pull your fleet out? The battle ends and you return to fleet setup.', 'Retreat').then((yes) => {
             if (yes) this.toSetup(false);
             else if (!wasPaused && this.paused) this.togglePause();
           });
-        } }, h('span', { html: icon('flag', 14) }))),
+        } }, h('span', { html: EXIT(18) }))),
     );
     this.els.blockNum = blockNum; this.els.blockBar = blockBar; this.els.nextIn = nextIn; this.els.order = order; this.els.pause = pauseBtn; this.els.cancel = cancel;
     const top = h('div', { class: 'battle-top' }, fleetCard('player'), center, fleetCard('enemy'));
@@ -954,6 +1294,9 @@ export class BattleScreen implements Screen {
     });
     const c = this.activeChain();
     const s = this.selectedStruct();
+    this.root.classList.toggle('dc-dock-aim', this.dockAim());
+    this.syncSlim();
+    if (this.phase === 'setup' && this.bayCursor && !s) { this.placeBar(this.bayBar(this.bayCursor)); this.pulseCoachTarget(); return; }
     if (!c || !s) {
       // On a touch screen there is no Tab: the empty bar is itself the button that picks a ship.
       if (this.phase === 'battle') this.root.appendChild(inputMode() === 'touch'
@@ -990,7 +1333,12 @@ export class BattleScreen implements Screen {
 
     const actions: HTMLElement[] = [];
     if (this.phase === 'setup' && mine) {
-      actions.push(h('button', { class: 'btn', onclick: () => this.startGuardPick() }, 'Assign guard', h('kbd', null, 'G')));
+      // A swaps the ship (the picker), X sets who it guards: the pad's badges, or the keys' caps.
+      const fixed = !!this.gauntlet || !!this.daily;
+      if (!fixed) actions.push(h('button', { class: 'btn action setup-swap', title: 'Swap this ship for another (Enter)', onclick: () => this.editAtCursor() },
+        h('span', { class: 'a-top' }, face('a', '⏎'), h('span', { class: 'a-ico', html: icon('refresh', 22) })), h('span', { class: 'a-name' }, 'Swap')));
+      actions.push(h('button', { class: 'btn action secondary setup-guard', title: 'Assign guard (G): pick a friend for this ship to shield', onclick: () => { this.startGuardPick(); if (this.targeting && inputMode() !== 'touch') this.cycleAim(0); } },
+        h('span', { class: 'a-top' }, face('x', 'G'), h('span', { class: 'a-ico', html: icon('shield', 22) })), h('span', { class: 'a-name' }, 'Guard')));
       const du = this.draftUnit(s.id);
       if (du?.protects) actions.push(h('button', { class: 'btn ghost', onclick: () => { du.protects = null; this.renderSetup(); void this.buildPreview(); } }, 'Clear guard'));
     }
@@ -1009,25 +1357,27 @@ export class BattleScreen implements Screen {
         const disabled = !w.targets.length;
         const active = this.targeting?.kind === 'attack' && this.targeting.ws === w.ws;
         actions.push(h('button', {
-          class: 'btn action' + (active ? ' active' : '') + (charge < w.cost ? ' short' : ''), disabled,
+          class: 'btn action weapon' + (active ? ' active' : '') + (charge < w.cost ? ' short' : ''), disabled,
           title: disabled ? 'No enemy in reach' : `${label} (${i + 1}): ${ctl} · reaches ${reachLabel(t, w.ws)} · ${shots > 1 ? shots + '×' : ''}${dmg} damage · needs ${w.cost} charge (firing empties it)`,
           'aria-label': `${label}: ${shots > 1 ? shots + ' shots of ' : ''}${dmg} damage, needs ${w.cost} charge`,
           onclick: () => this.beginAttack(w.ws),
+        // Every verb is its icon over one word (MISSILE, GUARD, MOVE), then its numbers: damage and ⚡.
         }, h('span', { class: 'a-top' }, inputMode() === 'pad' ? (i === padA ? face('a', null) : null) : i ? (inputMode() === 'keys' ? h('kbd', { 'aria-hidden': 'true' }, '2') : null) : face('a', '1'), h('span', { class: 'a-ico', html: icon('missile', 22) })),
-          h('span', { class: 'a-name' }, label), h('span', { class: 'a-dmg' }, h('span', { html: icon('boom', 14) }), `${shots > 1 ? shots + '×' : ''}${dmg}`), h('span', { class: 'a-cost', title: 'Needs this much charge' }, `${w.cost}⚡`)));
+          h('span', { class: 'a-name' }, weaponWord(label)),
+          h('span', { class: 'a-nums' }, h('span', { class: 'a-dmg' }, h('span', { html: icon('boom', 14) }), `${shots > 1 ? shots + '×' : ''}${dmg}`), h('span', { class: 'a-cost', title: 'Needs this much charge' }, `${w.cost}⚡`))));
       });
       if (t.canDefend) {
         const cost = t.defendChangeCharge;
         actions.push(h('button', { class: 'btn action secondary' + (this.targeting?.kind === 'guard' ? ' active' : ''), title: `Guard (G): block shots aimed at a friend, and fire back · needs ${cost} charge`, 'aria-label': `Guard a friend, needs ${cost} charge`, onclick: () => this.startGuardPick() },
-          h('span', { class: 'a-top' }, face('x', 'G'), h('span', { class: 'a-ico', html: icon('shield', 22) })), h('span', { class: 'a-name' }, 'Guard'), h('span', { class: 'a-cost' }, `${cost}⚡`)));
-        if (s.protectedStructId) actions.push(h('button', { class: 'btn action ghost', onclick: () => this.order({ '@type': '/structs.structs.MsgStructDefenseClear', defenderStructId: s.id }, cost, `${t.type} stops guarding`) },
-          h('span', { class: 'a-name' }, 'Stand down'), h('span', { class: 'a-cost' }, `${cost}⚡`)));
+          h('span', { class: 'a-top' }, face('x', 'G'), h('span', { class: 'a-ico', html: icon('shield', 22) })), h('span', { class: 'a-name' }, 'Guard'), h('span', { class: 'a-nums' }, h('span', { class: 'a-cost' }, `${cost}⚡`))));
+        if (s.protectedStructId) actions.push(h('button', { class: 'btn action ghost', title: `Stop guarding · needs ${cost} charge`, onclick: () => this.order({ '@type': '/structs.structs.MsgStructDefenseClear', defenderStructId: s.id }, cost, `${t.type} stops guarding`) },
+          h('span', { class: 'a-top' }, h('span', { class: 'a-ico', html: icon('back', 22) })), h('span', { class: 'a-name' }, 'Stand down'), h('span', { class: 'a-nums' }, h('span', { class: 'a-cost' }, `${cost}⚡`))));
       }
       if (t.movable) {
         // The Command Ship's drive: a card like the others, with a button per battleground.
         const cost = t.moveCharge;
-        const drift = h('div', { class: 'drift' + (charge < cost ? ' short' : ''), title: t.drive_description || 'Move to another layer' },
-          h('div', { class: 'row', style: 'gap:6px' }, face('y', 'D'), h('span', { class: 'a-ico', html: icon('rank', 18) }), h('span', { class: 'a-name' }, t.drive_label || 'Drift')),
+        const drift = h('div', { class: 'drift' + (charge < cost ? ' short' : ''), title: `${t.drive_label || 'Drift'}: ${t.drive_description || 'move to another layer'}` },
+          h('div', { class: 'row', style: 'gap:6px' }, face('y', 'D'), h('span', { class: 'a-ico', html: icon('rank', 18) }), h('span', { class: 'a-name' }, 'Move')),
           h('div', { class: 'row', style: 'gap:3px' }, AMBITS.filter((a) => (t.possibleAmbit & AMBIT_FLAG[a]) !== 0).map((a) => h('button', {
             class: 'btn ghost mini ambit-' + a + (a === s.ambit ? ' here' : ''), disabled: a === s.ambit, title: a === s.ambit ? 'It is here now' : `Drift to ${AMBIT_NAME[a]}`,
             'aria-label': `Drift to ${AMBIT_NAME[a]}`,
@@ -1039,8 +1389,8 @@ export class BattleScreen implements Screen {
       if (t.unitDefenses === 'stealthMode') {
         const hidden = c.isHidden(s);
         const cost = t.stealthActivateCharge;
-        actions.push(h('button', { class: 'btn action secondary', onclick: () => this.order(hidden ? { '@type': '/structs.structs.MsgStructStealthDeactivate', structId: s.id } : { '@type': '/structs.structs.MsgStructStealthActivate', structId: s.id }, cost, hidden ? 'Drop stealth' : 'Engage stealth') },
-          h('kbd', null, 'S'), h('span', { class: 'a-name' }, hidden ? 'Uncloak' : 'Stealth'), h('span', { class: 'a-cost' }, `${cost}⚡`)));
+        actions.push(h('button', { class: 'btn action secondary', title: `${hidden ? 'Drop stealth' : 'Stealth: hide from other layers'} (S) · needs ${cost} charge`, onclick: () => this.order(hidden ? { '@type': '/structs.structs.MsgStructStealthDeactivate', structId: s.id } : { '@type': '/structs.structs.MsgStructStealthActivate', structId: s.id }, cost, hidden ? 'Drop stealth' : 'Engage stealth') },
+          h('span', { class: 'a-top' }, inputMode() === 'keys' ? h('kbd', { 'aria-hidden': 'true' }, 'S') : null, h('span', { class: 'a-ico', html: icon('eye', 22) })), h('span', { class: 'a-name' }, hidden ? 'Uncloak' : 'Stealth'), h('span', { class: 'a-nums' }, h('span', { class: 'a-cost' }, `${cost}⚡`))));
       }
     }
     if (!mine && !dead) {
@@ -1052,11 +1402,110 @@ export class BattleScreen implements Screen {
     }
     // While aiming: if their Command Ship is in reach, say so (taking it down wins the battle).
     const cmdInReach = this.targeting?.kind === 'attack' && mine && (this.weaponsReady(s).find((w) => w.ws === (this.targeting as { ws: WeaponSystem }).ws)?.targets || []).some((x) => x.typeId === COMMAND_SHIP_ID && !c.isDestroyed(x));
-    const hint = this.targeting ? h('div', { class: 'targeting-hint t-label' + (cmdInReach ? ' win' : ''), title: this.targeting.kind === 'attack' ? say({ keys: 'Click a red-ringed enemy to fire · Esc to cancel', pad: 'The d-pad picks a red-ringed enemy, A fires · B cancels', touch: 'Tap a red-ringed enemy, then Fire' }) : say({ keys: 'Click a friend to guard · Esc to cancel', pad: 'The d-pad picks a friend, A guards it · B cancels', touch: 'Tap a friend to guard it' }) },
+    const docked = this.dockAim() && mine;
+    const hint = this.targeting && !docked ? h('div', { class: 'targeting-hint t-label' + (cmdInReach ? ' win' : ''), title: this.targeting.kind === 'attack' ? say({ keys: 'Click an enemy in red brackets to fire · Esc to cancel', pad: 'The d-pad picks an enemy in red brackets, A fires · B cancels', touch: 'Tap an enemy in red brackets, then Fire' }) : say({ keys: 'Click a friend to guard · Esc to cancel', pad: 'The d-pad picks a friend, A guards it · B cancels', touch: 'Tap a friend to guard it' }) },
       h('span', { html: icon(this.targeting.kind === 'attack' ? 'target' : 'shield', 16) }), this.targeting.kind === 'attack' ? (cmdInReach ? 'Command Ship in reach!' : 'Fire!') : 'Guard who?', face('b', 'Esc')) : null;
-    const bar = h('div', { class: 'action-bar panel ' + side, 'data-ship': this.selected || '' }, card, h('div', { class: 'actions' }, actions), hint);
-    this.root.appendChild(bar);
+    this.dockKey = '';
+    const bar = h('div', { class: 'action-bar panel ' + side, 'data-ship': this.selected || '' }, docked ? this.aimCard(cmdInReach) : card, h('div', { class: 'actions' }, actions), hint);
+    this.placeBar(bar);
     this.pulseCoachTarget();
+  }
+
+  /** The bar goes over the field, except in setup on an upright phone: there it takes the START row's
+   * place in the setup sheet (with Done to go back to it), so a tap meant for START never lands on Swap. */
+  private placeBar(bar: HTMLElement) {
+    const sheet = this.phase === 'setup' && matchMedia(TABBAR_QUERY).matches ? this.root.querySelector<HTMLElement>('.setup-panel') : null;
+    if (!sheet) { this.root.appendChild(bar); return; }
+    bar.classList.add('in-sheet');
+    bar.querySelector('.actions')?.appendChild(h('button', { class: 'btn ghost setup-done', title: 'Done: back to Start', onclick: () => { audio.play('select'); this.select(null); } }, h('span', { html: icon('check', 18) }), 'Done'));
+    sheet.insertBefore(bar, sheet.querySelector('.setup-foot'));
+  }
+
+  /* ── TV setup with a pad or keys: while the cursor is on the board, the panel folds to a strip
+   * (its heading and START) so the board gets the room; it opens again when the cursor leaves. ── */
+  private slimSetup = false;
+  /** Pad or keys moved the setup cursor (a click or tap leaves the panel as it is). */
+  private boardKeys = false;
+  private syncSlim() {
+    const short = window.innerHeight <= 560 && (window.innerWidth <= 760 || matchMedia('(pointer: coarse)').matches);
+    const want = this.phase === 'setup' && short && this.boardKeys && this.onBoard();
+    const panel = this.root.querySelector('.setup-panel');
+    panel?.classList.toggle('slim', want);
+    if (want === this.slimSetup) return;
+    this.slimSetup = want;
+    this.fitCamera();
+  }
+
+  /** A short screen played with a pad or keys (the TV) has no field to spare while aiming: the target's
+   * forecast sits in the action bar, where the ship's card was, and nothing floats over the field. */
+  private dockAim() { return this.phase === 'battle' && !!this.targeting && window.innerHeight <= 560 && inputMode() !== 'touch'; }
+  private dockKey = '';
+
+  /** The docked aim card: what the cursor is on and the forecast in numbers, then how to fire. */
+  private aimCard(cmdInReach = false): HTMLElement {
+    const c = this.activeChain();
+    const kind = this.targeting?.kind;
+    const id = this.aimId || this.hovered;
+    const u = c && id && this.validTargets().has(id) ? c.structs[id] : null;
+    const t = u ? TYPES_BY_ID[u.typeId] : null;
+    const p = u && kind === 'attack' ? this.forecast(u.id) : null;
+    const cell = (ico: string, label: string, value: string, cls = '') => h('div', { class: 'pf-row ' + cls }, h('span', { class: 'pf-ico', html: icon(ico, 15) }), h('span', { class: 'pf-k' }, label), h('b', null, value));
+    const step = this.coachKey === 'aim' && this.coachEl?.isConnected ? h('span', { class: 'coach-dots', 'aria-hidden': 'true' }, h('i', { class: 'on' }), h('i', { class: 'on' }), h('i')) : null;
+    return h('div', { class: 'unit-card aim-card' + (kind === 'guard' ? ' guard' : '') + (u?.typeId === COMMAND_SHIP_ID || (!u && cmdInReach) ? ' win' : '') },
+      h('div', { class: 'aim-head' },
+        h('span', { class: 'aim-ico', html: icon(u?.typeId === COMMAND_SHIP_ID ? 'crown' : kind === 'guard' ? 'shield' : 'target', 18) }),
+        h('span', { class: 'aim-name' }, t ? t.type : kind === 'guard' ? 'Guard who?' : cmdInReach ? 'Command Ship in reach!' : 'Fire!'),
+        u ? h('div', { class: 'pips' }, Array.from({ length: t!.maxHealth }, (_, i) => h('i', { class: i < u.health ? '' : 'lost' }))) : null),
+      p ? h('div', { class: 'dc-forecast aim-forecast' },
+        cell('target', 'Hit', pct(p.hit!), 'c-player'), cell('boom', 'Damage', p.damage!.toFixed(1)), cell('star', 'Kill', pct(p.kill!), 'c-warn'),
+        p.counter! > 0 ? cell('replay', 'Hits back', '−' + p.counter!.toFixed(1), 'c-enemy') : p.blocked! > 0 ? cell('shield', 'Blocked', pct(p.blocked!)) : null)
+        : kind === 'guard' && u ? h('div', { class: 't-tiny c-player' }, 'Blocks shots, fires back') : null,
+      h('div', { class: 'aim-how' }, step,
+        h('span', null, say(kind === 'guard' ? { pad: 'D-pad picks, A guards', keys: '←→ pick · Enter guards', touch: '' } : { pad: 'D-pad picks, A fires', keys: '←→ pick · Enter fires', touch: '' })), face('b', 'Esc')));
+  }
+
+  /** Bring the docked card up to date (the cursor, the mouse or the turn moved on), and tell a screen
+   * reader once per new target, from one quiet status line that stays put (the card itself is rebuilt
+   * every turn, so it carries no live region). */
+  private refreshDock() {
+    if (!this.dockAim()) return;
+    const c = this.activeChain();
+    const id = this.aimId || this.hovered;
+    const key = [id, c?.height, this.selected, this.targeting?.kind === 'attack' ? this.targeting.ws : 'guard', this.coachKey, inputMode()].join('|');
+    if (key === this.dockKey) return;
+    this.dockKey = key;
+    this.root.querySelector('.action-bar .aim-card')?.replaceWith(this.aimCard());
+    const u = c && id && this.validTargets().has(id) ? c.structs[id] : null;
+    const said = u ? `${this.targeting?.kind === 'guard' ? 'Guard' : 'Aiming at'} ${TYPES_BY_ID[u.typeId].type}` : '';
+    if (said && said !== this.srSaid) {
+      this.srSaid = said;
+      if (!this.srAim?.isConnected) { this.srAim = h('div', { class: 'dc-sr', role: 'status', 'aria-live': 'polite' }); this.root.appendChild(this.srAim); }
+      const p = this.targeting?.kind === 'attack' ? this.forecast(u!.id) : null;
+      this.srAim.textContent = p ? `${said}: hit ${pct(p.hit!)}, damage ${p.damage!.toFixed(1)}, kill ${pct(p.kill!)}` : said;
+    }
+  }
+  private srAim: HTMLElement | null = null;
+  private srSaid = '';
+
+  /** The aimed shot's forecast (40 forks of the chain), cached per turn. */
+  private forecast(targetId: string) {
+    const c = this.activeChain();
+    if (!c || this.targeting?.kind !== 'attack' || !this.selected) return null;
+    const msg: Msg = { '@type': '/structs.structs.MsgStructAttack', operatingStructId: this.selected, targetStructId: [targetId], weaponSystem: this.targeting.ws };
+    const key = this.selected + targetId + this.targeting.ws + c.height;
+    let p = this.predictCache.get(key);
+    if (!p) { p = predictAttack(c, msg, 40); this.predictCache.set(key, p); }
+    return p.error == null && 'hit' in p ? p : null;
+  }
+
+  /** The bar for an empty bay under the setup cursor: a "+" and Add (A). */
+  private bayBar(b: { ambit: Ambit; slot: number }) {
+    return h('div', { class: 'action-bar panel player bay-bar', 'data-ship': '' },
+      h('div', { class: 'unit-card' }, h('div', { class: 'sprite big player bay-plus', html: icon('build', 30) }),
+        h('div', { class: 'col grow', style: 'gap:4px; min-width:0' }, h('div', { class: 'unit-name t-label-lg c-player' }, 'Empty bay'),
+          h('div', { class: 'row', title: AMBIT_NAME[b.ambit] }, h('span', { class: 'chip ambit-' + b.ambit, html: icon(b.ambit, 14) }), h('span', { class: 't-tiny c-hint' }, `${AMBIT_NAME[b.ambit]} · ${b.slot + 1}`)))),
+      h('div', { class: 'actions' }, h('button', { class: 'btn action setup-add', title: 'Add a ship here (Enter)', onclick: () => this.editAtCursor() },
+        h('span', { class: 'a-top' }, face('a', '⏎'), h('span', { class: 'a-ico', html: icon('build', 22) })), h('span', { class: 'a-name' }, 'Add'))));
   }
 
   private draftUnit(structId: string) { const k = this.preview?.reverse[structId]; return k ? this.draft.find((u) => u.id === k) : undefined; }
@@ -1072,7 +1521,7 @@ export class BattleScreen implements Screen {
       this.targeting = { kind: 'attack', ws };
       this.coachDone('arm');
       // Step 2 follows step 1 (done or dismissed), once.
-      if (this.coachSeen('arm') && !this.spectate) this.coach('aim', 'Step 2 of 3 · Fire', { pad: 'D-pad picks, A fires', keys: 'Click a red ring (or Enter)', touch: 'Tap a red ring, then Fire' }, true);
+      if (this.coachSeen('arm') && !this.spectate) this.coach('aim', 'Step 2 of 3 · Fire', { pad: 'D-pad picks, A fires', keys: 'Click a ship in red brackets (or Enter)', touch: 'Tap a ship in red brackets, then Fire' }, true);
       audio.play('select');
     }
     this.predictCache.clear();
@@ -1108,7 +1557,8 @@ export class BattleScreen implements Screen {
   }
   /** Take down whatever tip is up (leaving the battle, a replay, the debrief). A step left
    * undone stays unmarked, so it comes back next battle. */
-  private clearCoach() { this.coachEl?.remove(); this.coachEl = null; this.coachKey = ''; this.coachStay = false; this.pulseCoachTarget(); }
+  private clearCoach() { this.coachEl?.remove(); this.coachEl = null; this.coachKey = ''; this.coachStay = false; window.removeEventListener('resize', this.coachResize); this.pulseCoachTarget(); }
+  private coachResize = () => requestAnimationFrame(() => this.placeCoach());
 
   /** Show, don't tell: while a step is up, the thing it asks for pulses (the weapon to arm). */
   private pulseCoachTarget() {
@@ -1117,8 +1567,39 @@ export class BattleScreen implements Screen {
     if (line && this.coachSay) { const t = say(this.coachSay); if (line.textContent !== t) line.textContent = t; }
     this.root.querySelectorAll('.dc-pulse').forEach((n) => n.classList.remove('dc-pulse'));
     if (!this.coachEl?.isConnected) return;
-    const want = this.coachKey === 'arm' ? '.action-bar .btn.action:not(:disabled)' : this.coachKey === 'guard' ? '.action-bar .btn.action.secondary' : this.coachKey === 'drift' ? '.action-bar .drift' : '';
+    const want = this.coachKey === 'arm' || this.coachKey === 'guard' || this.coachKey === 'drift' ? COACH_ANCHOR[this.coachKey] : '';
     if (want) this.root.querySelector(want)?.classList.add('dc-pulse');
+    // The bar is rebuilt every turn (and the pill comes and goes): the callout follows its control.
+    this.placeCoach();
+  }
+
+  /** Pin the callout to its control: just above a button in the action bar (its pointer down at it),
+   * or just under a meter in the HUD (pointer up). Never over the HUD's cards; on screen always. */
+  private placeCoach() {
+    const el = this.coachEl;
+    if (!el?.isConnected) return;
+    const sel = COACH_ANCHOR[this.coachKey];
+    const anchor = sel ? this.root.querySelector<HTMLElement>(sel) : null;
+    const a = anchor && anchor.getClientRects().length ? anchor.getBoundingClientRect() : null;
+    const root = this.root.getBoundingClientRect();
+    const hud = this.root.querySelector('.battle-top')?.getBoundingClientRect();
+    const bar = this.root.querySelector('.action-bar')?.getBoundingClientRect();
+    // The "Fire! / Command Ship in reach" pill floats above the bar (outside its box): stay above it too.
+    const pillEl = this.root.querySelector<HTMLElement>('.action-bar .targeting-hint');
+    const pill = pillEl && pillEl.getClientRects().length && getComputedStyle(pillEl).display !== 'none' ? pillEl.getBoundingClientRect() : null;
+    const vw = window.innerWidth, gap = 14;
+    const w = el.offsetWidth, hh = el.offsetHeight;
+    const below = !!a && a.top + a.height / 2 < window.innerHeight / 2;
+    const cx = a ? a.left + a.width / 2 : vw / 2;
+    const x = clamp(cx - w / 2, 8, Math.max(8, vw - 8 - w));
+    const floor = hud ? hud.bottom + 8 : root.top + 8;
+    let y = below ? a!.bottom + gap : Math.min(a ? a.top : bar ? bar.top : window.innerHeight - 160, bar?.top ?? Infinity, pill ? pill.top : Infinity) - gap - hh;
+    y = Math.max(y, floor);
+    el.style.left = Math.round(x - root.left) + 'px';
+    el.style.top = Math.round(y - root.top) + 'px';
+    el.style.setProperty('--tip-x', Math.round(clamp(cx - x, 22, w - 22)) + 'px');
+    el.classList.toggle('below', below);
+    el.classList.toggle('no-tip', !a);
   }
 
   /** A tip, once ever. `stay`: a tutorial step that waits for the player (marked done when they do
@@ -1130,14 +1611,16 @@ export class BattleScreen implements Screen {
     if (!stay && this.coachStay && this.coachEl?.isConnected) return;
     if (!stay) this.coachMark(key);
     this.coachEl?.remove();
-    // A callout, not a paragraph: step dots, one word, one short line, and OK.
+    // A callout, not a paragraph: step dots and one word, one short line, and OK, with a pointer at
+    // the control it is about (placeCoach).
     const step = /^Step (\d) of (\d) · (.*)$/.exec(title);
-    // (`wait`: a step that holds the clock, so it may sit over the HUD on a short screen.)
-    const el = h('div', { class: 'coach panel neutral' + (stay ? ' wait' : '') },
-      step ? h('div', { class: 'coach-dots', role: 'img', 'aria-label': `Step ${step[1]} of ${step[2]}` }, ...Array.from({ length: Number(step[2]) }, (_, i) => h('i', { class: i < Number(step[1]) ? 'on' : '' }))) : null,
-      h('div', { class: 'coach-title' }, step ? step[3] : title),
+    const el = h('div', { class: 'coach panel neutral dc-callout k-' + key + (stay ? ' wait' : '') },
+      h('i', { class: 'coach-tip', 'aria-hidden': 'true' }),
+      h('div', { class: 'coach-head' },
+        step ? h('div', { class: 'coach-dots', role: 'img', 'aria-label': `Step ${step[1]} of ${step[2]}` }, ...Array.from({ length: Number(step[2]) }, (_, i) => h('i', { class: i < Number(step[1]) ? 'on' : '' }))) : null,
+        h('div', { class: 'coach-title' }, step ? step[3] : title)),
       h('div', { class: 'coach-text' }, typeof text === 'string' ? text : say(text)),
-      h('button', { class: 'btn solid coach-ok', onclick: () => { if (this.coachEl === el) this.coachDone(key); else el.remove(); } }, 'OK'));
+      h('button', { class: 'btn solid coach-ok', title: 'Got it', onclick: () => { if (this.coachEl === el) this.coachDone(key); else el.remove(); } }, 'OK'));
     // Announced as it appears, for screen readers (the battle waits on it).
     el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite');
     this.coachSay = typeof text === 'string' ? null : text;
@@ -1146,6 +1629,8 @@ export class BattleScreen implements Screen {
     this.coachKey = key;
     this.coachStay = stay;
     this.pulseCoachTarget();
+    // A window resized (a phone turned) moves the controls: the callout follows.
+    window.addEventListener('resize', this.coachResize);
     if (!stay) setTimeout(() => { el.remove(); if (this.coachEl === el) this.clearCoach(); }, 16000);
   }
 
@@ -1215,7 +1700,10 @@ export class BattleScreen implements Screen {
     // Every fight flown pays a little (a win more, each star more), so playing again always counts.
     // The bar starts where it was and fills once the results are up.
     const fromPct = Math.round(record.progress * 100), fromRank = record.rank;
-    if (!this.spectate && !this.paid.has(s)) { this.paid.add(s); record.gain(won ? 25 + 5 * stars : 5); }
+    // A loss still pays for the fight put up: each enemy ship destroyed, and each gauntlet round reached.
+    const downed = Math.max(0, (s.fielded[CPU.id] || 0) - (standing[CPU.id] || 0));
+    const effort = 5 + (draw ? 5 : 0) + Math.min(30, 3 * downed) + (this.gauntlet ? 10 * Math.max(0, this.gauntlet.round - 1) : 0);
+    if (!this.spectate && !this.paid.has(s)) { this.paid.add(s); record.gain(won ? 25 + 5 * stars : effort); }
     const big = (ico: string, value: string, title: string, cls = '') => h('div', { class: 'db-stat ' + cls, title }, h('span', { class: 'db-ico', html: icon(ico, 26) }), h('b', null, value));
     // What the fight earned, and the rank bar filling: lessons and missions it finished pay in
     // moments after the last shot, so the row keeps up while the results are open.
@@ -1264,23 +1752,41 @@ export class BattleScreen implements Screen {
         this.gauntlet ? h('div', { class: 'scenario' }, h('span', { class: 't-label c-neutral' }, 'Gauntlet'),
           h('span', null, won ? (this.gauntlet.over ? 'All five engagements won. The frontier is yours.' : `Round ${this.gauntlet.fought} of 5 won. Survivors carry their damage forward.`) : `The run ends in round ${this.gauntlet.fought}. Best run: ${this.gauntletBest()}/5 rounds cleared.`)) : null,
         this.daily && this.dailyLast ? this.dailyDebrief(o) : null,
-        this.gauntlet ? h('div', { class: 'row', style: 'margin-top:8px; justify-content:flex-end' },
-          h('button', { class: 'btn ghost', onclick: () => { back.remove(); if (this.gauntlet?.over) this.gauntlet = null; this.navigate('/galaxy'); } }, 'Leave'),
+        // What next, biggest first: the next fleet size after a win (A), else the same fight again;
+        // then Again, then the fleets (B). One press of A is always a fight.
+        this.gauntlet ? h('div', { class: 'debrief-row db-main' },
           this.gauntlet.reinforce
-            ? h('button', { class: 'btn solid', 'data-primary': '', onclick: () => { back.remove(); this.resumeGauntlet(); } }, `Continue to round ${this.gauntlet.round} ▸`)
-            : h('button', { class: 'btn solid', 'data-primary': '', onclick: () => { back.remove(); this.startGauntlet(); } }, 'New gauntlet')) : null,
-        h('div', { class: 'row wrap debrief-row', style: 'gap:6px; margin-top:4px' },
+            ? h('button', { class: 'btn solid big grow db-go', 'data-primary': '', onclick: () => { back.remove(); this.resumeGauntlet(); } }, face('a', '⏎'), `Round ${this.gauntlet.round} ▸`)
+            : h('button', { class: 'btn solid big grow db-go', 'data-primary': '', onclick: () => { back.remove(); this.startGauntlet(); } }, face('a', '⏎'), 'New gauntlet'))
+          : (() => {
+            const next = this.nextSize(won);
+            const again = () => { back.remove(); this.toSetup(false); void this.engage(); };
+            const fleets = h('button', { class: 'btn ' + (next ? 'ghost' : 'secondary'), 'data-back': '', title: this.daily ? 'Back to setup' : 'Change the fleets', onclick: () => { back.remove(); this.toSetup(false); if (inputMode() === 'pad') requestAnimationFrame(() => this.root.querySelector<HTMLElement>('.dc-start')?.focus({ focusVisible: true } as FocusOptions)); } }, face('b', 'Esc'), this.daily ? 'Setup' : 'Fleets');
+            if (!next) return h('div', { class: 'debrief-row db-main' },
+              h('button', { class: 'btn solid big grow db-go', 'data-primary': '', title: 'The same fight again', onclick: again }, face('a', '⏎'), 'Again'), fleets);
+            // The button names the one thing that changes: a bigger fleet, or a sharper computer.
+            const n = Number(PRESETS.find((p) => p.id === next.preset)?.enemy ?? 0) + 1;
+            const bigger = next.preset !== this.preset;
+            const stars = '★'.repeat(next.difficulty === 'easy' ? 1 : next.difficulty === 'difficult' ? 2 : 3);
+            const what = `${SIZE_WORD[next.preset]} fleet (${n} enemy ships) vs a ${cap(next.difficulty)} computer`;
+            return h('div', { class: 'debrief-row db-main' },
+              h('button', { class: 'btn solid big grow db-go db-next', 'data-primary': '', title: `Next: ${bigger ? 'a bigger fleet' : 'a sharper computer'}. ${what}`, 'aria-label': `Next: ${what}`,
+                onclick: () => { back.remove(); this.preset = next.preset; this.difficulty = next.difficulty; this.seed = Math.random().toString(36).slice(2, 8); this.toSetup(true); void this.engage(); } },
+                face('a', '⏎'), h('span', { class: 'db-next-w' }, h('span', null, 'Next'), h('small', null, bigger ? 'Bigger fleet' : 'Sharper CPU')),
+                bigger ? h('span', { class: 'db-next-size' }, h('span', { html: icon('ship', 18) }), h('b', null, String(n)), SIZE_WORD[next.preset])
+                  : h('span', { class: 'db-next-size' }, h('span', { html: icon('robot', 18) }), h('b', { class: 'db-next-stars' }, stars))),
+              h('button', { class: 'btn secondary', title: 'The same fight again', onclick: again }, h('span', { html: icon('refresh', 16) }), 'Again'), fleets);
+          })(),
+        // The rest, small: watch it again, share it (icons, named in their titles), and leave for the menu.
+        h('div', { class: 'debrief-row db-minor' },
           h('button', { class: 'btn secondary', title: 'Watch this battle again', onclick: () => { back.remove(); const r = this.replayCode(o); if (r) void this.startReplay(r); } }, h('span', { html: icon('replay', 16) }), 'Replay'),
-          h('button', { class: 'btn ghost', title: 'Copy a link that replays this exact battle', onclick: () => { const r = this.replayCode(o); if (!r) return; copyText(routeUrl('/sim/' + encodeReplay(r)), 'Replay link copied — anyone can watch this exact battle', 2600); } }, h('span', { html: icon('send', 16) }), 'Share'),
-          h('button', { class: 'btn ghost', title: 'Challenge your guild: post these fleets to comms (you press send)', onclick: () => {
+          h('button', { class: 'btn ghost db-ico-btn', title: 'Share: copy a link that replays this exact battle', 'aria-label': 'Share the replay', onclick: () => { const r = this.replayCode(o); if (!r) return; copyText(routeUrl('/sim/' + encodeReplay(r)), 'Replay link copied — anyone can watch this exact battle', 2600); } }, h('span', { html: icon('send', 18) })),
+          h('button', { class: 'btn ghost db-ico-btn', title: 'Challenge your guild: post these fleets to chat (you press send)', 'aria-label': 'Challenge your guild', onclick: () => {
             void import('../../ui/comms/dock').then((m) => m.mountCommsDock().draft(`⚔ Battle challenge — ${o.winner === 'you' ? 'I won' : o.winner === 'cpu' ? 'I lost' : 'a draw'} in ${o.height} blocks. Beat it: ${routeUrl('/sim/' + this.battleCode())}`));
-          } }, h('span', { html: icon('chat', 16) }), 'Challenge'),
-          this.gauntlet || this.daily ? null : h('button', { class: 'btn ghost x-only', title: 'A link to fight these exact fleets', onclick: () => copyText(routeUrl('/sim/' + this.battleCode()), 'Battle code copied — share the exact fleets', 3200) }, 'Share fleets')),
-        this.gauntlet ? null : h('div', { class: 'row debrief-row', style: 'margin-top:4px' },
+          } }, h('span', { html: icon('chat', 18) })),
+          this.gauntlet || this.daily ? null : h('button', { class: 'btn ghost db-ico-btn x-only', title: 'Share fleets: copy a link to fight these exact fleets', 'aria-label': 'Share the fleets', onclick: () => copyText(routeUrl('/sim/' + this.battleCode()), 'Battle code copied — share the exact fleets', 3200) }, h('span', { html: icon('copy', 18) })),
           h('div', { class: 'grow' }),
-          h('button', { class: 'btn ghost', title: 'Back to the galaxy', onclick: () => { back.remove(); this.navigate('/galaxy'); } }, 'Leave'),
-          h('button', { class: 'btn secondary', 'data-back': '', title: this.daily ? 'Back to setup' : 'Change the fleets', onclick: () => { back.remove(); this.toSetup(false); if (inputMode() === 'pad') requestAnimationFrame(() => this.root.querySelector<HTMLElement>('.dc-start')?.focus({ focusVisible: true } as FocusOptions)); } }, face('b', 'Esc'), this.daily ? 'Setup' : 'Fleets'),
-          h('button', { class: 'btn solid', 'data-primary': '', onclick: () => { back.remove(); this.toSetup(false); void this.engage(); } }, face('a', '⏎'), 'Again')),
+          h('button', { class: 'btn ghost', title: 'Back to the menu', onclick: () => { back.remove(); if (this.gauntlet?.over) this.gauntlet = null; this.leaveToMenu(); } }, h('span', { html: icon('back', 16) }), 'Leave')),
       ),
     );
     const back = h('div', { class: 'modal-back debrief-back' }, box);
@@ -1309,19 +1815,35 @@ export class BattleScreen implements Screen {
     }, 1100);
   }
 
-  /** One clear next step after a plain training battle: a bigger fleet after a win, a tip after a loss. */
+  /** After a plain training battle won, the next fleet size up (the results' main button), if any.
+   * Random fleets have no "bigger" step: a win there offers the hardest set fleet. */
+  private nextSize(won: boolean): { preset: Preset; difficulty: Difficulty } | null {
+    if (!won || this.gauntlet || this.daily || this.scenario || this.spectate) return null;
+    // One thing at a time: the fleet grows, then the computer gets sharper, then the fleet again.
+    // The next rung is the first that raises one of the two without lowering the other.
+    const size = (p: Preset) => (p === 'easy' ? 0 : p === 'hard' ? 2 : 1), skill = (d: Difficulty) => (d === 'easy' ? 0 : d === 'difficult' ? 1 : 2);
+    const s0 = size(this.preset), k0 = skill(this.difficulty);
+    return LADDER.find((r) => size(r.preset) >= s0 && skill(r.difficulty) >= k0 && (size(r.preset) > s0 || skill(r.difficulty) > k0)) || null;
+  }
+
+  /** Leave a battle for the galaxy. Its title (shown on a first visit, e.g. after a direct link to a
+   * battle) opens on its doors, not PRESS START, once start has been pressed this session: anyone
+   * leaving a fight is past that. (A galaxy already visited shows no title again: galaxy.ts.) */
+  private leaveToMenu() {
+    // Past PRESS START, and the galaxy shows its doors again (galaxy.ts enter).
+    try { sessionStorage.setItem('structs.started', '1'); sessionStorage.setItem('structs.menu', '1'); } catch { /* storage blocked: the title asks for START */ }
+    this.navigate('/galaxy');
+  }
+
+  /** One clear hint after a plain training battle with no bigger fleet to fight next: the Daily after
+   * beating the biggest, a tip after a loss. */
   private nextStep(won: boolean): HTMLElement | null {
-    if (this.gauntlet || this.daily || this.scenario || this.spectate) return null;
-    // Random fleets have no "bigger" step: a win there offers the hardest set fleet.
-    const up: Record<Preset, Preset | null> = { easy: 'difficult', difficult: 'hard', hard: null, random: 'hard' };
-    const next = won ? up[this.preset] : null;
+    if (this.gauntlet || this.daily || this.scenario || this.spectate || this.nextSize(won)) return null;
     const go = (p: Preset) => () => { document.querySelector('.debrief-back')?.remove(); this.preset = p; this.difficulty = DIFFICULTY_FOR[p]; this.seed = Math.random().toString(36).slice(2, 8); this.toSetup(true); };
-    if (won && next) return h('div', { class: 'next-step player', title: 'Ready for a bigger enemy fleet?' }, h('span', { class: 'c-enemy', html: icon('ship', 20) }),
-      h('span', { class: 'grow ns-big' }, `${Number(PRESETS.find((p) => p.id === next)?.enemy ?? 0) + 1} · ${SIZE_WORD[next]}`), h('button', { class: 'btn solid mini', 'aria-label': `Next: a ${SIZE_WORD[next].toLowerCase()} fleet`, onclick: go(next) }, 'Go ▸'));
     if (won) return h('div', { class: 'next-step player', title: 'You beat the hardest fleet. Try today’s Daily Challenge, or the five-round Gauntlet.' }, h('span', { html: icon('daily', 20) }),
-      h('span', { class: 'grow ns-big' }, 'Daily'), h('button', { class: 'btn solid mini', onclick: () => { document.querySelector('.debrief-back')?.remove(); this.startDaily(); } }, 'Go ▸'));
+      h('span', { class: 'grow ns-big' }, 'Daily'), h('button', { class: 'btn secondary mini', onclick: () => { document.querySelector('.debrief-back')?.remove(); this.startDaily(); } }, 'Go ▸'));
     return h('div', { class: 'next-step warn', title: 'Aim at the enemy Command Ship: when it falls, you win. And protect yours: select a ship, press G, then click your Command Ship.' },
-      h('span', { class: 'c-warn', html: icon('star', 20) }), h('span', { class: 'grow' }, 'Hit their Command Ship. Guard yours (G).'),
+      h('span', { class: 'c-warn', html: icon('crown', 20) }), h('span', { class: 'grow' }, 'Hit their Command Ship. Guard yours (G).'),
       this.preset !== 'easy' ? h('button', { class: 'btn ghost mini', onclick: go('easy') }, 'Easy ▸') : null);
   }
 
@@ -1373,7 +1895,7 @@ export class BattleScreen implements Screen {
     this.replay = { code, chain, i: 0, acc: 0, speed: 1, end: last + 6, done: false, ready: false };
     this.logEl = h('div', { class: 'log-body scroll' });
     const replay = this.replay;
-    if (!(await this.view.build(chain, YOU.id)) || this.replay !== replay || this.phase !== 'replay' || !this.root.isConnected) return;
+    if (!(await this.buildBoard(chain)) || this.replay !== replay || this.phase !== 'replay' || !this.root.isConnected) return;
     replay.ready = true;
     const speedBtns = [1, 2, 4].map((k) => h('button', { class: 'btn ghost mini' + (k === 1 ? ' active' : ''), onclick: (e: Event) => {
       if (!this.replay) return;
@@ -1436,7 +1958,7 @@ export class BattleScreen implements Screen {
     };
     const click = (e: PointerEvent) => {
       move(e);
-      this.fingerNear = e.pointerType === 'mouse' ? 0 : 30;
+      this.fingerNear = e.pointerType === 'mouse' ? 0 : FINGER_REACH;
       // Touch and pen have no reliable hover, so both get the forecast-first tap.
       this.handleClick(e.pointerType !== 'mouse');
     };
@@ -1503,10 +2025,11 @@ export class BattleScreen implements Screen {
   }
 
   private handleClick(touch = false) {
-    const { unit, ghost } = this.pick(touch ? this.fingerNear || 30 : 0);
+    const { unit, ghost } = this.pick(touch ? this.fingerNear || FINGER_REACH : 0);
     if (this.touchArmed && unit?.id !== this.touchArmed.target) this.disarmTouch();
     document.querySelectorAll('.slot-editor').forEach((n) => n.remove());
     if (this.phase === 'setup') {
+      this.boardKeys = false;
       if ((this.gauntlet || this.daily) && (ghost || (unit && unit.side === 'player' && this.targeting?.kind !== 'guard'))) {
         // Gauntlet fleets are earned and daily fleets are shared, not edited: select only (guards may still be set).
         if (unit) { audio.play('select'); this.select(unit.id); }
@@ -1623,13 +2146,17 @@ export class BattleScreen implements Screen {
   }
 
   private handleKey(e: KeyboardEvent) {
+    // Keys aimed at anything outside the battle (the ops or chat dock, a toast's button) are theirs:
+    // START there doesn't fight, and the d-pad isn't pulled back to the panel.
+    const tgt = e.target;
+    if (tgt instanceof Element && tgt !== document.body && tgt !== document.documentElement && tgt !== this.engine.canvas && !this.root.contains(tgt)) return;
     // Typing anywhere (chat, a search) is typing, not orders.
     const typing = e.target as HTMLElement | null;
     if (typing?.closest?.('input, textarea, select, [contenteditable]') || typing?.isContentEditable) return;
     // A window on top (a confirm, the debrief, the vault) has the keyboard: Tab, 1, G… are its own.
     if (document.querySelector('.modal-back')) return;
     // Keys in the top bar and its menus are theirs (a pad walking the hubs), not orders.
-    if (typing?.closest?.('.topbar, .hub-menu, .more-menu')) return;
+    if (typing?.closest?.('.topbar, .hub-menu, .more-menu, .slot-editor')) return;
     // Backing out of the drift picker leaves the ship selected.
     if (typing?.closest?.('.drift') && e.key === 'Escape') { (typing as HTMLElement).blur(); return; }
     if (typing?.closest?.('.drift') && e.key.startsWith('Arrow')) {
@@ -1640,16 +2167,41 @@ export class BattleScreen implements Screen {
       audio.play('hover', 0.6);
       return;
     }
+    // Escape closes an open ship picker first (one opened by a click has no focus inside it).
+    if (e.key === 'Escape' && this.root.querySelector('.slot-editor')) {
+      if (this.editorClose) this.editorClose(); else this.root.querySelectorAll('.slot-editor').forEach((n) => n.remove());
+      audio.play('select');
+      return;
+    }
     const s = this.selectedStruct();
-    if (e.key === 'Escape') { this.clearAim(); if (this.targeting) { this.targeting = null; this.refreshSelectionVisuals(); this.renderActionBar(); } else this.select(null); return; }
-    // Setup, not aiming: the arrows walk the setup's buttons as a pad's d-pad does (the first press
-    // lands on Start), so a keyboard reaches the sizes, the Daily and the Gauntlet too.
+    const panel = this.phase === 'setup' ? this.root.querySelector<HTMLElement>('.setup-panel') : null;
+    const inPanel = !!panel?.contains(document.activeElement);
+    if (e.key === 'Escape') {
+      this.clearAim();
+      if (this.targeting) { this.targeting = null; this.refreshSelectionVisuals(); this.renderActionBar(); }
+      // B on the setup board goes back to the panel (its cursor on Start).
+      else if (this.onBoard() && !inPanel && panel) this.leaveBoard();
+      else this.select(null);
+      return;
+    }
+    // Setup, not aiming. On the board (a ship of yours or an empty bay under the cursor) the arrows walk
+    // the bays and ships, and off the left edge back to the panel. In the panel they walk its buttons
+    // as a pad's d-pad does (the first press lands on Start), and off its right edge onto the board.
     if (this.phase === 'setup' && !this.targeting && e.key.startsWith('Arrow')) {
-      const panel = this.root.querySelector<HTMLElement>('.setup-panel');
+      if (this.onBoard() && !inPanel) {
+        e.preventDefault();
+        if (!this.moveBoard(e.key)) { if (e.key === 'ArrowLeft' && panel) this.leaveBoard(); else audio.play('deny', 0.5); }
+        return;
+      }
       if (panel) {
         e.preventDefault();
-        if (!panel.contains(document.activeElement)) panel.querySelector<HTMLElement>('.dc-start')?.focus({ focusVisible: true } as FocusOptions);
-        else moveFocus(e.key as 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight');
+        if (!inPanel) { panel.querySelector<HTMLElement>('.dc-start')?.focus({ focusVisible: true } as FocusOptions); audio.play('hover', 0.6); return; }
+        // Within the panel first; off its right edge onto the board; any other edge as the pad does.
+        const was = document.activeElement as HTMLElement;
+        const inside = this.panelStep(panel, was, e.key);
+        if (inside) { inside.focus({ focusVisible: true } as FocusOptions); inside.scrollIntoView({ block: 'nearest' }); audio.play('hover', 0.6); return; }
+        if (e.key === 'ArrowRight' && this.enterBoard(was.getBoundingClientRect())) return;
+        moveFocus(e.key as 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight');
         audio.play('hover', 0.6);
         return;
       }
@@ -1681,10 +2233,14 @@ export class BattleScreen implements Screen {
       return;
     }
     if (e.key === ' ' && this.phase === 'battle') { e.preventDefault(); this.togglePause(); return; }
+    // START (Space) fights from anywhere in setup; a keyboard's Space on a focused button presses that button.
+    if (e.key === ' ' && this.phase === 'setup' && !this.targeting && (inputMode() === 'pad' || !onControl)) { e.preventDefault(); void this.engage(); return; }
     if ((e.key === 'z' || e.key === 'Z') && !e.metaKey && !e.ctrlKey) { this.zoom.reset(); return; }
     if (e.key === 'Enter' && this.phase === 'setup' && !onControl) {
-      // Picking a guard: Enter (A) takes the aimed friend. Otherwise it starts the battle.
+      // Picking a guard: Enter (A) takes the aimed friend. On the board it opens the ship picker there.
+      // With nothing under the cursor it starts the battle.
       if (this.targeting) { if (!this.commitAim()) this.cycleAim(0); return; }
+      if (this.onBoard()) { e.preventDefault(); this.editAtCursor(); return; }
       void this.engage(); return;
     }
     if (e.key === 'Tab') {
@@ -1694,6 +2250,8 @@ export class BattleScreen implements Screen {
       const mine = Object.values(c.structs).filter((x) => x.owner === YOU.id && !c.isDestroyed(x)).sort((a, b) => (a.typeId === COMMAND_SHIP_ID ? -1 : b.typeId === COMMAND_SHIP_ID ? 1 : AMBITS.indexOf(a.ambit) - AMBITS.indexOf(b.ambit) || a.slot - b.slot));
       if (!mine.length) return;
       const i = mine.findIndex((x) => x.id === this.selected);
+      // In setup L/R steps onto the board: A then acts on the ship, not on a panel button left in focus.
+      if (this.phase === 'setup') { this.boardKeys = true; if (panel?.contains(document.activeElement)) (document.activeElement as HTMLElement).blur(); }
       this.select(mine[(i + (e.shiftKey ? -1 : 1) + mine.length) % mine.length].id);
       audio.play('hover');
       return;
@@ -1730,7 +2288,7 @@ export class BattleScreen implements Screen {
     this.paused = !this.paused;
     if (this.paused) this.session.pause(); else this.session.resume();
     this.view.paused = this.paused;
-    if (this.els.pause) { this.els.pause.textContent = this.paused ? '▶' : '❚❚'; this.els.pause.setAttribute('aria-label', this.paused ? 'Resume' : 'Pause'); }
+    if (this.els.pause) { this.els.pause.innerHTML = icon(this.paused ? 'play' : 'pause', 16); this.els.pause.setAttribute('aria-label', this.paused ? 'Resume' : 'Pause'); this.els.pause.title = this.paused ? 'Resume (Space)' : 'Pause (Space)'; }
     toast(this.paused ? 'Paused — the chain waits' : 'Resumed', '', 1200);
   }
 
@@ -1749,15 +2307,27 @@ export class BattleScreen implements Screen {
   }
 
   private updateHover() {
-    const { unit } = this.pick(this.fingerNear);
+    const { unit, ghost } = this.pick(this.fingerNear);
     // A pinned touch forecast belongs to its target: a drag or a pointer onto anything else withdraws it.
     if (this.touchArmed && unit?.id !== this.touchArmed.target) this.disarmTouch();
+    // An empty frame in setup is a button: the cursor says so, and the frame swells a little.
+    const bay = !unit && ghost ? this.ghosts.children.find((m) => m.userData.ghost?.ambit === ghost.ambit && m.userData.ghost?.slot === ghost.slot) || null : null;
+    if (bay !== this.ghostHover) {
+      this.ghostHover?.scale.setScalar(1);
+      this.ghostHover = bay;
+      const editable = !this.gauntlet && !this.daily;
+      if (bay && editable) { bay.scale.setScalar(1.1); audio.play('hover', 0.6); }
+      if (!unit) this.engine.canvas.style.cursor = bay && editable ? 'pointer' : 'default';
+    }
     const id = unit && !unit.destroyed ? unit.id : null;
     if (id !== this.hovered) {
       if (this.hovered) { const u = this.view.units.get(this.hovered); if (u) u.hover = 0; }
       this.hovered = id;
+      // The mouse moved onto (or off) a ship: it aims now, not the keys' or pad's last pick.
+      if (this.aimId && this.aimId !== id) this.aimId = null;
+      this.refreshDock();
       if (unit) { unit.hover = 1; audio.play('hover'); }
-      this.engine.canvas.style.cursor = unit ? (this.targeting && !unit.targetable ? 'not-allowed' : 'pointer') : 'default';
+      this.engine.canvas.style.cursor = unit ? (this.targeting && !unit.targetable ? 'not-allowed' : 'pointer') : this.ghostHover && !this.gauntlet && !this.daily ? 'pointer' : 'default';
     }
     if (!unit || unit.destroyed) { hideTooltip(); return; }
     this.tipFor(unit, this.pointerPx);
@@ -1768,6 +2338,12 @@ export class BattleScreen implements Screen {
     const c = this.activeChain();
     const s = c?.structs[unit.id];
     if (!c || !s) { hideTooltip(); return; }
+    // Docked (a short screen, a pad or keys): the forecast lives in the bar, nothing covers the field.
+    if (this.dockAim()) {
+      hideTooltip();
+      this.refreshDock();
+      return;
+    }
     const t = TYPES_BY_ID[s.typeId];
     const lines: (HTMLElement | null)[] = [
       h('div', { class: 'spread' }, h('span', { class: 't-label ' + (unit.side === 'player' ? 'c-player' : 'c-enemy') }, t.type), h('span', { class: 'chip ambit-' + s.ambit }, AMBIT_NAME[s.ambit])),
@@ -1807,6 +2383,38 @@ export class BattleScreen implements Screen {
       this.attack(ws, a.target);
     } }, h('span', { html: icon('target', 16) }), 'Fire'));
     showTooltip(at.x, at.y, h('div', null, lines), unit.side === 'player' ? 'player' : 'enemy');
+    this.fitTip(at);
+  }
+
+  /** The card never covers the verbs, the "Command Ship in reach" pill or a callout above them, nor
+   * the HUD. Where it fits, it stays where it opened and only lifts clear of the bar. A short screen
+   * (the TV's 480 lines, a phone on its side) has no room to spare: there the card sits beside its
+   * ship in the band between the HUD and the verbs (dc-battle.css packs the forecast into two columns). */
+  private fitTip(at: { x: number; y: number }) {
+    if (this.phase === 'setup') return;
+    const tip = document.querySelector<HTMLElement>('body > .tooltip.on');
+    if (!tip) return;
+    const rect = (sel: string) => { const e = this.root.querySelector<HTMLElement>(sel); const cs = e && e.getClientRects().length ? getComputedStyle(e) : null; return cs && cs.display !== 'none' && cs.visibility !== 'hidden' ? e!.getBoundingClientRect() : null; };
+    const hud = rect('.battle-top'), bar = rect('.action-bar') || rect('.replay-bar'), pill = rect('.action-bar .targeting-hint'), coach = rect('.coach');
+    const mid = window.innerHeight / 2;
+    let top = (hud?.bottom ?? 44) + 6;
+    let floor = Math.min(bar?.top ?? window.innerHeight, pill?.top ?? window.innerHeight) - 6;
+    // A callout up under the HUD, or down above the bar, narrows the band too.
+    if (coach && coach.top < mid) top = Math.max(top, coach.bottom + 6);
+    if (coach && coach.top >= mid) floor = Math.min(floor, coach.top - 6);
+    const w = tip.offsetWidth, hh = tip.offsetHeight;
+    // (The stylesheet nudges every tooltip 14 px right and down: its box includes that.)
+    if (window.innerHeight > 560) {
+      const r = tip.getBoundingClientRect();
+      if (r.bottom > floor + 0.5) tip.style.top = Math.round(Math.max(top, floor - hh) - 14) + 'px';
+      return;
+    }
+    let x = at.x + 26;
+    if (x + w > window.innerWidth - 8) x = at.x - 26 - w;
+    x = clamp(x, 8, window.innerWidth - 8 - w);
+    const y = floor - top >= hh ? clamp(at.y - hh / 2, top, floor - hh) : top;
+    tip.style.left = Math.round(x - 14) + 'px';
+    tip.style.top = Math.round(y - 14) + 'px';
   }
 
   /* ── Frame ────────────────────────────────────────────────────────────── */
@@ -1821,11 +2429,15 @@ export class BattleScreen implements Screen {
     this.view.update(dt, t);
     if (this.phase === 'battle' || this.phase === 'deploy') this.paintHud();
     if (this.pointer.x < 2) this.updateHover();
+    else this.dropGhostHover();
+    this.paintCursor();
     // A held touch forecast lapses once its weapon, shooter or target no longer stands.
     if (this.touchArmed && !this.armedStands()) this.disarmTouch();
 
     // Ghost frames pulse and scan.
     GHOST.mat.uniforms.uTime.value = t;
+    GHOST.lockedMat.uniforms.uTime.value = t;
+    GHOST.focusMat.uniforms.uTime.value = t;
 
     // Camera: parallax toward the pointer, lean toward the action, idle sway.
     const px = this.pointer.x < 2 ? this.pointer.x : 0, py = this.pointer.x < 2 ? this.pointer.y : 0;
@@ -1890,10 +2502,10 @@ const GHOST = (() => {
   const plate = new THREE.PlaneGeometry(2.7, 2.2);
   const mat = new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    uniforms: { uTime: { value: 0 }, uSeed: { value: 0 }, uColor: { value: new THREE.Color(0x43cdb6) } },
+    uniforms: { uTime: { value: 0 }, uSeed: { value: 0 }, uColor: { value: new THREE.Color(0x43cdb6) }, uPlus: { value: 1 } },
     vertexShader: /* glsl */ `varying vec2 vUv; varying vec3 vW; void main() { vUv = uv; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
     fragmentShader: /* glsl */ `
-      uniform float uTime; uniform vec3 uColor; varying vec2 vUv; varying vec3 vW;
+      uniform float uTime; uniform vec3 uColor; uniform float uPlus; varying vec2 vUv; varying vec3 vW;
       float box(vec2 p, vec2 a, vec2 b) { vec2 s = step(a, p) * step(p, b); return s.x * s.y; }
       void main() {
         vec2 p = vUv * vec2(2.7, 2.2);
@@ -1908,19 +2520,27 @@ const GHOST = (() => {
         float fill = smoothstep(1.0, 0.0, vUv.y) * 0.07;
         float scanY = fract(uTime * 0.35 + vW.x * 0.03);
         float scan = smoothstep(0.03, 0.0, abs(vUv.y - scanY)) * 0.35 * smoothstep(0.0, 0.2, q.x);
-        // Plus sigil in the middle.
+        // A "+" in the middle that breathes, slow and soft, so an empty bay reads as "add a ship here".
+        // (A fixed fleet's bays, uPlus 0, have none and sit dimmer.)
         vec2 c = abs(p - vec2(1.35, 1.1));
-        float plus = (box(c, vec2(0.0), vec2(0.2, 0.03)) + box(c, vec2(0.0), vec2(0.03, 0.2))) * 0.8;
+        float plus = clamp(box(c, vec2(0.0), vec2(0.36, 0.07)) + box(c, vec2(0.0), vec2(0.07, 0.36)), 0.0, 1.0);
+        plus *= uPlus * (0.5 + 0.5 * (0.5 + 0.5 * sin(uTime * 2.4 + vW.x * 0.5)));
         // Deck pad: a soft ellipse of light along the base.
         vec2 e = (vUv - vec2(0.5, 0.0)) * vec2(1.0, 4.2);
         float pad = exp(-dot(e, e) * 5.0) * 0.4;
         float pulse = 0.75 + 0.25 * sin(uTime * 3.0 + vW.x * 0.6);
-        float a = (br * 0.95 + hair + fill + scan + plus + pad) * pulse;
-        gl_FragColor = vec4(uColor * a * 1.3, a);
+        float frame = (br * 0.95 + hair + fill + scan + pad) * pulse * mix(0.55, 1.0, uPlus);
+        float a = clamp(frame + plus, 0.0, 1.0);
+        gl_FragColor = vec4(uColor * frame * 1.3 + vec3(0.8, 0.97, 1.0) * plus * 1.3, a);
       }
     `,
   });
+  const lockedMat = mat.clone();
+  lockedMat.uniforms.uPlus.value = 0;
+  // The bay under a pad's (or keys') cursor glows in the accent.
+  const focusMat = mat.clone();
+  focusMat.uniforms.uColor.value = new THREE.Color(2.2, 0.95, 0.25);   // the accent, lifted (it adds over space)
   const pick = new THREE.BoxGeometry(2.8, 2.2, 1.4);
   const pickMat = new THREE.MeshBasicMaterial({ visible: false });
-  return { plate, mat, pick, pickMat };
+  return { plate, mat, lockedMat, focusMat, pick, pickMat };
 })();

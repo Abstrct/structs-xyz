@@ -4,7 +4,8 @@
  * own lesson. Browser-free: tests import it under node. */
 import { STRUCT_TYPES, WEAPON_SYSTEMS, AMBIT_NAME, ambitsOf, canTargetAmbit, hasWeapon, reachLabel, weaponLabel, type Ambit, type StructType } from '../data/catalogue';
 
-export interface MatchupQuestion { q: string; yes: boolean; why: string; attacker: number; defender: number }
+/** `from` and `to` are the layers the two units stand on (the Academy draws them there). */
+export interface MatchupQuestion { q: string; yes: boolean; why: string; attacker: number; defender: number; from: Ambit; to: Ambit }
 
 const FLEET = STRUCT_TYPES.filter((t) => t.category === 'fleet');
 const ARMED = FLEET.filter((t) => WEAPON_SYSTEMS.some((ws) => hasWeapon(t, ws)));
@@ -29,7 +30,7 @@ export function matchupQuestion(rand: () => number = Math.random): MatchupQuesti
       q: `Can a ${a.type} in ${AMBIT_NAME[from]} hit a ${b.type} in ${AMBIT_NAME[to]}?`,
       yes,
       why: `${yes ? 'Yes' : 'No'}: its ${reach}. The ${b.type} is in ${AMBIT_NAME[to]}.`,
-      attacker: a.id, defender: b.id,
+      attacker: a.id, defender: b.id, from, to,
     };
     if (yes === wantYes) return last;
   }
@@ -37,7 +38,8 @@ export function matchupQuestion(rand: () => number = Math.random): MatchupQuesti
 }
 
 /* Price practice: what does energy cost? kW × days × price, with friendly numbers. */
-export interface PriceQuestion { q: string; choices: string[]; answer: number; why: string }
+/** `kw`, `days` and `price` are the question's numbers (the Academy draws them as a sum). */
+export interface PriceQuestion { q: string; choices: string[]; answer: number; why: string; kw: number; days: number; price: number }
 
 const fmt = (n: number) => (Math.round(n * 100) / 100).toString();
 
@@ -57,12 +59,15 @@ export function priceQuestion(rand: () => number = Math.random): PriceQuestion {
     choices: opts.map((o) => `${o} alpha`),
     answer: opts.indexOf(fmt(total)),
     why: `${kw} kW × ${days} day${days === 1 ? '' : 's'} × ${fmt(price)} alpha = ${fmt(total)} alpha.`,
+    kw, days, price,
   };
 }
 
 /* Code practice: run a simplified copy of the robots' program (Robot Rules) in your head. A helper's situation,
  * four possible moves; the first rule that fits wins, top to bottom, as decide() does. */
-export interface CodeQuestion { q: string; choices: string[]; answer: number; why: string }
+/** `s` is the helper's situation and `line` the program line that runs (0 explore … 5 wait), so the
+ * Academy can draw the situation and light the line once answered. */
+export interface CodeQuestion { q: string; choices: string[]; answer: number; why: string; s: Situation; line: number }
 
 type Job = 'productive' | 'bait' | 'raider';
 export interface Situation { job: Job; planetUsedUp: boolean; machineOff: boolean; missing: boolean; building: boolean; alpha: number; keep: number; rally: string }
@@ -107,5 +112,6 @@ export function codeQuestion(rand: () => number = Math.random): CodeQuestion {
     : busy + (s.job === 'raider' ? `No earlier rule fits, so the raider rule runs: sail to ${s.rally || 'home'}.`
       : move.startsWith('sendHome') ? `No earlier rule fits. It’s productive and ${s.alpha} > ${s.keep} + 0.1, so it sends ${s.alpha} − ${s.keep} home.`
       : s.job === 'productive' ? `No rule fits: ${s.alpha} alpha isn’t more than ${s.keep} + 0.1, so it waits.` : 'No rule fits this bait helper, so it waits.');
-  return { q: `A helper: ${facts.join('; ')}. Which line of the program runs?`, choices: opts, answer: opts.indexOf(move), why };
+  const line = ['explore', 'switchOn', 'build', 'sail', 'sendHome', 'wait'].indexOf(move.replace(/\(.*/, ''));
+  return { q: `A helper: ${facts.join('; ')}. Which line of the program runs?`, choices: opts, answer: opts.indexOf(move), why, s, line };
 }

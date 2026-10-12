@@ -464,3 +464,189 @@
 /* Fly rides in the card's head, beside About, so it is never scrolled away. */
 .screen.codex .codex-detail .panel-head .cx-fly { margin-left: auto; gap: 6px; }
 .screen.codex .codex-detail .panel-head .cx-fly + .cx-about { margin-left: 6px; }
+
+/* Panels as tall as what's in them: they used to stretch to the floor, half empty. Long ones scroll. */
+:is(.screen.academy, .screen.ops) .ac-frame { align-items: start; align-content: start; }
+:is(.screen.academy, .screen.ops) .ac-frame > :is(.ac-side, .ac-main) { max-height: 100%; overflow-y: auto; }
+
+/* Code Lab, the same way: the list and the form are as tall as what is in them (top-anchored) and
+ * scroll inside once they reach the floor. The row is the frame's height, so 100% is the floor. */
+.screen.forge .fg { grid-template-rows: minmax(0, 1fr); align-items: start; }
+.screen.forge .fg > :is(.fg-side, .fg-main) { max-height: 100%; min-height: 0; }
+.screen.forge .fg-list, .screen.forge .fg-form { flex: 0 1 auto; }
+/* A phone: the list on top (at most 38% of the screen), the form under it. */
+@media (max-width: 559px) {
+  .screen.forge .fg { grid-template-rows: auto minmax(0, 1fr); }
+  .screen.forge .fg > .fg-side { max-height: 38vh; }
+}
+
+/* ── Unit Guide: the card ends on a whole row; the strip shows that it scrolls ───────────────
+ * codex.ts fitDetail() caps the card's body at the end of the last row that fits (stat chips, a
+ * weapon, a row of faces) and marks the card .snapped; while more is below, .more-below puts a
+ * chevron on its foot. stripEdges() marks the portrait strip .more-left / .more-right. */
+/* A snapped card keeps a band at its foot, so the chevron never sits on a row; the band is its
+ * bottom margin, so the body needs none (its last whole row ends exactly at the card's band). */
+.screen.codex .codex-detail.snapped { padding-bottom: 14px; }
+.screen.codex .codex-detail.snapped > .panel-body { padding-bottom: 0; }
+.screen.codex .codex-detail.more-below::after { content: ''; display: block; position: absolute; left: 50%; right: auto; top: auto; bottom: -14px; width: 28px; height: 28px; margin-left: -14px; z-index: 3; pointer-events: none;
+  border-radius: 50%; border: 2px solid rgba(41, 224, 255, 0.75); box-shadow: 0 4px 12px rgba(0, 0, 20, 0.6);
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center / 16px no-repeat, rgba(7, 11, 44, 0.96);
+  animation: cx-bob 1.4s ease-in-out infinite; }
+.screen.codex .codex-detail.enemy.more-below::after { border-color: rgba(255, 61, 90, 0.75); }
+@keyframes cx-bob { 50% { transform: translateY(3px); } }
+@media (max-width: 900px) {
+  /* The body is as tall as its rows (up to the card's limit); the card follows it. */
+  .screen.codex .codex-detail > .panel-body { flex: 0 1 auto; }
+  /* Snapped, the last whole row stays crisp: the fade shows only mid-scroll, while more is below. */
+  .screen.codex .codex-detail.snapped:is(:not(.scrolled), :not(.more-below)) > .panel-body { -webkit-mask-image: none; mask-image: none; }
+  /* An edge with more beyond it fades out. No scroll snapping: Chrome re-snaps after a scripted
+   * scroll and threw the cursor's portrait back off screen. The scroll padding keeps a portrait
+   * scrolled into view (keyboard, pad) clear of the fades and the chevron. */
+  .screen.codex .codex-list .codex-scroll { scroll-padding-inline: 48px 80px; overscroll-behavior-x: contain; }
+  .screen.codex .codex-list.more-right .codex-scroll { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 64px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 64px), transparent); }
+  .screen.codex .codex-list.more-left .codex-scroll { -webkit-mask-image: linear-gradient(to right, transparent, #000 40px); mask-image: linear-gradient(to right, transparent, #000 40px); }
+  .screen.codex .codex-list.more-left.more-right .codex-scroll { -webkit-mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 64px), transparent); mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 64px), transparent); }
+  /* …and a chevron points on along it. */
+  .screen.codex .codex-list.more-right::after { content: ''; display: block; position: absolute; left: auto; right: 8px; top: 62%; bottom: auto; width: 30px; height: 30px; margin-top: -15px; z-index: 3; pointer-events: none;
+    border-radius: 50%; border: 2px solid rgba(41, 224, 255, 0.75); box-shadow: 0 4px 12px rgba(0, 0, 20, 0.6);
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 6l6 6-6 6'/%3E%3C/svg%3E") center / 16px no-repeat, rgba(7, 11, 44, 0.96);
+    animation: cx-nudge 1.4s ease-in-out infinite; }
+}
+@keyframes cx-nudge { 50% { transform: translateX(3px); } }
+/* (The base .panel::after is the old top-edge light: its left/right/top are reset above.) */
+/* The side layout (the TV): the card hangs from the top, as tall as its rows, above the strip. */
+@media (max-width: 900px) and (max-height: 560px) and (min-width: 560px) {
+  .screen.codex .codex-detail { bottom: auto; max-height: calc(100% - 200px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .screen.codex .codex-detail.more-below::after, .screen.codex .codex-list.more-right::after { animation: none; }
+}
+
+/* ── Academy practice: the matchup as a picture (academy.ts matchupBoard) ─────────────────────
+ * The four layers top to bottom; the attacker stands on its layer on the left, the target on its
+ * layer on the right (turned to face it). The two layers in play are lit in their colours. */
+:is(.screen.academy) .ac-mx { display: grid; gap: 4px; padding: 8px; border-radius: 18px; border: 2px solid rgba(110, 140, 240, 0.3); background: rgba(5, 9, 40, 0.5); }
+:is(.screen.academy) .ac-mx-row { --amb: var(--accent-secondary); display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; min-height: 48px; padding: 2px 8px; border-radius: 12px;
+  background: color-mix(in srgb, var(--amb) 6%, transparent); }
+:is(.screen.academy) .ac-mx-row.ambit-space { --amb: var(--ambit-space, #B49CFF); }
+:is(.screen.academy) .ac-mx-row.ambit-air { --amb: var(--ambit-air, #7FD3FF); }
+:is(.screen.academy) .ac-mx-row.ambit-land { --amb: var(--ambit-land, #E2B266); }
+:is(.screen.academy) .ac-mx-row.ambit-water { --amb: var(--ambit-water, #4F9BFF); }
+:is(.screen.academy) .ac-mx-row.lit { background: color-mix(in srgb, var(--amb) 20%, transparent); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--amb) 45%, transparent); }
+:is(.screen.academy) .ac-mx-layer { display: inline-flex; align-items: center; gap: 6px; color: color-mix(in srgb, var(--amb) 70%, #fff); font-family: var(--font-chrome); font-weight: 900; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.55; }
+:is(.screen.academy) .ac-mx-row.lit .ac-mx-layer { opacity: 1; }
+:is(.screen.academy) .ac-mx-ico, :is(.screen.academy) .ac-mx-aim { display: inline-flex; }
+:is(.screen.academy) .ac-mx-aim { color: var(--accent-destructive); }
+:is(.screen.academy) .ac-mx-cell { display: flex; align-items: center; gap: 6px; min-width: 0; }
+:is(.screen.academy) .ac-mx-cell.right { justify-content: flex-end; }
+:is(.screen.academy) .ac-mx-unit { position: relative; flex: none; width: 46px; height: 46px; overflow: hidden; border-radius: 14px; border: 2px solid rgba(41, 224, 255, 0.7); background: rgba(41, 224, 255, 0.12); }
+:is(.screen.academy) .ac-mx-unit.enemy { border-color: rgba(255, 61, 90, 0.75); background: rgba(255, 61, 90, 0.12); }
+:is(.screen.academy) .ac-mx-unit img { position: absolute; width: 84px; height: 84px; left: -19px; top: -19px; image-rendering: pixelated; }
+:is(.screen.academy) .ac-mx-unit.enemy img { transform: scaleX(-1); }
+:is(.screen.academy) .ac-mx-verdict { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex: none; border-radius: 50%; font-family: var(--font-chrome); font-weight: 900; font-size: 15px; }
+:is(.screen.academy) .ac-mx-verdict.yes { background: var(--dc-y); color: #fff; }
+:is(.screen.academy) .ac-mx-verdict.no { background: var(--accent-destructive); color: #fff; }
+@media (max-height: 560px) {
+  :is(.screen.academy) .ac-mx { gap: 2px; padding: 4px 6px; }
+  :is(.screen.academy) .ac-mx-row { min-height: 34px; }
+  :is(.screen.academy) .ac-mx-unit { width: 34px; height: 34px; border-radius: 10px; }
+  :is(.screen.academy) .ac-mx-unit img { width: 64px; height: 64px; left: -15px; top: -15px; }
+}
+/* The practice's title wraps instead of being cut ("Who can hit wh…"). */
+:is(.screen.academy) .ac-practice-head .ac-h1 { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+@media (max-width: 560px) { :is(.screen.academy) .ac-practice-head .ac-h1 { font-size: 17px; line-height: 1.1; } }
+/* Phones (touch): the tracks are tiles with a one-word caption, three over two, so the names fit. */
+@media (max-width: 560px) and (pointer: coarse) {
+  :is(.screen.academy) .ac-tracks { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  :is(.screen.academy) .ac-tracks > .ac-track, :is(.screen.academy) .ac-tracks > .ac-track:nth-child(n + 4) { grid-column: span 2; padding: 8px 4px 6px; gap: 4px; }
+  :is(.screen.academy) .ac-tracks > .ac-track:nth-child(n + 4) { grid-column: span 3; }
+  :is(.screen.academy) .ac-tracks > .ac-track .ac-track-name { display: block; font-size: 12px; line-height: 14px; }
+}
+
+/* ── Code Lab: boxes named in plain words, the code name small beside; what a move still needs ── */
+.screen.forge .fg-label { justify-content: flex-start; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
+.screen.forge .fg-label .t-label { font-weight: 900; font-size: 14px; letter-spacing: 0.03em; color: #fff; text-shadow: none; }
+.screen.forge .fg-code-name { font-size: 11px; color: color-mix(in srgb, var(--hub) 75%, #fff); opacity: 0.85; }
+.screen.forge .fg-label > .x-only { margin-left: auto; }
+/* A box the move needs: an orange dot after its name while it is empty. */
+.screen.forge .fg-field.req > .fg-label .t-label::after { content: ''; display: inline-block; width: 7px; height: 7px; margin-left: 6px; vertical-align: middle; border-radius: 50%; background: transparent; }
+.screen.forge .fg-field.req.need > .fg-label .t-label::after { background: var(--dc-accent); }
+.screen.forge .fg-field.need .input { border-color: color-mix(in srgb, var(--dc-accent) 55%, rgba(120, 150, 255, 0.45)); }
+.screen.forge .fg-status.c-warn { color: var(--dc-x); }
+.screen.forge .fg-status.flash { animation: fg-flash 0.5s steps(2) 2; }
+@keyframes fg-flash { 50% { color: #fff; } }
+/* Dry run without a commander: plainly off (its title says why); still focusable and hoverable. */
+.screen.forge .fg-actions .btn.is-off { opacity: 0.45; filter: saturate(0.3); cursor: not-allowed; transform: none; }
+.screen.forge .fg-actions .fg-example > span:first-child { display: inline-flex; }
+@media (prefers-reduced-motion: reduce) { .screen.forge .fg-status.flash { animation: none; } }
+
+/* The TV (short screens): the header's track tiles are pictures, so the track on show keeps its name,
+ * and the tile the cursor (pad, keys) is on opens out to show its name too, the way the top bar's hubs
+ * do. Today's challenge says "Daily" the same way. */
+@media (max-width: 900px) and (max-height: 560px) {
+  :is(.screen.academy) .ac-tracks { display: flex; gap: 4px; min-width: 0; }
+  :is(.screen.academy) .ac-tracks > .ac-track, :is(.screen.academy) .ac-tracks > .ac-track:nth-child(n + 4) { flex: 1 1 0; min-width: 34px; transition: flex-basis 0.15s; }
+  :is(.screen.academy) .ac-tracks > .ac-track:is(.on, :focus-visible, body.pad :focus) { flex: 0 0 auto; padding: 5px 10px; }
+  :is(.screen.academy) .ac-tracks > .ac-track:is(.on, :focus-visible, body.pad :focus) .ac-track-name { display: block; font-size: 11px; line-height: 13px; overflow: visible; }
+  :is(.screen.academy) .ac-tracks > .ac-track:is(:focus-visible, body.pad :focus):not(.on) .lab-pips { display: none; }
+  :is(.screen.academy) .ac-daily:is(:focus-visible, body.pad :focus) > .col { display: flex; }
+  :is(.screen.academy) .ac-daily:is(:focus-visible, body.pad :focus) .ac-daily-name { display: none; }
+}
+
+/* Economics practice: the price as a sum of pictures (power × days × price = ?). */
+:is(.screen.academy) .ac-sum { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 8px; padding: 10px; border-radius: 18px; border: 2px solid rgba(110, 140, 240, 0.3); background: rgba(5, 9, 40, 0.5); }
+:is(.screen.academy) .ac-sum-t { --c: var(--accent-secondary); display: inline-grid; grid-template-columns: auto auto; grid-template-rows: auto auto; align-items: center; column-gap: 6px; padding: 6px 12px; border-radius: 16px;
+  border: 2px solid color-mix(in srgb, var(--c) 55%, transparent); background: color-mix(in srgb, var(--c) 14%, transparent); }
+:is(.screen.academy) .ac-sum-t > span { grid-row: span 2; display: inline-flex; color: var(--c); }
+:is(.screen.academy) .ac-sum-t b { font-family: var(--font-chrome); font-weight: 900; font-size: 24px; line-height: 1; color: #fff; }
+:is(.screen.academy) .ac-sum-t small { font-family: var(--font-chrome); font-weight: 900; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-hint); }
+:is(.screen.academy) .ac-sum-t.k-power { --c: var(--accent-primary); }
+:is(.screen.academy) .ac-sum-t.k-days { --c: var(--accent-secondary); }
+:is(.screen.academy) .ac-sum-t.k-alpha, :is(.screen.academy) .ac-sum-t.k-ask { --c: var(--dc-x); }
+:is(.screen.academy) .ac-sum-t.k-ask { border-style: dashed; }
+:is(.screen.academy) .ac-sum-t.k-ask.shown { border-style: solid; background: color-mix(in srgb, var(--dc-y) 22%, transparent); --c: var(--dc-y); }
+:is(.screen.academy) .ac-sum-op { font-family: var(--font-chrome); font-weight: 900; font-size: 22px; color: var(--text-hint); }
+
+/* Technology practice: the helper's situation as chips; once answered the program shows its work. */
+:is(.screen.academy) .ac-facts { display: flex; flex-wrap: wrap; gap: 6px; }
+:is(.screen.academy) .ac-fact { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 3px 12px 3px 9px; border-radius: 999px; border: 2px solid rgba(110, 140, 240, 0.4); background: var(--dc-glass);
+  font-family: var(--font-chrome); font-weight: 900; font-size: 13px; letter-spacing: 0.03em; color: #fff; }
+:is(.screen.academy) .ac-fact > span { display: inline-flex; color: var(--hub, var(--accent-secondary)); }
+:is(.screen.academy) .ac-fact.job { border-color: var(--hub, var(--accent-primary)); }
+:is(.screen.academy) .ac-fact.warn { border-color: rgba(245, 197, 24, 0.7); background: rgba(245, 197, 24, 0.12); }
+:is(.screen.academy) .ac-fact.warn > span { color: var(--dc-x); }
+:is(.screen.academy) .ac-code .ac-code-line { position: relative; text-indent: 0; padding: 1px 6px 1px 22px; border-radius: 8px; transition: opacity 0.2s, background-color 0.2s; }
+:is(.screen.academy) .ac-code.ran .ac-code-line.skip { opacity: 0.4; text-decoration: line-through; text-decoration-color: rgba(255, 255, 255, 0.35); }
+:is(.screen.academy) .ac-code.ran .ac-code-line.after { opacity: 0.4; }
+:is(.screen.academy) .ac-code.ran .ac-code-line.run { background: color-mix(in srgb, var(--dc-y) 28%, transparent); color: #fff; box-shadow: inset 3px 0 0 var(--dc-y); }
+:is(.screen.academy) .ac-code.ran .ac-code-line.run::before { content: '▶'; position: absolute; left: 6px; color: var(--dc-y); }
+@media (max-width: 560px) {
+  :is(.screen.academy) .ac-sum { gap: 4px 6px; padding: 8px; }
+  :is(.screen.academy) .ac-sum-t { padding: 4px 9px; }
+  :is(.screen.academy) .ac-sum-t b { font-size: 20px; }
+}
+
+/* ── Unit Guide: Matchups on narrow screens (phone, TV): an opaque sheet, one row per attacker ──
+ * Its picture and name, then every target as a picture with a tick (in reach; greener hits harder)
+ * or a cross (out of reach). Nothing is cut off; the list scrolls. */
+@media (max-width: 900px) {
+  .screen.codex .codex-matrix.panel { left: 8px; right: 8px; top: 52px; bottom: 8px; max-height: none; z-index: 20; border-radius: 22px; border: 3px solid rgba(41, 224, 255, 0.55);
+    background: linear-gradient(180deg, #1A2E8E, #101F66); backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: 0 24px 60px -16px rgba(0, 0, 20, 0.9); }
+  .screen.codex .codex-matrix .mx-sub { display: none; }
+}
+.screen.codex .codex-matrix.compact .mx-list { flex: 1; min-height: 0; overflow-y: auto; gap: 8px; padding: 8px 10px 12px; }
+.screen.codex .mx-line { display: flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: 16px; background: rgba(255, 255, 255, 0.05); }
+.screen.codex .mx-who { appearance: none; display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; min-height: 40px; padding: 2px 12px 2px 2px; border: 0; border-radius: 999px; background: none; color: #fff; cursor: pointer;
+  font-family: var(--font-chrome); font-weight: 900; font-size: 14px; letter-spacing: 0.03em; text-transform: uppercase; }
+.screen.codex .mx-who:hover, .screen.codex .mx-who:focus-visible { background: rgba(41, 224, 255, 0.15); }
+.screen.codex .mx-targets { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 5px; }
+.screen.codex .mx-sprite { position: relative; display: inline-block; flex: none; width: 36px; height: 36px; overflow: hidden; border-radius: 10px; background: rgba(255, 255, 255, 0.08); }
+.screen.codex .mx-sprite img { position: absolute; width: 66px; height: 66px; left: -15px; top: -15px; image-rendering: pixelated; }
+.screen.codex .mx-sprite.att { border: 2px solid rgba(41, 224, 255, 0.7); }
+.screen.codex .mx-t { position: relative; display: grid; place-items: center; height: 44px; border-radius: 12px; cursor: help; border: 2px solid transparent; }
+.screen.codex .mx-t .mx-sprite { width: 34px; height: 34px; background: none; }
+.screen.codex .mx-t.hit { border-color: rgba(45, 179, 74, var(--k, 0.6)); background: rgba(45, 179, 74, calc(var(--k, 0.5) * 0.4)); }
+.screen.codex .mx-t.miss { opacity: 0.4; background: rgba(255, 255, 255, 0.04); }
+.screen.codex .mx-mark { position: absolute; right: -3px; bottom: -3px; display: grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; font-size: 11px; line-height: 1; color: #fff; }
+.screen.codex .mx-t.hit .mx-mark { background: var(--dc-y); }
+.screen.codex .mx-t.miss .mx-mark { background: var(--accent-destructive); }

@@ -279,3 +279,38 @@ body.expert .cd-cell .sprite { width: 36px; height: 36px; }
 .planet .action-bar.empty.dcb-prompt.dcb-fights { max-width: calc(100vw - 16px); gap: 8px 10px; }
 .dcb-fights .dcb-verb { min-height: 40px; }
 .dcb-fights .dcb-verb .dc-face { width: 28px; height: 28px; font-size: 15px; }
+
+/* The raiders-and-activity panel is as tall as what's in it (a quiet world left a tall empty box);
+ * a busy feed grows it to the floor and scrolls. */
+.screen .planet-right { bottom: auto; max-height: calc(100% - 76px); }
+.screen .planet-right .feed { flex: 0 1 auto; min-height: 0; }
+
+/* A vital's word: hidden where a pointer can hover for it; shown on touch screens and while a pad is
+ * in hand, small after the number. A "—" vital (nothing to show) steps aside unless in Expert. */
+.dcb-vital .dcb-cap { display: none; }
+@media (hover: none) {
+  .dcb-vital .dcb-cap { display: inline; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-family: var(--font-chrome); font-weight: 900; font-size: 12px; letter-spacing: 0.03em; text-transform: uppercase; color: var(--text-hint); }
+}
+body.pad .dcb-vital .dcb-cap { display: inline; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--font-chrome); font-weight: 900; font-size: 11px; letter-spacing: 0.03em; text-transform: uppercase; color: var(--text-hint); }
+.dcb-vital.lamp .dcb-cap { display: none; }
+body:not(.expert) .dcb-vital.empty { display: none; }
+
+/* ── A world on its way from the chain: the dossier's outline under a scan, and a receiving pill ── */
+.screen .planet-loading { position: absolute; inset: 0; transform: none; left: 0; top: 0; display: block; pointer-events: none; }
+.planet-loading .planet-skel { position: absolute; left: 16px; top: 60px; width: 320px; display: flex; flex-direction: column; gap: 12px; padding: 18px 16px; }
+.planet-loading .planet-skel i { display: block; height: 14px; border-radius: 999px; background: rgba(150, 175, 255, 0.16); }
+.planet-loading .planet-skel .sk-title { width: 60%; height: 22px; }
+.planet-loading .planet-skel .sk-bar.short { width: 45%; }
+.planet-loading .planet-skel .sk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.planet-loading .planet-skel .sk-grid i { height: 36px; border-radius: 14px; }
+.planet-loading .planet-rx { position: absolute; left: 50%; top: 45%; transform: translate(-50%, -50%); --hub: var(--accent-primary); }
+@media (max-width: 1300px) { .planet-loading .planet-skel { width: 280px; } }
+@media (max-width: 760px) { .planet-loading .planet-skel { left: 8px; right: 8px; width: auto; top: 86px; } .planet-loading .planet-rx { top: 62%; } }
+/* No signal: the receiving dish, at rest, over two words and the way on. */
+.screen .planet-error .panel-body { align-items: center; text-align: center; gap: 10px; padding: 22px 26px; }
+.screen .planet-error .dcp-dish.big { --c: var(--accent-destructive); }
+.screen .planet-error .dcp-dish.big::before, .screen .planet-error .dcp-dish.big::after { animation: none; opacity: 0; }
+.screen .planet-error .row { gap: 10px; justify-content: center; }
+.screen .planet-error .btn { display: inline-flex; align-items: center; gap: 6px; }

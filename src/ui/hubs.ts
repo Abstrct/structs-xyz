@@ -10,16 +10,23 @@ import { icon, ITEM_ICONS } from './icons';
 import { academy } from '../game/academy';
 import { loadRecord } from '../screens/battle/record';
 
+/** mobile.css's upright-phone layout: the hubs are a bar along the bottom and a menu is a sheet. */
+const SHEET_QUERY = '(max-width: 760px) and (pointer: coarse) and (min-height: 561px)';
+
 export interface HubNav { el: HTMLElement; setActive(path: string, closeMenu?: boolean): void; close(): void }
 
 export function buildHubNav(openPalette: () => void, homePlanet: () => string | null = () => null): HubNav {
   const buttons = new Map<HubId, HTMLButtonElement>();
   let menu: HTMLElement | null = null;
+  /** On an upright phone the menu is a sheet over a dimmed screen: this backdrop takes the tap that
+   * closes it, so that tap never lands on whatever was under the dim. */
+  let back: HTMLElement | null = null;
   let openId: HubId | null = null;
   let current = '';
 
   const close = () => {
     menu?.remove(); menu = null;
+    back?.remove(); back = null;
     if (openId) buttons.get(openId)?.setAttribute('aria-expanded', 'false');
     openId = null;
   };
@@ -59,6 +66,10 @@ export function buildHubNav(openPalette: () => void, homePlanet: () => string | 
         return h('a', { class: 'hm-learn', href: '/academy/' + track.id, title: `${track.label} lessons in the Academy`, onclick: () => { audio.play('select'); close(); } },
           h('span', { html: icon('academy', 20) }), h('span', null, track.label), h('span', { class: 'hm-learn-n' }, p.done >= p.total ? '★' : `${p.done}/${p.total}`));
       })() : null);
+    if (matchMedia(SHEET_QUERY).matches) {
+      back = h('div', { class: 'hub-menu-back', 'aria-hidden': 'true', onclick: (e: Event) => { e.preventDefault(); e.stopPropagation(); close(); } });
+      document.body.appendChild(back);
+    }
     document.body.appendChild(menu);
     // Under its button, kept on screen.
     const r = btn.getBoundingClientRect();
@@ -69,8 +80,9 @@ export function buildHubNav(openPalette: () => void, homePlanet: () => string | 
   };
 
   const nav = h('nav', { class: 'hubs', 'aria-label': 'Places' }, ...HUBS.map((hub) => {
+    // Icon and name: the name shows wherever the bar has room (dc-nav.css), and always on the hub you're in.
     const b = h('button', { class: 'hub', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-label': hub.label, style: `--hub:${hub.color}`, onclick: () => open(hub) },
-      h('span', { class: 'hub-ico', html: icon(hub.id, 20) })) as HTMLButtonElement;
+      h('span', { class: 'hub-ico', html: icon(hub.id, 20) }), h('span', { class: 'hub-label', 'aria-hidden': 'true' }, hub.label)) as HTMLButtonElement;
     buttons.set(hub.id, b);
     return b;
   }));
@@ -78,7 +90,7 @@ export function buildHubNav(openPalette: () => void, homePlanet: () => string | 
   // Clicks elsewhere, focus moving elsewhere (a palette, the vault, chat opened from the keyboard),
   // Escape, a resize or a navigation close the menu; arrows walk it; 1–9 pick. Keys only count
   // while the menu (or its hub button) has focus, so they never reach into a window on top.
-  const ours = (n: Node | null) => !!n && (!!menu?.contains(n) || [...buttons.values()].some((b) => b.contains(n)));
+  const ours = (n: Node | null) => !!n && (!!menu?.contains(n) || !!back?.contains(n) || [...buttons.values()].some((b) => b.contains(n)));
   document.addEventListener('pointerdown', (e) => { if (menu && !ours(e.target as Node)) close(); }, true);
   document.addEventListener('focusin', (e) => { if (menu && !ours(e.target as Node)) close(); });
   window.addEventListener('resize', close);

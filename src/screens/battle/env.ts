@@ -11,9 +11,26 @@ export const TIER_Y: Record<Ambit, number> = { space: 7.8, air: 2.6, land: -2.6,
 export const TIER_H = 5.2;
 export const HALF_WIDTH = 23;
 
+/** The field's spacing. An upright phone is short of width, not height, and the regular deck
+ * (Command Ships at ±19.4) leaves its hulls tiny there: the compact deck packs the same slots closer
+ * (Command Ships at ±13.25, in a staggered line) so the camera frames it closer and every hull draws much bigger.
+ * Battle sets `compact` from the viewport before each board build; only slotX reads it. */
+export const FIELD = { compact: false };
+/** A tall narrow view: an upright phone, or a window like one. Not the 640×480 TV. */
+export const portraitField = () => window.innerWidth <= 760 && window.innerHeight > window.innerWidth * 1.2;
+/** The half-width the camera must show for the deck in use (the flagships whole, with a margin). */
+export const fieldHalfWidth = () => (FIELD.compact ? 16.4 : 22.5);
+
 export function slotX(side: 'player' | 'enemy', slot: number, command: boolean): number {
-  const x = command ? 19.4 : 4.4 + slot * 3.75;
+  const x = FIELD.compact ? (command ? 13.25 : 2.4 + slot * 2.55) : command ? 19.4 : 4.4 + slot * 3.75;
   return side === 'player' ? -x : x;
+}
+
+/** The compact deck stands in a staggered line, the way a formation does: every other slot a step
+ * back and a little higher, so neighbours can stand closer than their hulls are wide and still read
+ * as two ships. (The regular deck stands in one line.) Returns [lift, depth]. */
+export function slotStagger(slot: number, command: boolean): [number, number] {
+  return FIELD.compact && !command && slot % 2 === 1 ? [0.45, -1.5] : [0, 0];
 }
 
 /* Each battleground's picture on a 24×24 grid (the DC kit's icons): a star, a cloud, a mountain, waves. */

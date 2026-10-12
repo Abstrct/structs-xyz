@@ -55,25 +55,31 @@ export class GuildScreen extends PanelScreen {
   private apps: Application[] = [];
   private filter = '';
   private page = 0;
+  /** The screen's one live region (visually hidden): says once when the roster is being read. */
+  private live!: HTMLElement;
 
   constructor(engine: Engine, navigate: (hash: string) => void) { super(engine, navigate, 'guild', 6.4); }
 
-  protected async mount(params: Record<string, string>) {
+  protected mount(params: Record<string, string>) {
     // A fresh visit starts on the first page with no filter (the screen object is reused).
     this.filter = ''; this.page = 0;
     this.view = params.guild === 'perms' ? 'perms' : 'hall';
     this.guildId = params.guild && params.guild !== 'perms' ? params.guild : this.myGuild() || '';
     this.nav = h('div', { class: 'ops-nav dct-tabs' });
     this.body = h('div', { class: 'ops-page scroll' });
+    this.live = h('span');
     this.root.append(h('div', { class: 'ops-wrap panel player dct-guild', style: '--hub:#B794F0' },
-      h('div', { class: 'panel-head dct-guild-head' }, h('span', { class: 'dct-title-ico', title: 'Guild Hall: your team, its members and ranks, and who may act for you', html: icon('team', 24) }), this.nav), this.body));
+      h('div', { class: 'panel-head dct-guild-head' }, h('span', { class: 'dct-title-ico', title: 'Guild Hall: your team, its members and ranks, and who may act for you', html: icon('team', 24) }), this.nav), this.body,
+      h('span', { class: 'dcp-sr', role: 'status' }, this.live)));
     this.cleanup.push(store.onCore(() => this.paint()), wallet.onChange(() => this.paint()),
       // Only membership moves change the desk; and never repaint over a form being filled in.
       txq.onSettled((j) => { if (j.msgs.some((m) => /GuildMembership|PlayerUpdateGuildRank/.test(m.typeUrl))) void this.loadApps().then(() => { if (this.view === 'hall' && !this.typing()) this.paint(); }); }));
     this.paint();
     void loadGuilds().then((g) => { this.directory = g; this.paint(); }).catch(() => { /* the chain registry still names them */ });
-    await this.loadApps();
-    this.paint();
+    // Never waited on: a slow testnet must not hold the screen (or, on a first load, the boot
+    // splash) back. The hall shows its receiving state until the roster lands.
+    void store.loadCore().catch(() => { /* the receiving state stays; Retry is the hub again */ });
+    void this.loadApps().then(() => this.paint());
   }
 
   private myGuild() { const pid = wallet.active?.playerId; return pid ? store.players.get(pid)?.guildId || empire.players.get(pid)?.guildId || '' : ''; }
@@ -114,10 +120,25 @@ export class GuildScreen extends PanelScreen {
 
   private name(id: string) { return this.directory.find((d) => d.id === id)?.meta?.name || store.guildName(id); }
 
+  /** While the roster is read: the receiving pill, then the hall's shape (the guild's card and a
+   * page of faces) as placeholders under a scan line, as Trade does. */
+  private receiving(): HTMLElement[] {
+    const bars = () => h('span', { class: 'dcp-bars', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('i'));
+    return [
+      h('span', { class: 'dcp-rx', 'aria-hidden': 'true', title: 'Receiving: reading the guilds and their members from the testnet…' },
+        h('span', { class: 'dcp-dish', html: icon('team', 16) }), bars(), 'Receiving'),
+      h('div', { class: 'foundry panel dct-ghero dct-skel dcp-sweep', 'aria-hidden': 'true' }, h('i', { class: 'big w40' }), h('i', { class: 'w60' }), h('i', { class: 'w30' })),
+      h('div', { class: 'guild-roster dct-roster dcp-sweep', 'aria-hidden': 'true' }, ...Array.from({ length: 8 }, () =>
+        h('div', { class: 'dct-member dct-skel dcp-ghost' }, h('span', { class: 'dcp-face' }), h('i', { class: 'w60' }), h('i', { class: 'w30' })))),
+    ];
+  }
+
   private paintHall() {
     const g = store.guilds.get(this.guildId);
+    const said = store.coreLoaded ? '' : 'Reading the guild roster…';
+    if (this.live.textContent !== said) this.live.textContent = said;
     if (!g) {
-      if (!store.coreLoaded) { this.body.replaceChildren(h('div', { class: 'pane-empty dct-empty', title: 'Reading the guild registry…' }, 'Reading roster…')); return; }
+      if (!store.coreLoaded) { this.body.replaceChildren(...this.receiving()); return; }
       // Not in a guild yet: the hall is a lobby of guild cards to look inside, biggest first,
       // with one verb on top (Enlist, or Compare once you have a vault). What guilds are is the hover.
       const list = [...store.guilds.values()].sort((a, b) => store.members(b.id) - store.members(a.id));

@@ -14,7 +14,7 @@ import { PanelScreen } from './panelScreen';
 import { grass, type GrassState } from '../grass/grass';
 import { DEFAULT_GUILD, guildLabel, guilds, onGuilds, type GuildEntry } from '../guild/directory';
 import { guildApi } from '../guild/api';
-import { type IntelCtx } from '../ui/intel/common';
+import { receiving, type IntelCtx } from '../ui/intel/common';
 import { sparkline, SERIES } from '../ui/intel/chart';
 import { mountGuilds } from '../ui/intel/guilds';
 import { mountActivity } from '../ui/intel/activity';
@@ -61,6 +61,16 @@ export class IntelScreen extends PanelScreen {
     // Each tab's plain sentence is its pill's hover; the screen itself shows pictures and numbers.
     const scroller = TABS.find((t) => t.id === tab)!.cta === 'bottom' ? h('div', { class: 'intel-scroll scroll' }, body, ctaHost) : h('div', { class: 'intel-scroll scroll' }, ctaHost, body);
     const uplink = h('div', { class: 'uplink x-only' });
+    // The screen's one live region (visually hidden): the feed's state, said once per change. The
+    // tabs' waiting pills and wells are rebuilt as data lands, so none of them is a live region.
+    const live = h('span');
+    let wasLive = false;
+    const sayState = () => {
+      const st: GrassState = grass.state;
+      const said = st === 'live' ? (wasLive ? live.textContent || '' : 'Live news connected') : st === 'down' ? 'Live news lost, retrying' : 'Tuning in to the live news';
+      wasLive = st === 'live';
+      if (live.textContent !== said) live.textContent = said;
+    };
     const source = h('select', { class: 'input source', 'aria-label': 'Read intel from guild', title: 'Whose GRASS and Guild API Intel reads from' }) as HTMLSelectElement;
     const tabs = h('nav', { class: 'intel-tabs dct-tabs', role: 'tablist' }, ...TABS.map((t, i) => h('button', {
       class: 'itab dct-tab' + (t.id === tab ? ' on' : ''), role: 'tab', 'aria-selected': t.id === tab ? 'true' : 'false', title: `${PLAIN[t.id]}\n${t.hint} (${i + 1})`,
@@ -73,7 +83,7 @@ export class IntelScreen extends PanelScreen {
           h('span', { class: 'dct-title-ico', html: icon('news', 26) }), h('span', { class: 'intel-mark' }, 'News'), h('span', { class: 't-label c-hint intel-sub x-only' }, 'GRASS stream · Guild indexer')),
         uplink,
         h('label', { class: 'source-box x-only' }, h('span', { class: 't-label' }, 'Source'), source)),
-      tabs, scroller));
+      tabs, scroller, h('span', { class: 'dcp-sr', role: 'status' }, live)));
 
     // Number keys switch tabs (not while typing).
     const keys = (e: KeyboardEvent) => {
@@ -99,11 +109,14 @@ export class IntelScreen extends PanelScreen {
     };
     paintUplink();
     const uplinkTimer = setInterval(paintUplink, 5000);
-    this.cleanup.push(grass.onState(paintUplink), grass.onBlock(paintUplink), () => clearInterval(uplinkTimer));
+    this.cleanup.push(grass.onState(paintUplink), grass.onBlock(paintUplink), () => clearInterval(uplinkTimer), grass.onState(sayState));
+    sayState();
 
-    // Which guild Intel reads from: GRASS's guild (the commander's by default).
+    // Which guild Intel reads from: GRASS's guild (the commander's by default). Dialling it can take
+    // a few seconds: the tab's place shows a dish tuning in meanwhile, never an empty frame.
     let alive = true;
     this.cleanup.push(() => { alive = false; });
+    if (grass.state !== 'live') body.replaceChildren(receiving('Tuning in', 'Dialling the guild’s live news feed…', TABS.find((t) => t.id === tab)!.icon));
     await Promise.race([grass.start(), sleep(4000)]);
     // Left while GRASS was dialling: cleanup has already run, so add nothing it would miss.
     if (!alive) return;

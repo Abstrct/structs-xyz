@@ -5,7 +5,7 @@ import { audio } from '../../core/audio';
 import { store } from '../../chain/store';
 import { GuildApiError, type GuildApi } from '../../guild/api';
 import { guildLabel, type GuildMeta } from '../../guild/directory';
-import { hrefFor, type Part } from '../../grass/describe';
+import { hrefFor } from '../../grass/describe';
 import { icon } from '../icons';
 
 export interface IntelCtx {
@@ -31,9 +31,6 @@ export function idLink(ctx: Pick<IntelCtx, 'navigate'>, text: string, id?: strin
   return h('a', { class: 'id-link' + (id!.startsWith('1-') ? ' who' : ''), href, title: id, onclick: (e: Event) => { e.preventDefault(); audio.play('select'); ctx.navigate(href); } }, text);
 }
 
-export function partsEl(ctx: Pick<IntelCtx, 'navigate'>, parts: Part[]): HTMLElement {
-  return h('span', null, ...parts.filter((p) => p.text).map((p) => (p.id ? idLink(ctx, p.text, p.id) : p.text)));
-}
 
 export function playerLink(ctx: Pick<IntelCtx, 'navigate'>, id: string, name?: string): HTMLElement {
   return idLink(ctx, name || store.playerName(id), id);
@@ -55,9 +52,32 @@ export function section(title: string | { text: string; hint?: string; icon?: st
   return h('section', { class: 'isec' }, h('div', { class: 'isec-head', title: t.hint || null }, t.icon ? h('span', { class: 'isec-ico', html: icon(t.icon, 18) }) : null, h('span', { class: 't-label-lg' }, t.text)), ...kids.filter((k): k is Node => !!k));
 }
 
-/** Reading: a pulse and one word; what is being read is the hover. */
-export function loading(text = 'Reading…'): HTMLElement {
-  return h('div', { class: 'iloading t-tiny c-hint', title: text }, h('span', { class: 'dot pulse' }), 'Reading…');
+/** A signal meter where a number is about to land (dc-polish.css): never a bare ellipsis. */
+export function waiting(title = 'Reading the testnet…'): HTMLElement {
+  return h('span', { class: 'dcp-bars', role: 'img', 'aria-label': 'Reading', title }, h('i'), h('i'), h('i'), h('i'));
+}
+
+/** Reading: the receiving pill (a dish, a signal meter, one word); what is being read is the hover.
+ * Not a live region: tabs rebuild these as data lands, and the screen's own status says it once. */
+export function loading(text = 'Reading…', ico = 'news', word = 'Reading'): HTMLElement {
+  return h('div', { class: 'iloading', title: text },
+    h('span', { class: 'dcp-rx' }, h('span', { class: 'dcp-dish', 'aria-hidden': 'true', html: icon(ico, 16) }), waiting(text), word));
+}
+
+/** A live feed with nothing in it yet: the same pill, listening. Feeds remove `.empty-live` when
+ * their first row lands. */
+export function listening(title: string): HTMLElement {
+  const el = loading(title, 'news', 'Listening');
+  el.classList.add('empty-live');
+  return el;
+}
+
+/** A list (or a whole tab) still dialling in: a dish under a scan line, a meter and a word or two;
+ * the sentence is the hover. `calm` once connected and only waiting: the rings go on, the sweep stops. */
+export function receiving(words: string, title: string, ico = 'news', calm = false): HTMLElement {
+  return h('div', { class: 'dcp-scan' + (calm ? ' calm' : ''), title },
+    h('span', { class: 'dcp-dish big', 'aria-hidden': 'true', html: icon(ico, 34) }),
+    h('span', { class: 'dcp-scan-line' }, waiting(title), h('span', { class: 'dcp-word' }, words)));
 }
 
 /** A quiet "nothing here": a few words on screen, the sentence on hover. */
