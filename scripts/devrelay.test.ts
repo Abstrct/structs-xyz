@@ -1,7 +1,7 @@
 /* The dev relay's chat sign-in chain (server/dev-relay.mjs), end to end against fake servers: a
  * homeserver, its auth service (MAS) and a guild webapp. No network: the relay takes a fetch. */
 import { createHash } from 'node:crypto';
-import { Jar, REDIRECT_URI, oidcRequestId, parseForm, relaySignIn } from '../server/dev-relay.mjs';
+import { Jar, REDIRECT_URI, oidcRequestId, parseForm, relayRefusal, relaySignIn } from '../server/dev-relay.mjs';
 
 let failures = 0;
 const check = (c: unknown, m: string) => { if (!c) { failures++; console.error('FAIL', m); } };
@@ -11,7 +11,7 @@ const login = { address: 'structs1abc', signature: 'aa', pubkey: 'bb', guild_id:
 
 /** The fake world. `consentPages` MAS pages to click through; `park` makes the guild park the
  * request at its SPA (?oidc=) even with a session, so the relay must resume it. */
-function world(o: { consentPages?: number; park?: boolean; loginOk?: boolean; formHost?: string } = {}) {
+function world(o: { consentPages?: number; park?: boolean; loginOk?: boolean; formHost?: string; tokenAt?: string } = {}) {
   const seen: { url: string; method: string; cookie: string | null }[] = [];
   let pending: { state: string; challenge: string; redirect: string } | null = null;
   let consents = o.consentPages ?? 1;
@@ -25,7 +25,7 @@ function world(o: { consentPages?: number; park?: boolean; loginOk?: boolean; fo
     seen.push({ url: url.href, method, cookie });
     const hasSession = !!cookie && /PHPSESSID=s3cret/.test(cookie);
     if (url.href === HS + '/_matrix/client/v1/auth_metadata')
-      return json({ issuer: MAS + '/', authorization_endpoint: MAS + '/authorize', token_endpoint: MAS + '/oauth2/token', registration_endpoint: MAS + '/oauth2/registration' });
+      return json({ issuer: MAS + '/', authorization_endpoint: MAS + '/authorize', token_endpoint: o.tokenAt ?? MAS + '/oauth2/token', registration_endpoint: MAS + '/oauth2/registration', revocation_endpoint: MAS + '/oauth2/revoke' });
     if (url.href === MAS + '/oauth2/registration') {
       const b = JSON.parse(String(init.body));
       check(b.application_type === 'native' && b.redirect_uris[0] === REDIRECT_URI && b.token_endpoint_auth_method === 'none', 'registered as a native public client with the loopback redirect');
@@ -84,7 +84,7 @@ const input = { homeserver: HS, guildApi: GUILD + '/api', deviceId: 'DEV42', log
   const w = world();
   const saved: Record<string, string>[] = [];
   const out = await relaySignIn(input, { f: w.f, clients: {}, save: (c) => saved.push({ ...c }) });
-  check(out.access_token === 'mat_A' && out.refresh_token === 'mar_R' && out.client_id === 'CLIENT1' && out.token_endpoint === MAS + '/oauth2/token' && out.device_id === 'DEV42', 'the chain ends in Matrix tokens');
+  check(out.access_token === 'mat_A' && out.refresh_token === 'mar_R' && out.client_id === 'CLIENT1' && out.token_endpoint === MAS + '/oauth2/token' && out.revocation_endpoint === MAS + '/oauth2/revoke' && out.device_id === 'DEV42', 'the chain ends in Matrix tokens (and where to revoke them)');
   check(saved.length === 1 && saved[0][MAS + '/'] === 'CLIENT1', 'the client id is remembered per auth service');
   check(!w.seen.some((s) => s.url.startsWith(REDIRECT_URI)), 'the loopback redirect is read, never visited');
   const toGuild = w.seen.find((s) => s.url.startsWith(GUILD + '/oauth/authorize'));
@@ -113,8 +113,24 @@ const input = { homeserver: HS, guildApi: GUILD + '/api', deviceId: 'DEV42', log
   check(/posts to https:\/\/evil\.test/.test(err) && !w2.seen.some((s) => s.url.includes('evil.test')), 'a form that posts off the auth service is refused, unvisited');
 
   err = '';
+  const w3 = world({ tokenAt: 'https://internal.example/steal' });
+  try { await relaySignIn(input, { f: w3.f, clients: {}, save: () => {} }); } catch (e) { err = (e as Error).message; }
+  check(/token_endpoint is not on https:\/\/auth\.g\.test/.test(err) && !w3.seen.some((s) => s.url.includes('internal.example') || s.url.includes('/api/auth/login')), 'metadata pointing off the auth service is refused before anything is sent');
+
+  err = '';
   try { await relaySignIn({ ...input, homeserver: 'http://matrix.g.test' }, { f: world().f, clients: {}, save: () => {} }); } catch (e) { err = (e as Error).message; }
   check(/must be https/.test(err), 'plain http is refused (except loopback)');
+}
+
+{
+  // Who may use the relay: this machine, the game's own page, a JSON body.
+  const req = (h: Record<string, string>, remote = '127.0.0.1', method = 'POST') => ({ method, headers: { host: 'localhost:5173', 'content-type': 'application/json', ...h }, socket: { remoteAddress: remote } });
+  check(relayRefusal(req({ 'sec-fetch-site': 'same-origin', origin: 'http://localhost:5173' })) === null, 'the game’s own page may use the relay');
+  check(relayRefusal(req({}, '::ffff:192.168.1.9'))?.[0] === 403, 'another machine may not');
+  check(relayRefusal(req({ 'sec-fetch-site': 'cross-site', origin: 'https://evil.example' }))?.[0] === 403, 'another site may not');
+  check(relayRefusal(req({ origin: 'https://evil.example' }))?.[0] === 403, 'another origin may not, even without Sec-Fetch-Site');
+  check(relayRefusal(req({ 'content-type': 'text/plain' }))?.[0] === 415, 'a plain-text body (no preflight) is refused');
+  check(relayRefusal(req({}, '127.0.0.1', 'GET'))?.[0] === 405, 'only POST');
 }
 
 {

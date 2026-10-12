@@ -7,7 +7,10 @@
  * followed by hand, and a loopback redirect that nothing listens on, read instead of visited.
  *
  * The browser still signs: the relay gets the signed guild login (address, pubkey, signature,
- * timestamp), never a key or a phrase. It answers only this machine.
+ * timestamp), never a key or a phrase. It answers only this machine, and only the game's own page:
+ * a JSON body (another site can't send one without a preflight, which this never answers) from the
+ * same origin (Sec-Fetch-Site, or Origin equal to the Host). The auth service's endpoints must be
+ * https on its own origin, so a homeserver can't point the relay anywhere else.
  *
  *   POST /__dev/comms/signin  { homeserver, guildApi, deviceId, login }
  *     → { access_token, refresh_token, expires_in, client_id, token_endpoint }  or  { error } */
@@ -171,6 +174,11 @@ export async function relaySignIn(input, { f = fetch, clients = loadClients(), s
     last = String(r.status);
   }
   if (!meta?.authorization_endpoint || !meta?.token_endpoint) throw new Error(`${new URL(homeserver).host} has no wallet sign-in (${last || 'no auth metadata'})`);
+  // Every endpoint on the issuer's own origin, over https: the metadata can't send the relay elsewhere.
+  const issuer = new URL(checkUrl(meta.issuer, 'issuer') + '/').origin;
+  for (const k of ['authorization_endpoint', 'token_endpoint', 'registration_endpoint', 'revocation_endpoint']) {
+    if (meta[k] && new URL(checkUrl(meta[k], k)).origin !== issuer) throw new Error(`the auth service's ${k} is not on ${issuer}`);
+  }
 
   // 2 ── this relay as a native client of that auth service (once, then remembered)
   let clientId = clients[meta.issuer];
@@ -227,7 +235,20 @@ export async function relaySignIn(input, { f = fetch, clients = loadClients(), s
   });
   const tj = await tr.json().catch(() => null);
   if (!tr.ok || !tj?.access_token) throw new Error(`token refused: ${errorOf(tj, tr.status, 'HTTP')}`);
-  return { access_token: tj.access_token, refresh_token: tj.refresh_token ?? null, expires_in: tj.expires_in ?? null, client_id: clientId, token_endpoint: meta.token_endpoint, device_id: deviceId };
+  return { access_token: tj.access_token, refresh_token: tj.refresh_token ?? null, expires_in: tj.expires_in ?? null, client_id: clientId, token_endpoint: meta.token_endpoint, revocation_endpoint: meta.revocation_endpoint ?? null, device_id: deviceId };
+}
+
+/** Why a request may not use the relay (null: it may): this machine, the game's own page, JSON. */
+export function relayRefusal(req) {
+  const from = String(req.socket?.remoteAddress || '').replace(/^::ffff:/, '');
+  if (!isLoopback(from)) return [403, 'the dev relay answers this machine only'];
+  if (req.method !== 'POST') return [405, 'POST only'];
+  if (!/^application\/json\b/i.test(String(req.headers['content-type'] || ''))) return [415, 'JSON only'];
+  const site = req.headers['sec-fetch-site'];
+  if (site && site !== 'same-origin') return [403, 'the dev relay answers the game’s own page only'];
+  const origin = req.headers.origin;
+  if (origin && origin !== `http://${req.headers.host}` && origin !== `https://${req.headers.host}`) return [403, 'the dev relay answers the game’s own page only'];
+  return null;
 }
 
 /** The Vite plugin: the endpoint above, on the dev server only, for this machine only. */
@@ -238,9 +259,8 @@ export function devRelayPlugin() {
     configureServer(server) {
       server.middlewares.use(RELAY_PATH, (req, res) => {
         const reply = (status, body) => { res.statusCode = status; res.setHeader('content-type', 'application/json'); res.setHeader('cache-control', 'no-store'); res.end(JSON.stringify(body)); };
-        const from = String(req.socket.remoteAddress || '').replace(/^::ffff:/, '');
-        if (!isLoopback(from)) return reply(403, { error: 'the dev relay answers this machine only' });
-        if (req.method !== 'POST') return reply(405, { error: 'POST only' });
+        const no = relayRefusal(req);
+        if (no) return reply(no[0], { error: no[1] });
         let raw = '';
         req.on('data', (c) => { raw += c; if (raw.length > 16_384) req.destroy(); });
         req.on('end', () => {

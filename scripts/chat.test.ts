@@ -5,7 +5,7 @@ import {
 } from '../src/chat/format';
 import { resolveObjectURL } from 'node:buffer';
 import { tokenProblem } from '../src/ui/comms/tokenGuard';
-import { authorizeUrl, b64url, guildLoginProblem, loginForm, matrixScope, newDeviceId, pkceChallenge, readCallback, registrationBody } from '../src/chat/oauth';
+import { authorizeUrl, b64url, guildApiRoot, guildLoginProblem, loginForm, matrixScope, newDeviceId, pkceChallenge, readCallback, registrationBody, within } from '../src/chat/oauth';
 import { newRoom } from '../src/chat/model';
 import {
   TIMELINE_CAP, addEcho, applyMessages, applySync, dmPartner, emptyState, firstUnreadIndex, hiddenRoom, mutedRooms, newestEvent,
@@ -33,6 +33,12 @@ check(tokenProblem('  syt_dXNlcg_AbCdEfGh_0123ab  ') === null, 'a real-looking t
   const a = new URL(authorizeUrl(meta, { clientId: 'C', redirectUri: 'https://structs.xyz/comms-callback.html', deviceId: 'D1', state: 'S', challenge: 'CH' }));
   eq([a.origin + a.pathname, a.searchParams.get('x'), a.searchParams.get('response_type'), a.searchParams.get('client_id'), a.searchParams.get('redirect_uri'), a.searchParams.get('state'), a.searchParams.get('code_challenge'), a.searchParams.get('code_challenge_method'), a.searchParams.get('scope')?.endsWith('device:D1')],
     ['https://auth.g.test/authorize', '1', 'code', 'C', 'https://structs.xyz/comms-callback.html', 'S', 'CH', 'S256', true], 'the authorize URL carries the code flow with PKCE');
+  check(a.searchParams.get('prompt') === null && new URL(authorizeUrl(meta, { clientId: 'C', redirectUri: 'r', deviceId: 'D', state: 'S', challenge: 'CH', prompt: 'login' })).searchParams.get('prompt') === 'login', 'prompt=login only when asked');
+  eq(['https://g.test/api/', 'https://g.test', 'https://g.test/api'].map(guildApiRoot), ['https://g.test/api', 'https://g.test/api', 'https://g.test/api'], 'the form login and its pre-check share one API root');
+  const ac = new AbortController();
+  const w = within(ac.signal, 60_000);
+  ac.abort();
+  check(w.aborted, 'Cancel aborts a request in flight');
   const reg = registrationBody('https://structs.xyz/', 'https://structs.xyz/comms-callback.html');
   eq([reg.application_type, reg.token_endpoint_auth_method, reg.redirect_uris, reg.grant_types], ['web', 'none', ['https://structs.xyz/comms-callback.html'], ['authorization_code', 'refresh_token']], 'registered as a public web client');
   eq(loginForm({ address: 'structs1a', signature: 'ab', pubkey: 'cd', guild_id: '0-5', unix_timestamp: 123 }, 'https://auth.g.test/authorize?q'),
@@ -247,11 +253,11 @@ eq(['image/svg+xml', 'text/html', 'application/xhtml+xml', 'text/xml', '', null,
   g.localStorage = mem();
   g.window = Object.assign(new EventTarget(), { setInterval: () => 0, clearInterval: () => {}, setTimeout, clearTimeout });
   g.document = Object.assign(new EventTarget(), { hidden: false });
-  const calls: { url: string; method: string; auth: string | null }[] = [];
+  const calls: { url: string; method: string; auth: string | null; body?: string }[] = [];
   let thumbType = 'text/html';
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input), method = init?.method ?? 'GET';
-    calls.push({ url, method, auth: new Headers(init?.headers).get('authorization') });
+    calls.push({ url, method, auth: new Headers(init?.headers).get('authorization'), body: typeof init?.body === 'string' ? init.body : undefined });
     const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { 'content-type': 'application/json' } });
     if (url.endsWith('/structs/guild/0-5')) return json({ Guild: { id: '0-5', index: '5', endpoint: 'https://sn.test/guild.json' } });
     if (url === 'https://sn.test/guild.json') return json({ guild: { id: '0-5', name: 'SN Corp', tag: 'SN', services: { matrix: 'https://hs.test' } } });
@@ -310,8 +316,10 @@ eq(['image/svg+xml', 'text/html', 'application/xhtml+xml', 'text/xml', '', null,
   eq(comms.pinOrder(mine), 3, 'a room you pin goes after the defaults');
   comms.setPinned('!d1', false);
   check(!comms.isPinned(help) && comms.pinOrder(infra) === 2, 'a default can be unpinned');
+  const upgraded = room('!d1-new', '#help:matrix.beta.playstructs.com');
+  check(!comms.isPinned(upgraded), 'an unpinned default stays out after its room is upgraded (kept by alias)');
   comms.setPinned('!d1', true);
-  eq(comms.pinOrder(help), 1, 'pinned again, a default goes back to its own place');
+  eq([comms.pinOrder(help), comms.pinOrder(upgraded)], [1, 1], 'pinned again, a default goes back to its own place');
   // Signing out on purpose stops the automatic sign-in for that account.
   const before = comms.session!.account;
   await comms.signOut();
@@ -320,11 +328,15 @@ eq(['image/svg+xml', 'text/html', 'application/xhtml+xml', 'text/xml', '', null,
 
   // forget(): every stored session logged out and erased, with the identity choice.
   localStorage.setItem('structs.comms.session.structs1other', JSON.stringify(sess('structs1other', '@1-9:hs.test', 'tok-other')));
+  // A wallet sign-in's session: revoked at its auth service, never sent to /logout (which MAS homeservers lack).
+  localStorage.setItem('structs.comms.session.structs1wallet', JSON.stringify({ ...sess('structs1wallet', '@1-7:hs.test', 'tok-wallet'), refresh_token: 'ref-wallet', client_id: 'CW', token_endpoint: 'https://auth.hs.test/oauth2/token', revocation_endpoint: 'https://auth.hs.test/oauth2/revoke' }));
   comms.setIdentity(0);
   calls.length = 0;
   await comms.forget();
   const outs = calls.filter((c) => c.method === 'POST' && c.url.endsWith('/logout')).map((c) => c.auth).sort();
   eq(outs, ['Bearer tok-alt', 'Bearer tok-other', 'Bearer tok-primary'], 'forget logs out every stored session');
+  const revoked = calls.filter((c) => c.method === 'POST' && c.url === 'https://auth.hs.test/oauth2/revoke').map((c) => new URLSearchParams(c.body).get('token')).sort();
+  eq(revoked, ['ref-wallet', 'tok-wallet'], 'a wallet session is revoked at the auth service (refresh and access token)');
   const left: string[] = [];
   for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i)!; if (k.startsWith('structs.comms.')) left.push(k); }
   eq(left, [], 'forget leaves no comms keys');

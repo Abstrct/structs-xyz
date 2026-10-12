@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { h } from '../../core/dom';
 import { audio } from '../../core/audio';
+import { LOOK } from '../../core/engine';
 import { easeInOutCubic, easeOutBack, easeOutCubic } from '../../core/util';
 import { type Ambit, AMBIT_COLOR, COMMAND_SHIP_ID, TYPES_BY_ID } from '../../data/catalogue';
 import { Effects } from '../../gfx/fx';
@@ -533,7 +534,9 @@ export class BattleView {
 
   private makeTether(from: UnitView, to: UnitView) {
     const curve = this.tetherCurve(from, to);
-    const geo = new THREE.TubeGeometry(curve, 40, 0.035, 5, false);
+    // A thin glowing line: at the Dreamcast's 480 lines, 16×3 reads the same as 40×5 at a quarter of
+    // the triangles (a big guarded fleet draws dozens of these).
+    const geo = new THREE.TubeGeometry(curve, LOOK.dc ? 16 : 40, 0.035, LOOK.dc ? 3 : 5, false);
     const mat = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
       uniforms: { uTime: { value: 0 }, uColor: { value: new THREE.Color(TEAM[from.side]) }, uGrow: { value: 0 }, uAlpha: { value: 1 } },

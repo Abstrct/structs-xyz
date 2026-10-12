@@ -13,6 +13,7 @@ export interface RelayInput {
   homeserver: string; guildApi: string; deviceId?: string;
   login: { address: string; signature: string; pubkey: string; guild_id: string; unix_timestamp: number | string };
 }
-export interface RelayTokens { access_token: string; refresh_token: string | null; expires_in: number | null; client_id: string; token_endpoint: string; device_id: string }
+export interface RelayTokens { access_token: string; refresh_token: string | null; expires_in: number | null; client_id: string; token_endpoint: string; revocation_endpoint: string | null; device_id: string }
+export function relayRefusal(req: { method?: string; headers: Record<string, string | undefined>; socket?: { remoteAddress?: string } }): [number, string] | null;
 export function relaySignIn(input: RelayInput, deps?: { f?: typeof fetch; clients?: Record<string, string>; save?: (c: Record<string, string>) => void }): Promise<RelayTokens>;
 export function devRelayPlugin(): import('vite').Plugin;

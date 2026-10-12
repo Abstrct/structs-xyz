@@ -383,7 +383,7 @@ export class Planet {
     const R = opts.radius;
     // Shading is per pixel from the baked cube, so the mesh only draws the outline: the Dreamcast
     // look keeps it to a console's budget (an 80-sided limb at ~480 lines still reads as round).
-    const seg = LOOK.dc ? 80 : 160;
+    const seg = LOOK.dc ? 64 : 160;
 
     this.surfMat = new THREE.ShaderMaterial({
       uniforms: {
@@ -422,7 +422,7 @@ export class Planet {
       vertexShader: ATMO_VERT,
       fragmentShader: ATMO_FRAG,
     });
-    this.atmo = new THREE.Mesh(new THREE.SphereGeometry(R * 1.045, LOOK.dc ? 64 : 128, LOOK.dc ? 32 : 64), this.atmoMat);
+    this.atmo = new THREE.Mesh(new THREE.SphereGeometry(R * 1.045, LOOK.dc ? 48 : 128, LOOK.dc ? 24 : 64), this.atmoMat);
     this.atmo.renderOrder = 2;
     this.group.add(this.atmo);
     this.applyWorldUniforms();

@@ -66,7 +66,10 @@ export function registrationBody(siteUrl: string, redirectUri: string) {
   };
 }
 
-export function authorizeUrl(meta: AuthMeta, o: { clientId: string; redirectUri: string; deviceId: string; state: string; challenge: string }): string {
+/** `prompt: 'login'` makes the auth service sign in again rather than reuse its own session cookie
+ * in this browser, which may belong to another commander (the desktop app gets the same from a
+ * fresh cookie jar on every run). */
+export function authorizeUrl(meta: AuthMeta, o: { clientId: string; redirectUri: string; deviceId: string; state: string; challenge: string; prompt?: string }): string {
   const u = new URL(meta.authorization_endpoint);
   const q = u.searchParams;
   q.set('response_type', 'code');
@@ -77,6 +80,7 @@ export function authorizeUrl(meta: AuthMeta, o: { clientId: string; redirectUri:
   q.set('code_challenge', o.challenge);
   q.set('code_challenge_method', 'S256');
   q.set('response_mode', 'query');
+  if (o.prompt) q.set('prompt', o.prompt);
   return u.href;
 }
 
@@ -108,3 +112,21 @@ export function guildLoginProblem(body: { success?: boolean; errors?: Record<str
   const words = e && !Array.isArray(e) ? Object.values(e).filter((x) => typeof x === 'string').join('; ') : '';
   return words || `The guild refused the sign-in (${status})`;
 }
+
+/** A guild's API root, the way src/guild/transport.ts reaches it (`…/api`): the form login and its
+ * pre-check must post to the same place. */
+export function guildApiRoot(guildApi: string): string {
+  return guildApi.replace(/\/+$/, '').replace(/(\/api)?$/, '/api');
+}
+
+/** One signal for a request: the sign-in's Cancel, or `ms` passing, whichever comes first. */
+export function within(signal: AbortSignal, ms: number): AbortSignal {
+  const any = (AbortSignal as unknown as { any?: (s: AbortSignal[]) => AbortSignal }).any;
+  if (any) return any([signal, AbortSignal.timeout(ms)]);
+  const c = new AbortController();
+  const stop = () => c.abort();
+  if (signal.aborted) stop(); else signal.addEventListener('abort', stop, { once: true });
+  setTimeout(stop, ms);
+  return c.signal;
+}
+
