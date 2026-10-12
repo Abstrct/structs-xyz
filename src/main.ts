@@ -203,8 +203,11 @@ function buildTopbar() {
   // The home planet's view is My Base's own, so it lights the Base hub (it opens there by default).
   const homePlanet = () => { const pid = wallet.active?.playerId; return (pid && empire.players.get(pid)?.planetId) || null; };
   hubNav = buildHubNav(() => togglePalette(navigate), homePlanet);
-  // The commander loads after the first paint: the highlight follows (the menu stays as it is).
-  empire.onChange(() => hubNav?.setActive(currentRoute(), false));
+  // The commander loads after the first paint: when the home planet becomes known (or changes), the
+  // highlight follows, the menu staying as it is. Only then: the top bar fits itself on the first
+  // paint, and an early extra pass at it settled some routes one stage tighter.
+  let knownHome: string | null = null;
+  empire.onChange(() => { const h = homePlanet(); if (h === knownHome) return; knownHome = h; hubNav?.setActive(currentRoute(), false); });
 
   // The Academy: the way in for anyone new, with how far along they are.
   const acad = h('a', { class: 'tb-academy', href: '/academy', title: 'Academy: short lessons on strategy, economics and technology, with XP', onclick: () => audio.play('select') });

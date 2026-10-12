@@ -28,7 +28,7 @@ import {
 import { createNebulaSky, createStarfield, tickSpace } from '../gfx/space';
 import { spriteDataUrl } from '../gfx/pixelModel';
 import { BattleView, UnitView, type SideV } from './battle/view';
-import { BoardZoom, bindPinch, bindTap } from './battle/zoom';
+import { BoardZoom, bindDrag, bindPinch, bindTap } from './battle/zoom';
 import { addBattleLights, WORLD_PALETTES } from './battle/env';
 import type { AttackDetail, SimStruct } from '../sim/chain';
 import { type ChainFleetInput, encodeBattle, mirrorUnits, unitsFromChainFleet, validate } from '../sim/fleets';
@@ -116,6 +116,8 @@ export class PlanetScreen implements Screen {
   private els: Record<string, HTMLElement> = {};
   private fitDist = 60;
   private zoom = new BoardZoom(0.42, 19.5, 11.8);
+  /** A drag of the map in progress (the cursor shows the grabbing hand meanwhile). */
+  private dragging = false;
   private look = new THREE.Vector3(-6.5, -0.4, 0);
   private zoomLook = new THREE.Vector3();
   private capV = new THREE.Vector3();
@@ -1521,6 +1523,17 @@ export class PlanetScreen implements Screen {
       this.zoom.wheel(e.deltaMode === 1 ? e.deltaY * 40 : e.deltaY, this.camera, this.pointer);
     };
     const dbl = () => this.zoom.reset();
+    // Click and drag moves the map (one finger too): its edges sit under the panels, so it moves a
+    // little even unzoomed, and freely when zoomed in. A click that didn't move still picks.
+    this.zoom.slack = 0.35;
+    const ndc = (x: number, y: number) => new THREE.Vector2((x / window.innerWidth) * 2 - 1, -(y / window.innerHeight) * 2 + 1);
+    const undrag = bindDrag(canvas, (x0, y0, x1, y1) => {
+      if (this.intro < 1 || !this.view) return;
+      this.dragging = true;
+      this.zoom.drag(this.camera, ndc(x0, y0), ndc(x1, y1));
+      if (this.tip.key) { this.tip.key = ''; hideTooltip(); }
+      canvas.style.cursor = 'grabbing';
+    }, () => { this.dragging = false; canvas.style.cursor = 'grab'; });
     const unpinch = bindPinch(canvas, (dy, x, y) => {
       if (this.intro < 1 || !this.view) return;
       this.pointer.set((x / window.innerWidth) * 2 - 1, -(y / window.innerHeight) * 2 + 1);
@@ -1551,14 +1564,14 @@ export class PlanetScreen implements Screen {
       if (btn.disabled) audio.play('deny', 0.5); else btn.click();
     };
     canvas.addEventListener('pointermove', move);
-    const untap = bindTap(canvas, click);
+    const untap = bindTap(canvas, click, { mouseOnRelease: true });
     canvas.addEventListener('pointerleave', leave);
     canvas.addEventListener('wheel', wheel, { passive: false });
     canvas.addEventListener('dblclick', dbl);
     window.addEventListener('keydown', key, true);
     this.unsub.push(() => {
       canvas.removeEventListener('pointermove', move); untap(); canvas.removeEventListener('pointerleave', leave);
-      canvas.removeEventListener('wheel', wheel); canvas.removeEventListener('dblclick', dbl); window.removeEventListener('keydown', key, true); unpinch();
+      canvas.removeEventListener('wheel', wheel); canvas.removeEventListener('dblclick', dbl); window.removeEventListener('keydown', key, true); unpinch(); undrag();
     });
   }
 
@@ -1594,7 +1607,8 @@ export class PlanetScreen implements Screen {
     }
     // Armed, the map is a gunsight: crosshair, refused over what the order can't take.
     const usable = !!tile && (a ? a.kind === 'move' && tile.state === 'move' : tile.state !== 'move');
-    const cursor = a ? (u && !this.valid.has(u.id) && u.id !== a.struct ? 'not-allowed' : usable ? 'pointer' : 'crosshair') : u || usable ? 'pointer' : 'default';
+    // Anywhere else the map can be dragged: an open hand, closed while it moves.
+    const cursor = this.dragging ? 'grabbing' : a ? (u && !this.valid.has(u.id) && u.id !== a.struct ? 'not-allowed' : usable ? 'pointer' : 'crosshair') : u || usable ? 'pointer' : 'grab';
     if (this.engine.canvas.style.cursor !== cursor) this.engine.canvas.style.cursor = cursor;
     // The tooltip is rebuilt only when what it says can have changed, and moved only when the pointer did.
     const tipKey = tile && !u ? 'T' + tk + tile.state + this.fieldVersion : u && this.data ? 'U' + u.id + this.fieldVersion + (a ? 'a' : '') : '';
