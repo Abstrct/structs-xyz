@@ -7,6 +7,7 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { deriveKey, isValidMnemonic, newMnemonic, normaliseMnemonic, toHex, type KeyPair } from './keys';
 import { openDevice, openPhrase, readVault, sealDevice, sealPhrase, updateAccounts, writeVault, type VaultAccount } from './vault';
 import { dropDeviceKey, newDeviceKey, readDeviceKey } from './devicekey';
+import { insecurePage } from './secure';
 import { lcd } from '../chain/lcd';
 import { safeEach } from '../core/util';
 
@@ -57,6 +58,7 @@ class Wallet {
 
   /** Create or import: seals the phrase under a passphrase and opens the session. */
   async create(phrase: string, passphrase: string) {
+    secureOrThrow();
     const m = normaliseMnemonic(phrase);
     if (!isValidMnemonic(m)) throw new Error('That is not a valid 12 or 24 word recovery phrase');
     if (passphrase.length < 8) throw new Error('Use a passphrase of at least 8 characters');
@@ -71,6 +73,7 @@ class Wallet {
 
   /** One click: a fresh 24-word phrase sealed by the device key, open at once. Or `phrase` to import one the same way. */
   async createInstant(phrase = newMnemonic(24)) {
+    secureOrThrow();
     const m = normaliseMnemonic(phrase);
     if (!isValidMnemonic(m)) throw new Error('That is not a valid 12 or 24 word recovery phrase');
     const k = deriveKey(m, 0);
@@ -92,6 +95,7 @@ class Wallet {
   async restore() {
     const v = readVault();
     if (this.phrase || !v || v.mode !== 'device') return;
+    secureOrThrow();
     let key: CryptoKey | null;
     try { key = await readDeviceKey(v.keyId ?? 'vault'); } catch (e) { throw new Error('This browser’s key storage did not answer (' + ((e as Error).message || 'IndexedDB error') + '). Reload to try again.'); }
     if (!key) throw new Error('This browser lost the device key that seals your vault. Import your recovery phrase to restore the commander.');
@@ -105,6 +109,7 @@ class Wallet {
     const v = readVault();
     if (!v) throw new Error('No vault in this browser');
     if (v.mode === 'device') return this.restore();
+    secureOrThrow();
     this.phrase = await openPhrase(v, passphrase);
     this.lastTouch = Date.now();
     this.emit();
@@ -218,3 +223,7 @@ export class WalletLockedError extends Error {
 }
 
 export const wallet = new Wallet();
+
+/** No vault work on a page the browser doesn't trust (secure.ts): say why, plainly. */
+function secureOrThrow() { const why = insecurePage(); if (why) throw new Error(why); }
+

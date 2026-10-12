@@ -81,6 +81,10 @@ function down(name: string, fire: () => void) {
 
 function poll() {
   polling = 0;
+  // Counted for the studio's pad bots (scripts/studio/cdp.mjs PAD_STUB): a bot's press is seen by
+  // exactly one poll, however slow the frames, so it can never become a held, repeating d-pad.
+  const w = window as unknown as { __padPolls?: number };
+  w.__padPolls = (w.__padPolls ?? 0) + 1;
   const pads = readPads();
   if (!pads.length) { held.clear(); return; }
   const now = new Set<string>();

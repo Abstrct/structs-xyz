@@ -14,7 +14,7 @@
  * usage: node scripts/studio/playtest.mjs      (STUDIO_URL to use a running dev server; STUDIO_VIEW=tv|desktop|phone) */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { openBrowser, serveSite, sleep } from './cdp.mjs';
+import { PAD_STUB, openBrowser, padPress, serveSite, sleep } from './cdp.mjs';
 
 const ROOT = new URL('../../', import.meta.url).pathname;
 const VIEWS = { tv: { w: 640, h: 480 }, desktop: { w: 1440, h: 900 }, phone: { w: 390, h: 844, mobile: true } };
@@ -22,30 +22,18 @@ const viewName = process.env.STUDIO_VIEW || 'desktop';
 const view = VIEWS[viewName];
 /** Reports and pictures carry the view's name, so the three sizes sit side by side. */
 const tag = viewName === 'desktop' ? '' : '-' + viewName;
-const PAD = `
-  window.__pad = { id: 'studio-bot', index: 0, connected: true, mapping: 'standard', timestamp: 0, axes: [0, 0, 0, 0],
-    buttons: Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 })) };
-  Object.defineProperty(navigator, 'getGamepads', { value: () => [window.__pad], configurable: true });
-`;
-const BUTTON = { A: 0, B: 1, X: 2, Y: 3, L: 4, R: 5, BACK: 8, START: 9, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
 
 const report = { at: new Date().toISOString(), view: process.env.STUDIO_VIEW || 'desktop', steps: [], inputs: 0, problems: [] };
 const site = await serveSite();
-const b = await openBrowser(view, { siteBase: site.base, init: PAD });
+const b = await openBrowser(view, { siteBase: site.base, init: PAD_STUB });
 const t0 = Date.now();
 const step = (name, ok, extra = {}) => { report.steps.push({ name, ok, s: +((Date.now() - t0) / 1000).toFixed(1), ...extra }); console.log(`${ok ? '✓' : '✗'} ${name}${Object.keys(extra).length ? ' ' + JSON.stringify(extra) : ''}`); if (!ok) throw new Error(name); };
-/** Two frames of the page: the pad polls once a frame, so a press held this long is always seen,
- * however long the main thread is busy (shader compiles, bakes, SwiftShader). */
-const frames = () => b.evaluate('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))', 60000);
-/** Press a button and let go once the page has seen it. `unless` (a page expression) skips the
- * press, checked in the same breath, so nothing is pressed into a window that just opened. */
+/** Press a button once (a pulse the page's pad poll sees exactly once: cdp.mjs PAD_STUB). `unless`
+ * (a page expression) skips the press, checked in the same breath, so nothing is pressed into a
+ * window that just opened. */
 const press = async (name, unless = 'false') => {
-  const pressed = await b.evaluate(`(() => { if (${unless}) return false; window.__pad.buttons[${BUTTON[name]}].pressed = true; return true; })()`);
-  if (!pressed) return false;
+  if (!(await padPress(b, name, unless))) return false;
   report.inputs++;
-  await frames();
-  await b.evaluate(`window.__pad.buttons[${BUTTON[name]}].pressed = false`);
-  await frames();
   await sleep(120);
   return true;
 };

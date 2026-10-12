@@ -50,5 +50,15 @@ const f = readFields(tx);
 ok(verifyBytes(k.pubKey, signDoc(f.get(1)![0] as Uint8Array, f.get(2)![0] as Uint8Array, 'structstestnet-111', 7n), f.get(3)![0] as Uint8Array), 'own signature verifies');
 ok(legacyDec('0.05') === '50000000000000000' && legacyDec('1') === '1000000000000000000', 'LegacyDec scaling');
 
+// The vault refuses a page the browser doesn't trust (http:// at a network address), plainly.
+{
+  const { insecurePage } = await import('../src/wallet/secure');
+  const g = globalThis as { isSecureContext?: boolean };
+  ok(insecurePage() === null, 'a trusted page (here: Node with WebCrypto) may hold a vault');
+  g.isSecureContext = false;
+  ok(/isn’t secure/.test(insecurePage() || '') && /Never type a recovery phrase/.test(insecurePage() || ''), 'an untrusted page is refused, with the phrase warning');
+  delete g.isSecureContext;
+}
+
 if (fails) { console.error(`${fails} wallet check(s) failed`); process.exit(1); }
 console.log('wallet: all checks passed');

@@ -137,6 +137,8 @@ async function launch(view, opts) {
   if (view.mobile) await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
   // A headless page never holds window focus, so :focus and the cursor ring would never show: act focused.
   await send('Emulation.setFocusEmulationEnabled', { enabled: true });
+  // STUDIO_CPU_THROTTLE=12 slows the page's CPU (CDP), to reproduce CI's software-GPU frame rates here.
+  if (Number(process.env.STUDIO_CPU_THROTTLE) > 1) await send('Emulation.setCPUThrottlingRate', { rate: Number(process.env.STUDIO_CPU_THROTTLE) });
   if (opts.reducedMotion !== false) await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
   // Prompts and alerts would block every later evaluate: the studio never answers them.
   await send('Page.addScriptToEvaluateOnNewDocument', { source: 'window.alert = () => {}; window.prompt = () => null; window.confirm = () => false;' + (opts.init || '') });
@@ -172,3 +174,38 @@ export async function pool(items, n, fn) {
   }));
   return out;
 }
+
+/* ── The bots' gamepad ───────────────────────────────────────────────────── */
+
+/** A virtual gamepad (navigator.getGamepads stubbed in the page) for the playtest and pad-tour bots.
+ * A press is a pulse: the button reads pressed during exactly one of pad.ts's polls (it counts them
+ * in window.__padPolls) and released after. Holding a button for "two frames" instead turned into a
+ * held, auto-repeating d-pad (pad.ts repeats arrows after 320 ms) once CI's software GPU drew at
+ * 1–3 fps, and the tour overshot tiles. */
+export const PAD_STUB = `
+  window.__pad = { id: 'studio-bot', index: 0, connected: true, mapping: 'standard', timestamp: 0, axes: [0, 0, 0, 0],
+    buttons: Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 })) };
+  window.__padPulse = null;
+  window.__padPress = (i) => { window.__padPulse = { button: i, at: (window.__padPolls || 0) + 1 }; };
+  Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => {
+    const p = window.__pad, q = window.__padPulse, n = window.__padPolls || 0;
+    const on = q && n === q.at ? q.button : -1;
+    if (q && n > q.at) window.__padPulse = null;
+    for (let i = 0; i < p.buttons.length; i++) { const b = p.buttons[i]; b.pressed = b.touched = i === on; b.value = i === on ? 1 : 0; }
+    p.timestamp = n;
+    return [p];
+  } });
+`;
+export const PAD_BUTTON = { A: 0, B: 1, X: 2, Y: 3, L: 4, R: 5, BACK: 8, START: 9, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
+
+/** Press a pad button once and wait until the page has seen it pressed and let go. `unless` (a page
+ * expression) is checked in the same breath and skips the press. Resolves false when skipped. */
+export async function padPress(b, name, unless = 'false') {
+  const pressed = await b.evaluate(`(() => { if (${unless}) return false; window.__padPress(${PAD_BUTTON[name]}); return true; })()`);
+  if (!pressed) return false;
+  for (let end = Date.now() + 30000; Date.now() < end; await sleep(40)) {
+    if (await b.evaluate('window.__padPulse === null').catch(() => false)) return true;
+  }
+  throw new Error(`the page never read the pad's ${name} (no pad polls for 30 s)`);
+}
+

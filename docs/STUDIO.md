@@ -63,6 +63,8 @@ The first cert run is the baseline (`studio/baseline/cert.json`), and every repo
 - `SOAK_N`, `SOAK_SEED` and `SOAK_ONLY=17,58` size the soak and replay single failing battles. Every failure prints its repro line.
 - The soak doubles as the balance lab, since its tables give win rates by preset, difficulty and gauntlet round. Jobs `38 + 43k` are gauntlet runs, and the gauntlet's five rounds were tuned on them so it ramps: the Hard autopilot clears round 3 about two runs in three and round 4 about half the time, and round 5 is the boss.
 - Headless Chrome uses the real GPU on a Mac (ANGLE Metal) and SwiftShader elsewhere; `STUDIO_GL` overrides it.
+- **CI's speed, here.** `STUDIO_GL=swiftshader STUDIO_CPU_THROTTLE=20` draws at CI's 1–3 fps on a Mac. Use it before trusting a bot or a timing change: a gate that only passes at 60 fps will fail in CI.
+- **The bots' controller** (`PAD_STUB` and `padPress` in `scripts/studio/cdp.mjs`): a press is a pulse that exactly one of `pad.ts`'s polls sees. Never hold a bot's button for "N frames". At a few fps that outlasts the d-pad's 320 ms auto-repeat, and one RIGHT becomes two.
 
 ## Roles
 

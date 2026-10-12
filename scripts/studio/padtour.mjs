@@ -7,26 +7,14 @@
  * Writes studio/reports/padtour.json. */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { openBrowser, serveSite, sleep } from './cdp.mjs';
+import { PAD_STUB, openBrowser, padPress, serveSite, sleep } from './cdp.mjs';
 
 const ROOT = new URL('../../', import.meta.url).pathname;
-const PAD = `
-  window.__pad = { id: 'studio-bot', index: 0, connected: true, mapping: 'standard', timestamp: 0, axes: [0, 0, 0, 0],
-    buttons: Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 })) };
-  Object.defineProperty(navigator, 'getGamepads', { value: () => [window.__pad], configurable: true });
-`;
-const BUTTON = { A: 0, B: 1, BACK: 8, START: 9, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
 const report = { at: new Date().toISOString(), tiles: [], problems: [] };
 const site = await serveSite();
-const b = await openBrowser({ w: 1440, h: 900 }, { siteBase: site.base, init: PAD });
-const frames = () => b.evaluate('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))', 60000);
-const press = async (name) => {
-  await b.evaluate(`window.__pad.buttons[${BUTTON[name]}].pressed = true`);
-  await frames();
-  await b.evaluate(`window.__pad.buttons[${BUTTON[name]}].pressed = false`);
-  await frames();
-  await sleep(140);
-};
+const b = await openBrowser({ w: 1440, h: 900 }, { siteBase: site.base, init: PAD_STUB });
+/** One press, seen by exactly one pad poll at any frame rate (cdp.mjs PAD_STUB), then a beat for the screen. */
+const press = async (name) => { await padPress(b, name); await sleep(140); };
 const focused = () => b.evaluate(`(() => { const e = document.activeElement; return e && e !== document.body ? (e.getAttribute('aria-label') || e.textContent || e.tagName).trim().slice(0, 40) : ''; })()`);
 /** Get to hub `hi` with the pad: Back (Menu) to the hub row, then the d-pad along it. */
 async function gotoHub(hi) {
@@ -78,7 +66,8 @@ try {
       let ok;
       if (want.href) {
         const path = new URL(want.href, site.base + '/').pathname;
-        ok = await until(`location.pathname === ${JSON.stringify(path)} && !!document.querySelector('#ui .screen')`, 15000);
+        // (A screen may settle its address under the tile's own: the Unit Guide opens on /codex/1.)
+        ok = await until(`(location.pathname === ${JSON.stringify(path)} || location.pathname.startsWith(${JSON.stringify(path + '/')})) && !!document.querySelector('#ui .screen')`, 15000);
         if (!ok) report.problems.push(`${hubs[hi]} › ${want.label}: A went to ${await b.evaluate('location.pathname')} (wanted ${path}, was ${before})`);
       } else {
         ok = await until(`!!document.querySelector('.modal-back, .palette')`, 4000);

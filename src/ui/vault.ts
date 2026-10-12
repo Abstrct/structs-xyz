@@ -6,6 +6,7 @@ import { canReach, reachableNow } from '../guild/transport';
 import { h, toast, copyText, confirmBox, portrait } from '../core/dom';
 import { audio } from '../core/audio';
 import { wallet } from '../wallet/wallet';
+import { insecurePage } from '../wallet/secure';
 import { isValidMnemonic, normaliseMnemonic, isAddress } from '../wallet/keys';
 import { balances } from '../wallet/tx';
 import { txq } from '../wallet/queue';
@@ -64,15 +65,18 @@ function renderImport(body: HTMLElement, setBusy: (b: boolean) => void) {
   const ta = h('textarea', { class: 'input phrase-input', rows: 4, placeholder: 'twelve or twenty-four words…', spellcheck: false, autocomplete: 'off' }) as HTMLTextAreaElement;
   const st = h('div', { class: 't-tiny c-hint' }, 'Words are checked locally against the BIP-39 list.');
   const err = h('div', { class: 't-tiny c-enemy' });
+  // Not on a page the browser doesn't trust: the box stays shut, so the phrase is never typed here.
+  const insecure = insecurePage();
+  if (insecure) { err.textContent = insecure; ta.disabled = true; ta.placeholder = 'Not on this page'; }
   ta.addEventListener('input', () => {
     const n = normaliseMnemonic(ta.value).split(' ').filter(Boolean).length;
     const ok = isValidMnemonic(ta.value);
     st.textContent = ok ? `${n} words · valid` : `${n} words${n >= 12 ? ' · checksum does not match' : ''}`;
     st.className = 't-tiny ' + (ok ? 'c-player' : 'c-hint');
   });
-  const go = h('button', { class: 'btn solid' }, 'Import') as HTMLButtonElement;
+  const go = h('button', { class: 'btn solid', disabled: !!insecure }, 'Import') as HTMLButtonElement;
   go.addEventListener('click', async () => {
-    if (!isValidMnemonic(ta.value)) { audio.play('deny'); return; }
+    if (insecure || !isValidMnemonic(ta.value)) { audio.play('deny'); return; }
     go.disabled = true;
     try {
       await wallet.createInstant(ta.value);
@@ -89,7 +93,7 @@ function renderImport(body: HTMLElement, setBusy: (b: boolean) => void) {
     ta, st, err,
     h('div', { class: 'row' }, h('button', { class: 'btn ghost', onclick: () => { if (wallet.state === 'empty') renderEnlist(body, 0, setBusy); else closeVault(); } }, 'Back'), h('div', { class: 'grow' }), go),
   );
-  ta.focus();
+  if (!insecure) ta.focus();
 }
 
 /* ── Locked ──────────────────────────────────────────────────────────── */
@@ -281,7 +285,10 @@ function renderEnlist(body: HTMLElement, index: number, setBusy: (b: boolean) =>
   const err = h('div', { class: 't-tiny c-enemy' });
   let pick: GuildEntry | null = null;
   const go = h('button', { class: 'btn solid big', disabled: true }, 'Enlist') as HTMLButtonElement;
-  const ready = () => { go.disabled = !pick || name.value.trim().length < 2; };
+  // A page the browser doesn't trust can't hold a vault: said before anyone fills the form in.
+  const insecure = insecurePage();
+  if (insecure) err.textContent = insecure;
+  const ready = () => { go.disabled = !!insecure || !pick || name.value.trim().length < 2; };
   name.addEventListener('input', ready);
   // Drawn again once member counts arrive (the roster can load after the registry): the
   // biggest guild leads, and stays picked unless the player chose another.
