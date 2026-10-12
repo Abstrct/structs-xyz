@@ -1,0 +1,77 @@
+{
+  "about": "Cert budgets (scripts/studio/cert.mjs). Hardware numbers follow the Dreamcast: ~3M polygons a second is ~60k triangles a frame at 50-60 fps. Words count visible words; numbers are free. Budgets in 'enforce' fail the cert (since 2026-10-11 every screen meets them); the rest warn, and STUDIO_STRICT=1 fails on any. fps stays a warning: CI renders on a software GPU. bundle: gzipped KB a first visit downloads (entry) and of every chunk (total), ~10% over the 2026-10-11 build.",
+  "routes": [
+    "/",
+    "/galaxy#hud",
+    "/planet/2-1",
+    "/combat",
+    "/grid",
+    "/sim",
+    "/sim#fight",
+    "/sim/daily",
+    "/codex/5",
+    "/command",
+    "/ops/proofs",
+    "/ops/orders",
+    "/forge/MsgStructAttack",
+    "/intel/activity",
+    "/guild/0-5",
+    "/comms",
+    "/economy",
+    "/academy"
+  ],
+  "minFontPx": 11,
+  "minTapFine": 24,
+  "minTapCoarse": 40,
+  "default": {
+    "words": 40,
+    "tiny": 0,
+    "tris": 60000,
+    "calls": 300,
+    "fps": 50
+  },
+  "screens": {
+    "/academy": {
+      "words": 90
+    },
+    "/forge/MsgStructAttack": {
+      "words": 90,
+      "why": "a real chain message as a form and as code"
+    },
+    "/comms": {
+      "words": 60
+    },
+    "/intel/activity": {
+      "words": 90
+    },
+    "/combat": {
+      "words": 80,
+      "why": "the archive lists real fights: two commanders' names per row"
+    },
+    "/ops/orders": {
+      "words": 110,
+      "why": "the robot helpers' if-then program is the page (and the Academy's readcode lesson)"
+    }
+  },
+  "bundle": {
+    "entryGzKB": 420,
+    "totalGzKB": 760
+  },
+  "enforce": [
+    "words",
+    "tiny",
+    "unnamed",
+    "tris",
+    "minFont"
+  ],
+  "states": {
+    "/galaxy#hud": {
+      "before": "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))",
+      "after": 3000
+    },
+    "/sim#fight": {
+      "before": "[...document.querySelectorAll('.setup-panel button')].find((b) => /start/i.test(b.textContent))?.click()",
+      "after": 9000
+    }
+  }
+}

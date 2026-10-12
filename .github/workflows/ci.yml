@@ -1,0 +1,100 @@
+# Checks for every pull request and every push to main: typecheck, tests, and the build at the site
+# root and under a GitHub project-page path. The studio job runs the game's own gates (scripts/studio):
+# the battle soak, cert (words, text size, targets, frame cost on every screen at TV, desktop and
+# phone) and a controller playtest from the title to a finished battle; its reports are kept as an
+# artifact. Smoke runs every screen in headless Chrome against the live public testnet, so it can
+# fail when the testnet is down; it doesn't gate the Pages deploy.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - name: Build at the root (a custom domain, or the container)
+        run: pnpm build
+      - name: Build under a project-page path
+        # prerender refuses a build whose asset URLs miss the base, and rewrites every page's links.
+        run: pnpm build && test -f dist/404.html && test -f dist/codex/index.html
+        env:
+          VITE_SITE_URL: https://example.github.io/structs-xyz
+
+  studio:
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CI: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Soak, build, cert, playtest and pad tour (SwiftShader)
+        run: pnpm studio --only=soak,build,cert,playtest,padtour
+      - name: Keep the studio reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: studio-reports
+          path: studio/reports
+          retention-days: 14
+
+  smoke:
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CI: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Ubuntu 24.04 blocks the unprivileged user namespaces Chrome's sandbox uses.
+      - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Every screen at the root (desktop, phone, testnet down, testnet back)
+        run: pnpm smoke
+        env:
+          SMOKE_SHOTS: smoke-shots
+      - name: Every screen under a project-page path (any file asked for outside it fails)
+        run: node scripts/smoke.mjs
+        env:
+          SMOKE_QUICK: 1
+          VITE_SITE_URL: https://example.github.io/structs-xyz
+      - name: Keep the screenshots of a failed run
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: smoke-shots
+          path: smoke-shots
+          retention-days: 7

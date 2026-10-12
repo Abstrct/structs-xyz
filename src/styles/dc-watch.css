@@ -1,0 +1,412 @@
+/* The Dreamcast pass over the watch screens: Battle Replays (combat.ts), the Power Grid (grid.ts)
+ * and the live Galaxy's HUD (galaxy.ts, not its title). Loaded after dc.css; every rule is scoped
+ * to its screen, since the sheet stays on the page once any of the three has been opened.
+ * The kit's rules: a picture and a number first, one or two words for a title, the result as a big
+ * call (-2, BLOCKED, DESTROYED); every sentence one hover away (title) or in Expert mode (.x-only). */
+
+.screen.combat { --hub: #EE7D69; }
+.screen.galaxy, .screen.grid { --hub: #94A4E4; }
+.screen.grid { --hub: var(--dc-x); }
+
+/* ── Shared: heads, sections, tiles, rows, legends ──────────────────────── */
+.screen:is(.combat, .grid, .galaxy) .dw-ico { display: inline-flex; flex: none; }
+.screen:is(.combat, .grid, .galaxy) .dw-ico .ico { display: block; }
+/* A panel's title: its picture and a word or two. */
+.screen:is(.combat, .grid, .galaxy) .dw-head { display: inline-flex; align-items: center; gap: 9px; min-width: 0; }
+.screen:is(.combat, .grid, .galaxy) .dw-head > .dw-ico { color: var(--hub); }
+.screen:is(.combat, .grid, .galaxy) .panel-head .dw-head .t-label { font-size: 17px; line-height: 20px; letter-spacing: 0.05em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.screen:is(.combat, .grid, .galaxy) .panel-head { min-height: 46px; padding: 6px 10px 6px 14px; }
+/* A count beside a title: a picture and a number. */
+.screen:is(.combat, .grid, .galaxy) .chip.dw-count { gap: 5px; font-size: 14px; letter-spacing: 0.02em; color: #fff; padding: 3px 10px; }
+.screen:is(.combat, .grid, .galaxy) .chip.dw-count .dw-ico { color: var(--hub); }
+.screen:is(.combat, .grid, .galaxy) .chip.dw-live { padding: 5px 8px; }
+.screen:is(.combat, .grid, .galaxy) .dw-ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+/* A section inside a panel: picture, one word, its button on the right. */
+.screen:is(.grid, .galaxy) .dw-sec { display: flex; align-items: center; gap: 8px; min-height: 30px; margin-top: 2px; }
+.screen:is(.grid, .galaxy) .dw-sec > .dw-ico { color: var(--hub); }
+.screen:is(.grid, .galaxy) .dw-sec .t-label { font-size: 14px; letter-spacing: 0.06em; color: #fff; }
+.screen:is(.grid, .galaxy) .dw-sec > .btn { margin-left: auto; }
+.screen:is(.grid, .galaxy) .btn.mini { min-height: 30px; padding: 5px 12px; font-size: 12px; gap: 6px; }
+
+/* Tiles: a picture and a number. Three across; the picture's word is the tile's title. */
+.screen:is(.grid, .galaxy) .dw-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0; }
+.screen:is(.grid, .galaxy) .dw-tile { display: flex; align-items: center; gap: 7px; min-width: 0; padding: 7px 9px; border-radius: 14px; cursor: default;
+  background: rgba(5, 9, 40, 0.45); border: 2px solid rgba(110, 140, 240, 0.28); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.2); }
+.screen:is(.grid, .galaxy) .dw-tile .dw-ico { color: var(--accent-secondary); }
+.screen:is(.grid, .galaxy) .dw-tile .dw-ico.c-player { color: var(--accent-primary); }
+.screen:is(.grid, .galaxy) .dw-tile .dw-ico.c-neutral { color: var(--dc-x); }
+.screen:is(.grid, .galaxy) .dw-tile .dw-ico.c-enemy { color: var(--accent-destructive); }
+.screen:is(.grid, .galaxy) .dw-tile b { font-family: var(--font-chrome); font-weight: 900; font-size: 17px; line-height: 20px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.screen:is(.grid, .galaxy) .dw-tile b.c-enemy { color: var(--accent-destructive); }
+/* Galaxy tiles show their meaning on hover, focus or a tap (ui/dcbase tip). */
+.screen.galaxy .dw-tile[tabindex] { cursor: help; }
+.screen.galaxy .dw-tile[tabindex]:hover, .screen.galaxy .dw-tile[tabindex]:focus-visible { border-color: #fff; background: rgba(255, 255, 255, 0.1); }
+/* A tile that is a glossary word: it lifts under the pointer, like a button. */
+.screen:is(.grid, .galaxy) .dw-tile.term { text-decoration: none; cursor: help; }
+.screen:is(.grid, .galaxy) .dw-tile.term:hover, .screen:is(.grid, .galaxy) .dw-tile.term:focus-visible { border-color: #fff; background: rgba(255, 255, 255, 0.1); color: inherit; }
+
+/* List rows: a swatch or picture, a name, a number behind its picture. */
+.screen:is(.grid, .galaxy) .guild-row { min-height: 34px; padding: 4px 10px; gap: 8px; border-radius: 12px; border: 2px solid transparent; font-size: 14px; font-weight: 700; box-shadow: none; }
+.screen:is(.grid, .galaxy) button.guild-row:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(190, 210, 255, 0.55); }
+.screen:is(.grid, .galaxy) .guild-row.active { background: rgba(255, 106, 19, 0.16); border-color: var(--dc-accent); box-shadow: none; }
+.screen:is(.grid, .galaxy) .guild-row.static:hover { background: transparent; border-color: transparent; }
+.screen:is(.grid, .galaxy) .swatch { width: 12px; height: 12px; border-radius: 50%; }
+.screen:is(.grid, .galaxy, .combat) .dw-num { display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-chrome); font-weight: 900; font-size: 14px; color: #fff; white-space: nowrap; }
+.screen:is(.grid, .galaxy) .dw-num .dw-ico { color: var(--text-hint); }
+.screen:is(.grid, .galaxy) .guild-row .num.c-hint { font-family: var(--font-chrome); font-weight: 900; font-size: 14px; }
+
+/* Facts (cards): a picture where the label was, the value beside it. */
+.screen:is(.grid, .galaxy) .kv.dw-kv { gap: 6px 12px; align-items: center; }
+.screen:is(.grid, .galaxy) .kv.dw-kv > .dw-k { display: inline-flex; color: var(--accent-secondary); }
+.screen:is(.grid, .galaxy) .kv.dw-kv > :nth-child(even) { font-family: var(--font-chrome); font-weight: 900; font-size: 15px; color: #fff; text-align: left; }
+.screen:is(.grid, .galaxy) .kv.dw-kv > .c-enemy { color: var(--accent-destructive); }
+.screen:is(.grid, .galaxy) .kv.dw-kv > .dw-call { justify-self: start; }
+/* Close (×) on a card: a round button with a glyph big enough to see. */
+.screen:is(.grid, .galaxy) .panel-head .btn.icon { font-size: 20px; letter-spacing: 0; padding: 0; }
+
+/* Legends: the mark as it looks in the 3D, with a picture of what it means. */
+.screen:is(.grid, .galaxy) .dw-sw { display: inline-flex; align-items: center; gap: 5px; min-height: 30px; padding: 3px 10px; border-radius: 999px; cursor: help;
+  border: 2px solid rgba(143, 168, 255, 0.3); background: rgba(255, 255, 255, 0.05); color: #fff; }
+.screen:is(.grid, .galaxy) .dw-sw .dw-ico { color: #fff; }
+.screen:is(.grid, .galaxy) .dw-sw-k { font-family: var(--font-chrome); font-weight: 900; font-size: 13px; color: var(--text-hint); }
+.screen:is(.grid, .galaxy) .dw-sw .lg { flex: none; }
+.screen:is(.grid, .galaxy) .dw-sw .lg.dw-line { width: 14px; height: 4px; border-radius: 2px; }
+.screen:is(.grid, .galaxy) .lg-home { border-radius: 50%; width: 9px; height: 9px; }
+.screen:is(.grid, .galaxy) .lg-dead { border-radius: 50%; width: 9px; height: 9px; background: #5A6690; }
+.screen.galaxy .lg-raid { border-radius: 2px; height: 3px; }
+.screen.galaxy .lg-hot { border-radius: 3px; }
+
+/* Readouts (tooltips) and captions: numbers behind pictures. */
+.dw-tt { display: inline-flex; align-items: center; gap: 6px; }
+.dw-tt .dw-ico, .dw-tt-row .dw-ico { display: inline-flex; flex: none; }
+.dw-tt-row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; margin-top: 3px; font-family: var(--font-chrome); font-weight: 900; font-size: 13px; color: #fff; }
+.dw-tt-row .dw-ico { color: var(--text-hint); }
+.dw-tt-row .dw-ico.c-enemy { color: var(--accent-destructive); }
+.dw-tt-row .dw-ico.c-neutral { color: var(--dc-x); }
+.dw-tt-row .dw-ico.c-player { color: var(--accent-primary); }
+.dw-tt-row .dw-ico.dw-fuel { color: #c77dff; }
+.dw-tt-row .c-hint { font-family: var(--font-content); font-weight: 700; }
+
+/* Calls: the result in one word. */
+.screen:is(.combat, .galaxy, .grid) .dw-call { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 999px; white-space: nowrap;
+  font-family: var(--font-chrome); font-weight: 900; font-size: 12px; line-height: 16px; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; background: rgba(255, 255, 255, 0.14); }
+.screen:is(.combat, .galaxy, .grid) .dw-call.kill { background: var(--accent-destructive); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.25); }
+.screen:is(.combat, .galaxy, .grid) .dw-call.block { background: var(--dc-b); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.25); }
+.screen:is(.combat, .galaxy, .grid) .dw-call.miss { color: var(--text-hint); }
+.screen:is(.combat, .galaxy, .grid) .dw-call.good { background: var(--dc-y); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.25); }
+.screen:is(.combat, .galaxy, .grid) .dw-call.spent { background: rgba(245, 197, 24, 0.2); color: var(--dc-x); }
+
+/* ── Battle Replays ─────────────────────────────────────────────────────── */
+.screen.combat .combat-list > .panel-body { padding: 8px 12px; }
+.screen.combat .dw-filter { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+.screen.combat .dw-name { font-family: var(--font-content); font-weight: 800; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.screen.combat .linkish.dw-name { min-height: 26px; border-radius: 8px; }
+.screen.combat .linkish.dw-name.c-player { color: var(--accent-primary); }
+.screen.combat .linkish.dw-name.c-enemy { color: var(--accent-destructive); }
+/* The busiest attackers: name chips with a count. */
+.screen.combat .most-active { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.screen.combat .ma-ico { display: inline-flex; color: var(--dc-x); cursor: help; }
+.screen.combat .ma-chip { appearance: none; display: inline-flex; align-items: center; gap: 6px; min-height: 28px; max-width: 150px; padding: 2px 10px; border-radius: 999px; cursor: pointer;
+  border: 2px solid rgba(143, 168, 255, 0.35); background: rgba(255, 255, 255, 0.05); color: #fff; font-family: var(--font-content); font-weight: 700; font-size: 13px; }
+.screen.combat .ma-chip:hover { border-color: #fff; background: rgba(255, 255, 255, 0.12); }
+.screen.combat .ma-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.screen.combat .ma-chip b { font-family: var(--font-chrome); font-weight: 900; color: var(--dc-x); }
+
+/* Archive rows: when, the attacker's sprite, who ▸ whom, and what it did. */
+.screen.combat .combat-rows { padding: 4px 0; }
+.screen.combat .combat-row { grid-template-columns: 28px 30px minmax(0, 1fr); gap: 8px; width: calc(100% - 12px); margin: 2px 6px; padding: 5px 8px; min-height: 46px;
+  border: 2px solid transparent; border-radius: 14px; background: transparent; box-shadow: none; }
+.screen.combat .combat-row:hover { border-color: rgba(190, 210, 255, 0.55); background: rgba(255, 255, 255, 0.07); }
+.screen.combat .combat-row.active { border-color: var(--dc-accent); background: rgba(255, 106, 19, 0.16); box-shadow: none; }
+.screen.combat .combat-row.active .cr-thumb { filter: none; }
+.screen.combat .combat-row .when { font-family: var(--font-chrome); font-weight: 900; font-size: 12px; color: var(--text-hint); padding: 0; }
+.screen.combat .cr-thumb { width: 30px; height: 30px; border-radius: 8px; background: rgba(0, 0, 0, 0.25); }
+.screen.combat .cr-thumb img { width: 60px; height: 60px; left: -15px; top: -15px; }
+.screen.combat .combat-row .cr-title { font-size: 13px; line-height: 17px; color: var(--text-hint); font-weight: 700; }
+.screen.combat .cr-who { color: #fff; font-weight: 800; }
+.screen.combat .cr-to, .screen.galaxy .fw-to { color: var(--dc-accent); margin: 0 5px; font-weight: 900; }
+.screen.combat .combat-row .cr-result { display: flex; align-items: center; gap: 6px; min-height: 18px; color: inherit; }
+.screen.combat .cr-ico { display: inline-flex; align-items: center; gap: 1px; font-family: var(--font-chrome); font-weight: 900; font-size: 11px; }
+.screen.combat .cr-ico.kill { color: var(--accent-destructive); }
+.screen.combat .cr-ico.block { color: #8FB4FF; }
+.screen.combat .cr-ico.miss { color: var(--text-hint); letter-spacing: 0.06em; }
+.screen.combat .cr-eng { display: inline-flex; align-items: center; gap: 3px; margin-left: auto; padding: 0 7px; border-radius: 999px; border: 0;
+  background: rgba(255, 255, 255, 0.08); color: #fff; font-family: var(--font-chrome); font-weight: 900; font-size: 12px; line-height: 18px; }
+.screen.combat .cr-eng .dw-ico { color: var(--hub); }
+.screen.combat .combat-empty { font-family: var(--font-chrome); font-weight: 900; font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase; }
+.screen.combat .combat-more-row { border-top: 2px solid rgba(120, 150, 255, 0.2); padding: 8px; }
+.screen.combat .combat-more { min-height: 32px; padding: 5px 16px; font-size: 13px; }
+
+/* Numbers that changed something: big, toned by what they did. */
+.screen:is(.combat, .galaxy) .dw-n { font-family: var(--font-chrome); font-weight: 900; font-size: 15px; line-height: 18px; color: var(--dc-x); white-space: nowrap; }
+.screen:is(.combat, .galaxy) .dw-n.kill { color: var(--accent-destructive); }
+.screen:is(.combat, .galaxy) .dw-n.block { color: #8FB4FF; }
+
+/* The narration: the attacker, then each shot as target + calls. */
+.screen.combat .combat-detail .panel-body { padding: 10px 12px; }
+.screen.combat .dw-seq { font-family: var(--font-chrome); font-weight: 900; font-size: 16px; color: var(--dc-x); }
+.screen.combat .dw-atk { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 16px; background: rgba(5, 9, 40, 0.45); border: 2px solid rgba(110, 140, 240, 0.25); cursor: help; }
+.screen.combat .dw-spr { position: relative; flex: none; width: 34px; height: 34px; overflow: hidden; border-radius: 8px; background: rgba(0, 0, 0, 0.25); }
+.screen.combat .dw-spr img { position: absolute; width: 68px; height: 68px; left: -17px; top: -17px; image-rendering: pixelated; }
+.screen.combat .dw-spr.big { width: 52px; height: 52px; border-radius: 12px; }
+.screen.combat .dw-spr.big img { width: 104px; height: 104px; left: -26px; top: -26px; }
+.screen.combat .dw-spr.sm { width: 24px; height: 24px; border-radius: 6px; }
+.screen.combat .dw-spr.sm img { width: 48px; height: 48px; left: -12px; top: -12px; }
+.screen.combat .dw-who { display: flex; align-items: center; gap: 6px; min-width: 0; cursor: help; }
+.screen.combat .dw-amb { color: var(--text-hint); }
+.screen.combat .dw-res { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.screen.combat .dw-res .dw-n { font-size: 20px; line-height: 22px; }
+.screen.combat .dw-hp { display: inline-flex; align-items: center; gap: 3px; font-family: var(--font-chrome); font-weight: 900; font-size: 14px; color: #fff; }
+.screen.combat .dw-hp .dw-ico { color: var(--dc-y); }
+.screen.combat .dw-chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 9px; border-radius: 999px; background: rgba(255, 255, 255, 0.08);
+  font-family: var(--font-chrome); font-weight: 900; font-size: 14px; color: #fff; cursor: help; }
+.screen.combat .dw-chip.c-player .dw-ico { color: var(--accent-primary); }
+.screen.combat .dw-chip.c-enemy .dw-ico { color: var(--accent-destructive); }
+.screen.combat .dw-word { font-family: var(--font-chrome); font-weight: 900; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-hint); }
+.screen.combat .shot-row { grid-template-columns: 18px minmax(0, 1fr); gap: 8px; padding: 8px 0; border-top: 2px solid rgba(120, 150, 255, 0.18); font-size: 14px; }
+.screen.combat .shot-row > .num { font-family: var(--font-chrome); font-weight: 900; font-size: 14px; padding-top: 8px; }
+.screen.combat .dw-shot { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+/* Fire coming back at the attacker: an arrow, who fired, the number. */
+.screen.combat .dw-back { display: flex; align-items: center; gap: 6px; padding-left: 4px; cursor: help; }
+.screen.combat .dw-arrow { font-size: 16px; font-weight: 900; color: var(--accent-destructive); width: 16px; text-align: center; }
+/* Verbs: pills, each a picture and a word. */
+.screen.combat .dw-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.screen.combat .dw-acts .btn { min-height: 34px; padding: 6px 12px; font-size: 12px; gap: 6px; }
+/* The verbs are the panel's foot: the narration scrolls above them, so they never fall below the fold. */
+.screen.combat .combat-detail > .panel-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.screen.combat .dw-acts.dw-foot { flex: none; margin: 0; padding: 8px 12px 10px; border-top: 2px solid rgba(120, 150, 255, 0.2); }
+.screen.combat .btn.dw-ibtn, .screen.grid .btn.dw-ibtn { width: 34px; min-width: 34px; padding: 0; }
+.screen.combat .dw-span { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-chrome); font-weight: 900; font-size: 15px; color: #fff; cursor: help; }
+.screen.combat .dw-span > .dw-ico { color: var(--hub); }
+.screen.combat .dw-span .x-only { font-family: var(--font-content); font-size: 12px; font-weight: 600; }
+.screen.combat table.dw-stats th { padding: 6px; text-align: right; border-bottom: 2px solid rgba(120, 150, 255, 0.25); cursor: help; }
+.screen.combat table.dw-stats th .dw-ico { display: inline-flex; color: var(--hub); }
+.screen.combat table.dw-stats th.dw-th-name { text-align: left; }
+.screen.combat table.dw-stats td { padding: 6px; border-bottom: 1px solid rgba(120, 150, 255, 0.15); font-family: var(--font-chrome); font-weight: 900; font-size: 15px; }
+.screen.combat table.dw-stats td.dw-name { text-align: left; font-family: var(--font-content); font-weight: 800; max-width: 130px; }
+
+/* The board's caption: a picture and a count; the sentence is its title. */
+.screen.combat .combat-note { overflow: visible; }
+.screen.combat .dw-note { display: inline-flex; align-items: center; gap: 6px; padding: 4px 14px; border-radius: 999px; pointer-events: auto; cursor: help;
+  background: rgba(7, 11, 44, 0.82); border: 2px solid rgba(143, 168, 255, 0.4); font-family: var(--font-chrome); font-weight: 900; font-size: 15px; color: #fff; text-shadow: none; }
+.screen.combat .dw-note .dw-ico { color: var(--accent-secondary); }
+.screen.combat .dw-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.screen.combat .dw-note b { margin-left: 2px; }
+
+/* The transport: ◂ ▶ Replay ▸ Auto. */
+.screen.combat .combat-bar { align-items: center; padding: 8px; border-radius: 999px; }
+.screen.combat .combat-bar .btn { min-height: 40px; gap: 6px; font-size: 13px; }
+.screen.combat .combat-bar .btn.dw-step { min-width: 48px; padding: 4px 12px; }
+.screen.combat .dw-flip { transform: scaleX(-1); }
+.screen.combat .combat-bar .btn.combat-auto.active { color: var(--dc-void); background: #fff; border-color: var(--dc-accent); }
+
+/* ── Galaxy HUD ─────────────────────────────────────────────────────────── */
+.screen.galaxy .galaxy-left > .panel-body { gap: 6px; padding: 10px 12px; }
+.screen.galaxy .galaxy-left .divider { display: none; }
+.screen.galaxy .dw-tiles.galaxy-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.screen.galaxy .chart-progress { font-family: var(--font-chrome); font-weight: 900; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--dc-x); }
+.screen.galaxy .dw-res-kill { color: var(--accent-destructive); }
+.screen.galaxy .dw-res-hit { color: var(--dc-x); }
+.screen.galaxy .dw-res-miss { color: var(--text-hint); }
+.screen.galaxy .guild-row b { font-weight: 800; color: #fff; }
+.screen.galaxy .guild-row .fw-to { margin: 0 4px; }
+.screen.galaxy .guild-row .grow.dw-ell { color: var(--text-hint); }
+/* The live feed: when, a picture for the kind, who / what / how much, ▶ for a fight. */
+.screen.galaxy .feed-empty { font-family: var(--font-chrome); font-weight: 900; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; }
+.screen.galaxy .feed-row { grid-template-columns: 30px 20px minmax(0, 1fr) auto; align-items: center; gap: 8px; margin: 2px 6px; padding: 4px 8px; min-height: 34px;
+  border: 2px solid transparent; border-radius: 12px; border-bottom: 2px solid transparent; }
+.screen.galaxy .feed-row:hover { background: rgba(255, 255, 255, 0.07); border-color: rgba(190, 210, 255, 0.5); box-shadow: none; }
+.screen.galaxy .feed-row .when { font-family: var(--font-chrome); font-weight: 900; font-size: 12px; color: var(--text-hint); padding: 0; }
+.screen.galaxy .fw-kind { display: inline-flex; color: var(--accent-secondary); }
+.screen.galaxy .fw-kind.c-player { color: var(--accent-primary); }
+.screen.galaxy .fw-kind.c-enemy { color: var(--accent-destructive); }
+.screen.galaxy .fw-kind.c-neutral, .screen.galaxy .fw-kind.c-warn { color: var(--dc-x); }
+.screen.galaxy .feed-row .what { display: flex; align-items: center; gap: 5px; min-width: 0; overflow: hidden; white-space: nowrap; font-size: 13px; line-height: 17px; color: var(--text-hint); font-weight: 700; }
+.screen.galaxy .feed-row .what > * { flex: none; }
+.screen.galaxy .fw-who { color: #fff; font-weight: 800; overflow: hidden; text-overflow: ellipsis; flex: 0 0 auto !important; max-width: 62%; }
+.screen.galaxy .fw-t { overflow: hidden; text-overflow: ellipsis; flex: 0 1000 auto !important; min-width: 0; }
+.screen.galaxy .fw-to { margin: 0 1px; }
+.screen.galaxy .fw-n { font-family: var(--font-chrome); font-weight: 900; font-size: 14px; color: #fff; }
+.screen.galaxy .fw-n.bad { color: var(--accent-destructive); }
+.screen.galaxy .fw-n.good { color: var(--dc-y); }
+.screen.galaxy .fw-n.ore, .screen.galaxy .fw-i.ore { color: #D9A06A; }
+.screen.galaxy .fw-n.alpha, .screen.galaxy .fw-i.alpha { color: var(--dc-x); }
+.screen.galaxy .fw-i { color: var(--text-hint); }
+.screen.galaxy .fw-call { font-family: var(--font-chrome); font-weight: 900; font-size: 11px; letter-spacing: 0.06em; padding: 0 7px; line-height: 16px; border-radius: 999px; color: #fff; background: rgba(255, 255, 255, 0.14); }
+.screen.galaxy .fw-call.kill { background: var(--accent-destructive); }
+.screen.galaxy .fw-call.block { background: var(--dc-b); }
+.screen.galaxy .fw-call.good { background: var(--dc-y); }
+.screen.galaxy .feed-watch { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; margin: 0; padding: 0; border-radius: 50%;
+  border: 2px solid rgba(255, 61, 90, 0.6); background: rgba(255, 61, 90, 0.18); color: #fff; text-shadow: none; vertical-align: middle; }
+.screen.galaxy .feed-watch:hover { background: var(--accent-destructive); border-color: #fff; box-shadow: none; }
+/* The legend bar: History, then the marks. */
+.screen.galaxy .galaxy-legend { gap: 8px; padding: 6px 8px; border-radius: 999px; border: 2px solid rgba(110, 140, 240, 0.45); background: rgba(11, 18, 64, 0.88);
+  backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.1), 0 14px 30px -14px rgba(0, 0, 20, 0.8); }
+.screen.galaxy .galaxy-legend > .btn { min-height: 32px; }
+.screen.galaxy .galaxy-legend .dw-sw { border-color: transparent; background: rgba(255, 255, 255, 0.06); }
+.screen.galaxy .replay-label { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; border: 2px solid rgba(245, 197, 24, 0.55); background: rgba(11, 18, 64, 0.88);
+  font-size: 16px; letter-spacing: 0.06em; padding: 6px 16px; }
+.screen.galaxy .me-label { border-radius: 999px; border: 2px solid var(--dc-x); background: rgba(11, 18, 64, 0.9); color: var(--dc-x); padding: 3px 12px; }
+/* The planet card. */
+.screen.galaxy .planet-card { bottom: 74px; }
+.screen.galaxy .planet-card .panel-body { gap: 12px; padding: 12px 14px; }
+.screen.galaxy .planet-card .t-label-lg { font-size: 16px; line-height: 20px; }
+.screen.galaxy .planet-card .btn { min-height: 38px; gap: 6px; }
+.screen.galaxy .dw-readout { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-family: var(--font-chrome); font-weight: 900; font-size: 13px; color: var(--text-hint); cursor: help; }
+.screen.galaxy .dw-readout .dw-num { font-size: 15px; }
+.screen.galaxy .dw-readout .dw-num.c-neutral .dw-ico { color: var(--dc-x); }
+
+/* ── Power Grid ─────────────────────────────────────────────────────────── */
+.screen.grid .grid-left > .panel-body { gap: 8px; padding: 10px 12px; }
+.screen.grid .dw-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.screen.grid .grid-left .t-tiny.c-hint:not(.x-only) { font-family: var(--font-chrome); font-weight: 900; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; }
+.screen.grid .grid-left .t-tiny.c-hint:empty { display: none; }
+.screen.grid .dw-num.dw-fuel .dw-ico { color: #c77dff; }
+.screen.grid .guild-row .dw-num { font-size: 13px; }
+.screen.grid .grid-legend { gap: 6px; }
+.screen.grid .btn.dw-market { align-self: flex-start; min-height: 32px; padding: 5px 14px; }
+.screen.grid .btn.dw-market b { font-family: var(--font-chrome); font-weight: 900; color: var(--dc-x); }
+.screen.grid .dw-who { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 700; }
+.screen.grid .linkish.dw-name { font-family: var(--font-content); font-weight: 800; font-size: 14px; min-height: 24px; }
+.screen.grid .dw-share { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 8px 10px; border-radius: 14px; cursor: help;
+  background: rgba(5, 9, 40, 0.45); border: 2px solid rgba(110, 140, 240, 0.25); font-family: var(--font-chrome); font-weight: 900; font-size: 14px; color: #fff; }
+.screen.grid .dw-share .dw-ico { color: var(--dc-x); }
+.screen.grid .dw-share b { color: var(--accent-primary); font-size: 16px; }
+.screen.grid .grid-card .t-display { font-size: 22px; line-height: 26px; }
+/* Labels over the 3D: substation name over its players; a reactor's star, id and guild dot. */
+.screen.grid .grid-label { border-radius: 10px; border-width: 2px; padding: 2px 8px; background: rgba(7, 11, 44, 0.78); }
+.screen.grid .grid-label .dw-gl { display: inline-flex; align-items: center; gap: 4px; }
+.screen.grid .grid-label .t-tiny.dw-gl { font-family: var(--font-chrome); font-weight: 900; font-size: 11px; color: #fff; }
+.screen.grid .grid-label.reactor { flex-direction: row; gap: 6px; }
+.screen.grid .dw-gdot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+
+/* ── Small screens: the TV (640×480) and phones ─────────────────────────── */
+@media (max-width: 760px) {
+  .screen.combat .combat-list { height: 156px; }
+  /* Older ▾ moves up into the head, so the list keeps its height for rows. */
+  .screen.combat .combat-list > .panel-head { min-height: 40px; padding-right: 132px; }
+  .screen.combat .combat-more-row { position: absolute; top: 4px; right: 8px; padding: 0; border: 0; }
+  .screen.combat .combat-more { min-height: 32px; }
+  .screen.combat .combat-detail > .panel-head { min-height: 40px; }
+  .screen.combat .dw-atk { padding: 6px 8px; }
+  .screen.combat .combat-row { min-height: 42px; }
+  .screen.combat .combat-detail .panel-body { padding: 8px 10px; }
+  .screen.combat .dw-spr.big { width: 40px; height: 40px; }
+  .screen.combat .dw-spr.big img { width: 80px; height: 80px; left: -20px; top: -20px; }
+  .screen.combat .combat-bar { border-radius: 22px; }
+  .screen.combat .combat-bar .btn { font-size: 12px; letter-spacing: 0.04em; }
+  .screen.combat .combat-bar .btn.dw-step { flex: 0 0 52px; }
+  .screen.combat .dw-note { font-size: 13px; padding: 3px 10px; }
+  /* The galaxy's left panel shrinks to its tiles (four across); the lists scroll under them. */
+  .screen.galaxy .dw-tiles.galaxy-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+  .screen.galaxy .dw-tile { padding: 5px 6px; gap: 4px; }
+  .screen.galaxy .dw-tile b { font-size: 14px; }
+  .screen.galaxy .galaxy-left .panel-head, .screen.galaxy .galaxy-right .panel-head, .screen.grid .grid-left .panel-head { min-height: 40px; padding: 4px 8px 4px 12px; }
+  .screen.galaxy .galaxy-left > .panel-body { padding: 8px 10px; }
+  .screen.galaxy .feed-row { min-height: 30px; }
+  .screen.grid .dw-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+  .screen.grid .dw-tile { padding: 5px 6px; gap: 4px; }
+  .screen.grid .dw-tile b { font-size: 14px; }
+}
+/* A phone's four galaxy tiles share 390 px: smaller pictures and numbers. */
+@media (max-width: 480px) {
+  .screen.galaxy .dw-tile { padding: 4px 5px; gap: 3px; }
+  .screen.galaxy .dw-tile .ico { width: 14px; height: 14px; }
+  .screen.galaxy .dw-tile b { font-size: 13px; }
+}
+/* Touch: every target a thumb can find. */
+@media (pointer: coarse) {
+  .screen:is(.combat, .grid, .galaxy) .btn.mini, .screen.combat .dw-acts .btn { min-height: 40px; }
+  .screen.combat .btn.dw-ibtn, .screen.grid .btn.dw-ibtn { width: 40px; min-width: 40px; }
+  .screen.combat .linkish.dw-name, .screen.grid .linkish.dw-name { min-height: 40px; }
+  .screen:is(.grid, .galaxy) .guild-row { min-height: 40px; }
+  .screen.galaxy .dw-tile { min-height: 40px; }
+  .screen.galaxy .feed-watch { width: 40px; height: 40px; }
+  .screen.galaxy .feed-row { min-height: 40px; }
+  .screen.combat .ma-chip { min-height: 40px; }
+}
+/* Narrower screens: the legend's marks are small enough to all fit now, so they stay; on the TV and
+ * phones the bar comes back too (History was out of reach there), under the activity feed. */
+@media (max-width: 1100px) {
+  .screen.galaxy .galaxy-legend > .dw-sw:not(.legend-hint) { display: inline-flex; }
+}
+@media (max-width: 760px) {
+  .screen.galaxy .galaxy-legend { display: flex; bottom: 6px; gap: 4px; padding: 3px 4px; max-width: calc(100vw - 16px); }
+  .screen.galaxy .galaxy-legend .dw-sw { padding: 2px 7px; min-height: 28px; gap: 3px; }
+  .screen.galaxy .galaxy-legend > .btn { min-height: 30px; padding: 4px 10px; }
+  .screen.galaxy .galaxy-right { bottom: 58px; }
+  /* The card stays clear of the top bar, scrolling if it must; over a folded feed it sits lower. */
+  .screen.galaxy .planet-card { bottom: calc(26% + 66px); max-height: calc(100% - 26% - 66px - 56px); overflow-y: auto; }
+  .screen.combat .combat-detail { bottom: 76px; }
+}
+@media (pointer: coarse) { .screen.galaxy .galaxy-legend > .btn { min-height: 40px; } }
+
+/* The live feed folds to its head (a press opens it); a badge counts what landed meanwhile. */
+.screen.galaxy .galaxy-right.shut { bottom: auto; }
+.screen.galaxy .galaxy-right.shut > :not(.panel-head) { display: none; }
+.screen.galaxy .galaxy-right.shut .panel-head { border-bottom: 0; border-radius: calc(var(--dc-radius) - 2px); }
+.screen.galaxy .dw-feed-head { appearance: none; width: 100%; font: inherit; color: inherit; cursor: pointer; text-align: left; border: 0; }
+.screen.galaxy .dw-unseen { margin-left: 8px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--dc-accent); color: #fff; font-family: var(--font-chrome); font-weight: 900; font-size: 12px; display: inline-flex; align-items: center; justify-content: center; }
+.screen.galaxy .dw-unseen[hidden] { display: none; }
+
+/* Small screens (after the fold rules above, so these win): the folded feed sits just above the
+ * legend, and the planet card rests over it, clear of the top bar. */
+@media (max-width: 760px) {
+  .screen.galaxy .galaxy-right.shut { top: auto; bottom: 58px; height: auto; }
+  .screen.galaxy .galaxy-right.shut ~ .planet-card { bottom: 112px; max-height: calc(100% - 112px - 56px); }
+}
+
+/* ── Battle Replays on a short screen (the TV's 480 px, a landscape phone) ─────────────────────
+ * The list and the narration fold to one-line strips along the top and the bottom, so the battle
+ * keeps the middle of the screen; the chip on each strip unfolds it over the stage, and a replay
+ * starting folds them again. */
+.screen.combat .dw-fold, .screen.combat .dw-strip { display: none; }
+@media (max-height: 560px) {
+  .screen.combat .dw-fold { display: inline-flex; flex: none; gap: 4px; padding: 4px 10px; }
+  .screen.combat .dw-fold > span:last-child { font-size: 14px; line-height: 1; }
+  .screen.combat .combat-list:not(.fold-open) { height: auto; bottom: auto; }
+  .screen.combat .combat-list:not(.fold-open) > :not(.panel-head) { display: none; }
+  .screen.combat .combat-list:not(.fold-open) > .panel-head { padding-right: 8px; border-bottom: 0; }
+  .screen.combat .combat-list.fold-open { height: auto; bottom: 74px; z-index: 6; }
+  .screen.combat .combat-list > .panel-head .dw-head { flex: 1; }
+  .screen.combat .combat-detail:not(.fold-open) { max-height: none; }
+  .screen.combat .combat-detail:not(.fold-open) > :not(.panel-head) { display: none; }
+  .screen.combat .combat-detail:not(.fold-open) > .panel-head { border-bottom: 0; padding-right: 8px; }
+  .screen.combat .combat-detail:not(.fold-open) .dw-head .t-label { display: none; }
+  .screen.combat .combat-detail.fold-open { max-height: calc(100% - 140px); z-index: 6; }
+  .screen.combat .combat-detail:not(.fold-open) .dw-strip { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; margin: 0 8px; overflow: hidden; white-space: nowrap;
+    font-family: var(--font-content); font-weight: 800; font-size: 14px; }
+  /* Names keep their room; on a tight strip the result at the end is what gets cut. */
+  .screen.combat .dw-strip > b, .screen.combat .dw-strip > span:not(.dw-call):not(.cr-to) { overflow: hidden; text-overflow: ellipsis; flex: none; max-width: 42%; }
+  .screen.combat .dw-strip .cr-to { margin: 0; flex: none; }
+  .screen.combat .dw-strip .dw-n, .screen.combat .dw-strip .dw-call { flex: none; }
+  .screen.combat .dw-strip .c-player { color: var(--accent-primary); }
+  .screen.combat .dw-strip .c-enemy { color: var(--accent-destructive); }
+}
+/* A short but wide screen (a landscape phone): the narration's strip moves up beside the list's,
+ * so the stage runs from below them down to the transport. */
+@media (max-height: 560px) and (min-width: 761px) {
+  .screen.combat .combat-detail { top: 60px; bottom: auto; }
+  .screen.combat .combat-detail.fold-open { max-height: calc(100% - 140px); }
+  .screen.combat .combat-detail:not(.fold-open) .dw-count { display: none; }
+  .screen.combat .combat-note { top: 70px; }
+}
+@media (max-height: 560px) and (min-width: 761px) and (max-width: 1100px) {
+  .screen.combat .combat-note { left: 314px; right: 324px; }
+}
+
+/* ── Galaxy: the left panel scrolls under a fixed head; its bottom edge fades while more is below. */
+.screen.galaxy .galaxy-left { display: flex; flex-direction: column; overflow: hidden; }
+.screen.galaxy .galaxy-left > .panel-head { flex: none; }
+.screen.galaxy .galaxy-left > .panel-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.screen.galaxy .galaxy-left > .panel-body.more-below { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent); }
+/* Tile words: hidden where a pointer can hover for them, shown on the TV and phones. */
+.screen.galaxy .dw-cap { display: none; }
+@media (max-width: 760px) {
+  .screen.galaxy .dw-tile { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 5px; row-gap: 0; }
+  .screen.galaxy .dw-tile > .dw-ico { grid-row: span 2; }
+  .screen.galaxy .dw-tile > b { line-height: 16px; }
+  .screen.galaxy .dw-cap { display: block; font-family: var(--font-chrome); font-weight: 900; font-size: 11px; line-height: 13px; letter-spacing: 0.03em; text-transform: uppercase;
+    color: var(--text-hint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+}

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>Structs · chat sign-in</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0B1240; color: #fff; font: 600 16px/1.5 system-ui, sans-serif; }
+  body { display: flex; align-items: center; justify-content: center; text-align: center; padding: 24px; box-sizing: border-box; }
+  b { color: #43CDB6; }
+</style>
+</head>
+<body>
+<p id="m">Signing in…</p>
+<script>
+/* The end of chat's wallet sign-in: the guild's auth service sends the browser here with ?code&state.
+ * Hand them to the game tab, which holds the PKCE verifier and redeems the code. Three ways, because
+ * the sign-in pages may sever window.opener (Cross-Origin-Opener-Policy): a BroadcastChannel, the
+ * opener, and a localStorage event. Then drop the code from the address bar and close. */
+(function () {
+  var msg = { search: location.search, at: Date.now() };
+  try { history.replaceState(null, '', location.pathname); } catch (e) { /* keep going */ }
+  try { var bc = new BroadcastChannel('structs-comms-auth'); bc.postMessage(msg); bc.close(); } catch (e) { /* older browser */ }
+  try { if (window.opener) window.opener.postMessage({ structsCommsAuth: msg }, location.origin); } catch (e) { /* severed */ }
+  try { localStorage.setItem('structs.comms.callback', JSON.stringify(msg)); localStorage.removeItem('structs.comms.callback'); } catch (e) { /* storage refused */ }
+  var err = new URLSearchParams(msg.search).get('error');
+  document.getElementById('m').innerHTML = err ? 'Sign-in stopped. You can close this window.' : '<b>Signed in.</b> You can close this window.';
+  setTimeout(function () { window.close(); }, err ? 3000 : 250);
+})();
+</script>
+</body>
+</html>

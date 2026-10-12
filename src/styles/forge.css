@@ -1,0 +1,26 @@
+/* The Forge. */
+.fg { position: absolute; inset: 8px 10px 10px; display: grid; grid-template-columns: minmax(230px, 290px) minmax(0, 1fr); gap: 8px; }
+.fg-side { display: flex; flex-direction: column; min-height: 0; }
+.fg-list { flex: 1; min-height: 0; padding: 0 6px 8px; }
+.fg-group { display: flex; flex-direction: column; gap: 1px; margin-bottom: 10px; }
+.fg-group > .t-label { padding: 4px 6px; }
+.fg-item { appearance: none; text-align: left; border: 0; border-left: 2px solid transparent; background: none; padding: 5px 8px; cursor: pointer; color: var(--text-body); font-size: 12px; }
+.fg-item { transition: background-color .15s, color .15s; }
+.fg-item:hover { background: linear-gradient(90deg, rgba(150,190,204,.1), rgba(150,190,204,.01)); color: #E4EFF1; }
+.fg-item.on { border-left-color: var(--accent-primary); background: linear-gradient(90deg, rgba(67,205,182,.24), rgba(19,53,70,.3) 60%, rgba(19,53,70,0)); color: var(--accent-primary-active); text-shadow: 0 0 10px rgba(67,205,182,.45); }
+.fg-main { display: flex; flex-direction: column; min-height: 0; }
+.fg-form { flex: 1; min-height: 0; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; user-select: text; -webkit-user-select: text; }
+.fg-hero { margin: auto; max-width: 560px; display: flex; flex-direction: column; gap: 12px; text-align: center; }
+.fg-head { display: flex; flex-direction: column; gap: 6px; }
+.fg-doc { max-width: 760px; }
+.fg-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px 14px; }
+.fg-field { display: flex; flex-direction: column; gap: 4px; }
+.fg-label { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.fg-label .t-label { color: var(--accent-primary); text-shadow: 0 0 10px rgba(67,205,182,.4); }
+.fg-fdoc { opacity: .85; }
+.fg-nested { display: flex; flex-direction: column; gap: 8px; padding: 8px; border: 1px dashed var(--hair-strong); background: rgba(150,190,204,.03); }
+.fg-actions { gap: 8px; }
+.fg-json { margin: 0; padding: 10px; background: var(--scan), linear-gradient(180deg, rgba(67,205,182,.05), transparent 50px), rgba(2,5,8,.6); border: 1px solid var(--hair); box-shadow: inset 0 1px 6px rgba(0,0,0,.5); text-shadow: 0 0 8px rgba(134,223,198,.28); font-size: 11px; line-height: 15px; color: var(--text-player-highlight); white-space: pre-wrap; word-break: break-all; }
+@media (max-width: 760px) {
+  .fg { grid-template-columns: 1fr; grid-template-rows: 38vh 1fr; inset: 6px; }
+}

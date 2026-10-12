@@ -1,0 +1,43 @@
+{
+  "name": "structs-xyz",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A three.js game client for Structs: live galaxy, planet dossiers, and a playable fleet battle simulator running structsd's combat rules.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build && tsx scripts/prerender.ts",
+    "preview": "vite preview",
+    "start": "node server/serve.mjs",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p scripts",
+    "test": "tsx scripts/sim.test.ts && tsx scripts/store.test.ts && tsx scripts/combat.test.ts && tsx scripts/history.test.ts && tsx scripts/wallet.test.ts && tsx scripts/pow.test.ts && tsx scripts/game.test.ts && tsx scripts/gpu.test.ts && tsx scripts/data.test.ts && tsx scripts/direct.test.ts && tsx scripts/chat.test.ts && tsx scripts/devrelay.test.ts && tsx scripts/economy.test.ts && tsx scripts/planetActions.test.ts && tsx scripts/learn.test.ts && tsx scripts/base.test.ts",
+    "test:parity": "tsx scripts/parity.test.ts",
+    "smoke": "tsc --noEmit && node scripts/smoke.mjs",
+    "studio": "node scripts/studio/run.mjs",
+    "studio:quick": "node scripts/studio/run.mjs --quick",
+    "cert": "node scripts/studio/cert.mjs",
+    "playtest": "node scripts/studio/playtest.mjs",
+    "padtour": "node scripts/studio/padtour.mjs",
+    "soak": "tsx scripts/studio/soak.test.ts",
+    "shoot": "node scripts/studio/shoot.mjs",
+    "docshots": "node scripts/studio/docshots.mjs",
+    "devnet": "bash scripts/devnet/setup.sh",
+    "devnet:vite": "VITE_GRASS_URL=off VITE_LCD_URL=http://127.0.0.1:31317 VITE_RPC_WS_URL=ws://127.0.0.1:36657/websocket vite --config scripts/devnet/vite.config.mjs --host 127.0.0.1 --port 5186 --strictPort"
+  },
+  "dependencies": {
+    "@noble/curves": "^2.4.0",
+    "@noble/hashes": "^2.4.0",
+    "@scure/base": "^2.4.0",
+    "@scure/bip32": "^2.4.0",
+    "@scure/bip39": "^2.4.0",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "@types/three": "^0.186.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4"
+  },
+  "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37dcf2531"
+}

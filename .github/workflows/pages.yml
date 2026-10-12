@@ -1,0 +1,70 @@
+# Build the site and publish it on GitHub Pages, on every push to main (or by hand).
+#
+# One-time setup: Settings → Pages → Build and deployment → Source: "GitHub Actions".
+# A custom domain is set there too (Settings → Pages → Custom domain); no CNAME file is needed.
+#
+# The site's address comes from Pages itself: a custom domain, or https://<owner>.github.io/<repo>.
+# Its path becomes the base path the build lives under (vite.config.ts); canonical links, Open Graph
+# and the sitemap use the whole address. Repository variables (Settings → Secrets and variables →
+# Actions → Variables) override it and the endpoints: VITE_SITE_URL, VITE_LCD_URL, VITE_RPC_URL,
+# VITE_RPC_WS_URL, VITE_GRASS_URL, VITE_DEFAULT_GUILD. Unset means the public testnet.
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; a newer push waits rather than cancelling one already publishing.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6   # the version in package.json's packageManager
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Read the Pages address
+        id: pages
+        uses: actions/configure-pages@v6
+
+      - name: Typecheck and test
+        run: pnpm typecheck && pnpm test
+
+      - name: Build
+        run: pnpm build
+        env:
+          VITE_SITE_URL: ${{ vars.VITE_SITE_URL || steps.pages.outputs.base_url }}
+          VITE_LCD_URL: ${{ vars.VITE_LCD_URL }}
+          VITE_RPC_URL: ${{ vars.VITE_RPC_URL }}
+          VITE_RPC_WS_URL: ${{ vars.VITE_RPC_WS_URL }}
+          VITE_GRASS_URL: ${{ vars.VITE_GRASS_URL }}
+          VITE_DEFAULT_GUILD: ${{ vars.VITE_DEFAULT_GUILD }}
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

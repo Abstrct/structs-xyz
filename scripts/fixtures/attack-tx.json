@@ -1,0 +1,48 @@
+{
+ "height": "2950777",
+ "txhash": "E5385E06DFF60DC9A700DACD3F3D246FEA938F6B4206360664F3798F6EAE80FD",
+ "timestamp": "2026-10-05T16:43:03Z",
+ "code": 0,
+ "events": [
+  {
+   "type": "message",
+   "attributes": [
+    {
+     "key": "action",
+     "value": "/structs.structs.MsgStructAttack",
+     "index": true
+    },
+    {
+     "key": "sender",
+     "value": "structs17gfv3ycye7xwhy3rl0x7c6fwjgw5aprsjp69yn",
+     "index": true
+    },
+    {
+     "key": "module",
+     "value": "structs",
+     "index": true
+    },
+    {
+     "key": "msg_index",
+     "value": "0",
+     "index": true
+    }
+   ]
+  },
+  {
+   "type": "structs.structs.EventAttack",
+   "attributes": [
+    {
+     "key": "eventAttackDetail",
+     "value": "{\"attackerStructId\":\"5-292354\",\"attackerStructTypeId\":\"11\",\"attackerStructType\":\"Cruiser\",\"attackerStructLocationType\":\"fleet\",\"attackerStructLocationId\":\"9-2136\",\"attackerStructOperatingAmbit\":\"water\",\"attackerStructSlot\":\"2\",\"weaponSystem\":\"secondaryWeapon\",\"weaponControl\":\"unguided\",\"activeWeaponry\":\"unguidedWeaponry\",\"eventAttackShotDetail\":[{\"targetStructId\":\"5-306105\",\"targetPlayerId\":\"1-61\",\"targetStructTypeId\":\"6\",\"targetStructType\":\"Stealth Bomber\",\"targetStructLocationType\":\"fleet\",\"targetStructLocationId\":\"9-61\",\"targetStructOperatingAmbit\":\"air\",\"targetStructSlot\":\"3\",\"evaded\":false,\"evadedCause\":\"noUnitDefenses\",\"evadedByPlanetaryDefenses\":false,\"evadedByPlanetaryDefensesCause\":\"noPlanetaryDefense\",\"blocked\":true,\"blockedByStructId\":\"5-362049\",\"blockedByStructType\":\"High Altitude Interceptor\",\"blockedByStructTypeId\":\"7\",\"blockedByStructLocationType\":\"fleet\",\"blockedByStructLocationId\":\"9-61\",\"blockedByStructOperatingAmbit\":\"air\",\"blockedByStructSlot\":\"0\",\"blockerDestroyed\":true,\"eventAttackDefenderCounterDetail\":[{\"counterByStructId\":\"5-259784\",\"counterByStructTypeId\":\"11\",\"counterByStructType\":\"Cruiser\",\"counterByStructLocationType\":\"fleet\",\"counterByStructLocationId\":\"9-61\",\"counterByStructOperatingAmbit\":\"water\",\"counterByStructSlot\":\"3\",\"counterByStructWeaponSystem\":\"primaryWeapon\",\"counterByStructWeaponControl\":\"guided\",\"counterByStructActiveWeaponry\":\"guidedWeaponry\",\"counterDamage\":\"1\",\"counterDestroyedAttacker\":false},{\"counterByStructId\":\"5-262384\",\"counterByStructTypeId\":\"8\",\"counterByStructType\":\"Mobile Artillery\",\"counterByStructLocationType\":\"fleet\",\"counterByStructLocationId\":\"9-61\",\"counterByStructOperatingAmbit\":\"land\",\"counterByStructSlot\":\"2\",\"counterByStructWeaponSystem\":\"primaryWeapon\",\"counterByStructWeaponControl\":\"unguided\",\"counterByStructActiveWeaponry\":\"unguidedWeaponry\",\"counterDamage\":\"0\",\"counterDestroyedAttacker\":false}],\"damageDealt\":\"2\",\"damageReduction\":\"0\",\"damageReductionCause\":\"noUnitDefenses\",\"damage\":\"2\",\"targetCountered\":true,\"targetCounteredDamage\":\"1\",\"targetCounterDestroyedAttacker\":false,\"targetCounterPassiveWeaponry\":\"counterAttack\",\"targetCounterWeaponSystem\":\"primaryWeapon\",\"targetCounterWeaponControl\":\"guided\",\"targetCounterActiveWeaponry\":\"guidedWeaponry\",\"targetDestroyed\":false,\"postDestructionDamageToAttacker\":false,\"postDestructionDamage\":\"0\",\"postDestructionDamageDestroyedAttacker\":false,\"postDestructionDamagePassiveWeaponry\":\"noPassiveWeaponry\",\"targetHealthBefore\":\"3\",\"targetHealthAfter\":\"3\",\"targetHealthMax\":\"3\",\"blockerHealthBefore\":\"1\",\"blockerHealthAfter\":\"0\",\"blockerHealthMax\":\"3\",\"armourPiercing\":false}],\"recoilDamageToAttacker\":false,\"recoilDamage\":\"0\",\"recoilDamageDestroyedAttacker\":false,\"planetaryDefenseCannonDamageToAttacker\":false,\"planetaryDefenseCannonDamage\":\"0\",\"planetaryDefenseCannonDamageDestroyedAttacker\":false,\"attackerPlayerId\":\"1-2136\",\"attackerHealthBefore\":\"3\",\"attackerHealthAfter\":\"1\",\"attackerHealthMax\":\"3\"}",
+     "index": true
+    },
+    {
+     "key": "msg_index",
+     "value": "0",
+     "index": true
+    }
+   ]
+  }
+ ]
+}

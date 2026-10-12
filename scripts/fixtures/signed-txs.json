@@ -1,0 +1,1090 @@
+{
+ "chainId": "structstestnet-111",
+ "txs": [
+  {
+   "action": "MsgStructBuildInitiate",
+   "hash": "3652AEB7CF4E793CE40C23E064A416A4C413909D4F207B915307DECB7A5CF072",
+   "height": "3006993",
+   "json": {
+    "body": {
+     "messages": [
+      {
+       "@type": "/structs.structs.MsgStructBuildInitiate",
+       "creator": "structs1ljyt06f3cdn3npstsx4lg5qjhehx4wlsng0fgy",
+       "playerId": "1-3297",
+       "structTypeId": "18",
+       "operatingAmbit": "land",
+       "slot": "2"
+      }
+     ],
+     "memo": "",
+     "timeout_height": "0",
+     "unordered": false,
+     "timeout_timestamp": null,
+     "extension_options": [],
+     "non_critical_extension_options": []
+    },
+    "auth_info": {
+     "signer_infos": [
+      {
+       "public_key": {
+        "@type": "/cosmos.crypto.secp256k1.PubKey",
+        "key": "AshuVNAJX+h+OjzmqpSV4VCPleVYTgOZoSjaYrR2byTP"
+       },
+       "mode_info": {
+        "single": {
+         "mode": "SIGN_MODE_DIRECT"
+        }
+       },
+       "sequence": "464"
+      }
+     ],
+     "fee": {
+      "amount": [
+       {
+        "denom": "ualpha",
+        "amount": "0"
+       }
+      ],
+      "gas_limit": "500000",
+      "payer": "",
+      "granter": ""
+     },
+     "tip": null
+    },
+    "signatures": [
+     "pps9NBN1EQAL8ASOtF6D4OO7TobREpHEDVJUFCEYNuduVBwniUFACwr39GTiUdvx/Hc372pYT/g5l5K1z8UTHA=="
+    ]
+   },
+   "raw": "CmsKaQonL3N0cnVjdHMuc3RydWN0cy5Nc2dTdHJ1Y3RCdWlsZEluaXRpYXRlEj4KLnN0cnVjdHMxbGp5dDA2ZjNjZG4zbnBzdHN4NGxnNXFqaGVoeDR3bHNuZzBmZ3kSBjEtMzI5NxgSIAIoAhJmClEKRgofL2Nvc21vcy5jcnlwdG8uc2VjcDI1NmsxLlB1YktleRIjCiECyG5U0Alf6H46POaqlJXhUI+V5VhOA5mhKNpitHZvJM8SBAoCCAEY0AMSEQoLCgZ1YWxwaGESATAQoMIeGkCmmz00E3URAAvwBI60XoPg47tOhtESkcQNUlQUIRg2525UHCeJQUALCvf0ZOJR2/H8dzfvalhP+DmXkrXPxRMc",
+   "accountNumber": "3631"
+  },
+  {
+   "action": "MsgStructBuildComplete",
+   "hash": "5D0FBE29D9C0FAC720CD090888004CDD23C63FAAE559C6AE707115BB065DFA98",
+   "height": "3007023",
+   "json": {
+    "body": {
+     "messages": [
+      {
+       "@type": "/structs.structs.MsgStructBuildComplete",
+       "creator": "structs176wggax30my3ncfe78xxknywne2mj68l5hgh95",
+       "structId": "5-430365",
+       "proof": "00006bdadc7d18ae0f33e70b18dff9cc2b0b13536b4398cebc4fb347c0d1dbaf",
+       "nonce": "3760605178"
+      }
+     ],
+     "memo": "",
+     "timeout_height": "0",
+     "unordered": false,
+     "timeout_timestamp": null,
+     "extension_options": [],
+     "non_critical_extension_options": []
+    },
+    "auth_info": {
+     "signer_infos": [
+      {
+       "public_key": {
+        "@type": "/cosmos.crypto.secp256k1.PubKey",
+        "key": "AhUEcbTAm5k93US7NeZnoSit9X1S4FFGiUu19wDavAas"
+       },
+       "mode_info": {
+        "single": {
+         "mode": "SIGN_MODE_DIRECT"
+        }
+       },
+       "sequence": "681"
+      }
+     ],
+     "fee": {
+      "amount": [
+       {
+        "denom": "ualpha",
+        "amount": "0"
+       }
+      ],
+      "gas_limit": "500000",
+      "payer": "",
+      "granter": ""
+     },
+     "tip": null
+    },
+    "signatures": [
+     "CaqRZfWhJuKK0aeavRbZdBmX+VbIF4qvohROH+o44/pLEV3B3K+OfvVDB4yASnqGh9fwizsOoQzk0Y/ma7mDaQ=="
+    ]
+   },
+   "raw": "CrcBCrQBCicvc3RydWN0cy5zdHJ1Y3RzLk1zZ1N0cnVjdEJ1aWxkQ29tcGxldGUSiAEKLnN0cnVjdHMxNzZ3Z2dheDMwbXkzbmNmZTc4eHhrbnl3bmUybWo2OGw1aGdoOTUSCDUtNDMwMzY1GkAwMDAwNmJkYWRjN2QxOGFlMGYzM2U3MGIxOGRmZjljYzJiMGIxMzUzNmI0Mzk4Y2ViYzRmYjM0N2MwZDFkYmFmIgozNzYwNjA1MTc4EmYKUQpGCh8vY29zbW9zLmNyeXB0by5zZWNwMjU2azEuUHViS2V5EiMKIQIVBHG0wJuZPd1EuzXmZ6EorfV9UuBRRolLtfcA2rwGrBIECgIIARipBRIRCgsKBnVhbHBoYRIBMBCgwh4aQAmqkWX1oSbiitGnmr0W2XQZl/lWyBeKr6IUTh/qOOP6SxFdwdyvjn71QweMgEp6hofX8Is7DqEM5NGP5mu5g2k=",
+   "accountNumber": "2351"
+  },
+  {
+   "action": "MsgStructAttack",
+   "hash": "A2A0DA63175C6B52E5A889F540D307EBA38F504BEBDE47AB90312B7459176378",
+   "height": "2982759",
+   "json": {
+    "body": {
+     "messages": [
+      {
+       "@type": "/structs.structs.MsgStructAttack",
+       "creator": "structs17gfv3ycye7xwhy3rl0x7c6fwjgw5aprsjp69yn",
+       "operatingStructId": "5-411896",
+       "targetStructId": [
+        "5-374778"
+       ],
+       "weaponSystem": "primaryWeapon"
+      }
+     ],
+     "memo": "",
+     "timeout_height": "0",
+     "unordered": false,
+     "timeout_timestamp": null,
+     "extension_options": [],
+     "non_critical_extension_options": []
+    },
+    "auth_info": {
+     "signer_infos": [
+      {
+       "public_key": {
+        "@type": "/cosmos.crypto.secp256k1.PubKey",
+        "key": "A4qPvDH3ibH9w7GRimDFE8QQ1qDnchRv6wYCDnYYKDjN"
+       },
+       "mode_info": {
+        "single": {
+         "mode": "SIGN_MODE_DIRECT"
+        }
+       },
+       "sequence": "4977"
+      }
+     ],
+     "fee": {
+      "amount": [
+       {
+        "denom": "ualpha",
+        "amount": "0"
+       }
+      ],
+      "gas_limit": "500000",
+      "payer": "",
+      "granter": ""
+     },
+     "tip": null
+    },
+    "signatures": [
+     "Z6VZs4jUnBiCWn3gKzx0fsyFlxseiWvTSqceoohK2w5znrEADeJq92Ry/9YkU7abRJzEp7AyE5Nf6PqKTu72vw=="
+    ]
+   },
+   "raw": "CnkKdwogL3N0cnVjdHMuc3RydWN0cy5Nc2dTdHJ1Y3RBdHRhY2sSUwouc3RydWN0czE3Z2Z2M3ljeWU3eHdoeTNybDB4N2M2ZndqZ3c1YXByc2pwNjl5bhIINS00MTE4OTYaCDUtMzc0Nzc4Ig1wcmltYXJ5V2VhcG9uEmYKUQpGCh8vY29zbW9zLmNyeXB0by5zZWNwMjU2azEuUHViS2V5EiMKIQOKj7wx94mx/cOxkYpgxRPEENag53IUb+sGAg52GCg4zRIECgIIARjxJhIRCgsKBnVhbHBoYRIBMBCgwh4aQGelWbOI1JwYglp94Cs8dH7MhZcbHolr00qnHqKIStsOc56xAA3iavdkcv/WJFO2m0ScxKewMhOTX+j6ik7u9r8=",
+   "accountNumber": "2250"
+  },
+  {
+   "action": "MsgStructMove",
+   "hash": "B49D924B6D7074D7AE9A53DCD610C2BB26A9DE8BB4534FC5F218D58AD16F3AA0",
+   "height": "2969546",
+   "json": {
+    "body": {
+     "messages": [
+      {
+       "@type": "/structs.structs.MsgStructMove",
+       "creator": "structs1tvcgxdv86749a5ny94yylz4tj02374w369ksqt",
+       "structId": "5-368893",
+       "locationType": "fleet",
+       "ambit": "space",
+       "slot": "0"
+      }
+     ],
+     "memo": "",
+     "timeout_height": "0",
+     "unordered": false,
+     "timeout_timestamp": null,
+     "extension_options": [],
+     "non_critical_extension_options": []
+    },
+    "auth_info": {
+     "signer_infos": [
+      {
+       "public_key": {
+        "@type": "/cosmos.crypto.secp256k1.PubKey",
+        "key": "A/ZV62f0AUparNg8EitTsXRbwMZiWeOvpdIetQyVM806"
+       },
+       "mode_info": {
+        "single": {
+         "mode": "SIGN_MODE_DIRECT"
+        }
+       },
+       "sequence": "68"
+      }
+     ],
+     "fee": {
+      "amount": [
+       {
+        "denom": "ualpha",
+        "amount": "0"
+       }
+      ],
+      "gas_limit": "500000",
+      "payer": "",
+      "granter": ""
+     },
+     "tip": null
+    },
+    "signatures": [
+     "HDj1RaWbEN9IcMJje2M2cOl8oCnOpubWGHvSladu+3xiBTrZ8QIdWLRmXkzbjP2CzCNxlkTvYL2m9ZAFtxPLuA=="
+    ]
+   },
+   "raw": "CmIKYAoeL3N0cnVjdHMuc3RydWN0cy5Nc2dTdHJ1Y3RNb3ZlEj4KLnN0cnVjdHMxdHZjZ3hkdjg2NzQ5YTVueTk0eXlsejR0ajAyMzc0dzM2OWtzcXQSCDUtMzY4ODkzIAkoBBJlClAKRgofL2Nvc21vcy5jcnlwdG8uc2VjcDI1NmsxLlB1YktleRIjCiED9lXrZ/QBSlqs2DwSK1OxdFvAxmJZ46+l0h61DJUzzToSBAoCCAEYRBIRCgsKBnVhbHBoYRIBMBCgwh4aQBw49UWlmxDfSHDCY3tjNnDpfKApzqbm1hh70pWnbvt8YgU62fECHVi0Zl5M24z9gswjcZZE72C9pvWQBbcTy7g=",
+   "accountNumber": "4584"
+  },
+  {
+   "action": "MsgFleetMove",
+   "hash": "619AB0AE3DB76434FFA9ED9A4D8DA48863088E3B1149A1357FD52DC255AB8D16",
+   "height": "2984146",
+   "json": {
+    "body": {
+     "messages": [
+      {
+       "@type": "/structs.structs.MsgFleetMove",
+       "creator": "structs1ryzhn6r4gf2vqcnm4965ueeqp3hcjlhv0f4ren",
+       "fleetId": "9-61",
+       "destinationLocationId": "2-21740"
+      }
+     ],
+     "memo": "",
+     "timeout_height": "0",
+     "unordered": false,
+     "timeout_timestamp": null,
+     "extension_options": [],
+     "non_critical_extension_options": []
+    },
+    "auth_info": {
+     "signer_infos": [
+      {
+       "public_key": {
+        "@type": "/cosmos.crypto.secp256k1.PubKey",
+        "key": "Aid28b4qx7E9gO2gcPqhMRLe0d7Tb9X9SJy7aWt0O3yf"
+       },
+       "mode_info": {
+        "single": {
+         "mode": "SIGN_MODE_DIRECT"
+        }
+       },
+       "sequence": "510"
+      }
+     ],
+     "fee": {
+      "amount": [
+       {
+        "denom": "ualpha",
+        "amount": "0"
+       }
+      ],
+      "gas_limit": "500000",
+      "payer": "",
+      "granter": ""
+     },
+     "tip": null
+    },
+    "signatures": [
+     "jQ6CkeQfWdg/pT2beHjyq1jvQ5KyTI3+Le6RBnOHoDw+YYzIfc9sIhbeHhvD90hfMrcjqIWjM2ixSaYIKYXwSg=="
+    ]
+   },
+   "raw": "CmIKYAodL3N0cnVjdHMuc3RydWN0cy5Nc2dGbGVldE1vdmUSPwouc3RydWN0czFyeXpobjZyNGdmMnZxY25tNDk2NXVlZXFwM2hjamxodjBmNHJlbhIEOS02MRoHMi0yMTc0MBJmClEKRgofL2Nvc21vcy5jcnlwdG8uc2VjcDI1NmsxLlB1YktleRIjCiECJ3bxvirHsT2A7aBw+qExEt7R3tNv1f1InLtpa3Q7fJ8SBAoCCAEY/gMSEQoLCgZ1YWxwaGESATAQoMIeGkCNDoKR5B9Z2D+lPZt4ePKrWO9DkrJMjf4t7pEGc4egPD5hjMh9z2wiFt4eG8P3SF8ytyOohaMzaLFJpggphfBK",
+   "accountNumber": "3194"
+  },
+  {
+   "action": "MsgStructOreMinerComplete",
+   "hash": "D9335B1DA7F9DC4D08297F31E7F15E25011D2250B17A14C2A11008DC9FBD3E4F",
+   "height": "3006932",
+   "json": {
+    "body": {
+     "messages": [
+      {
+       "@type": "/structs.structs.MsgStructOreMinerComplete",
+       "creator": "structs16m3e3ezhuhpmznl3yq824hfyzu52ntgejwz3zt",
+       "structId": "5-428246",
+       "proof": "000000269de27d075b1aec3212c3817218734f4efa2b69fc1624cbf3930d1522",
+       "nonce": "6696629210"
+      }
+     ],
+     "memo": "",
+     "timeout_height": "0",
+     "unordered": false,
+     "timeout_timestamp": null,
+     "extension_options": [],
+     "non_critical_extension_options": []
+    },
+    "auth_info": {
+     "signer_infos": [
+      {
+       "public_key": {
+        "@type": "/cosmos.crypto.secp256k1.PubKey",
+        "key": "Au4hpW+CglyHTRiQTPFV80Dis0I5WmM0UoAyRAYOeZfo"
+       },
+       "mode_info": {
+        "single": {
+         "mode": "SIGN_MODE_DIRECT"
+        }
+       },
+       "sequence": "634"
+      }
+     ],
+     "fee": {
+      "amount": [
+       {
+        "denom": "ualpha",
+        "amount": "0"
+       }
+      ],
+      "gas_limit": "500000",
+      "payer": "",
+      "granter": ""
+     },
+     "tip": null
+    },
+    "signatures": [
+     "ImyjltpoIrD7vEV51210Z8BqGHL99oyoi3O65an+Zjxu+2RogM12az4lT8sxIMDyzKYg3IWP6UTuoX89CuEO2Q=="
+    ]
+   },
+   "raw": "CroBCrcBCiovc3RydWN0cy5zdHJ1Y3RzLk1zZ1N0cnVjdE9yZU1pbmVyQ29tcGxldGUSiAEKLnN0cnVjdHMxNm0zZTNlemh1aHBtem5sM3lxODI0aGZ5enU1Mm50Z2Vqd3ozenQSCDUtNDI4MjQ2GkAwMDAwMDAyNjlkZTI3ZDA3NWIxYWVjMzIxMmMzODE3MjE4NzM0ZjRlZmEyYjY5ZmMxNjI0Y2JmMzkzMGQxNTIyIgo2Njk2NjI5MjEwEmYKUQpGCh8vY29zbW9zLmNyeXB0by5zZWNwMjU2azEuUHViS2V5EiMKIQLuIaVvgoJch00YkEzxVfNA4rNCOVpjNFKAMkQGDnmX6BIECgIIARj6BBIRCgsKBnVhbHBoYRIBMBCgwh4aQCJso5baaCKw+7xFeddtdGfAahhy/faMqItzuuWp/mY8bvtkaIDNdms+JU/LMSDA8symINyFj+lE7qF/PQrhDtk=",
+   "accountNumber": "2343"
+  },
+  {
+   "action": "MsgStructOreRefineryComplete",
+   "hash": "EB0327D8700C66603D3EF4002FDDF687D40BF1FE00AC9876B295E9468E6FAFAB",
+   "height": "3006904",
+   "json": {
+    "body": {
+     "messages": [
+      {
+       "@type": "/structs.structs.MsgStructOreRefineryComplete",
+       "creator": "structs1fdcf93j8cm8vvxgg3fl59xprvw2dj65v83tr7p",
+       "structId": "5-342810",
+       "proof": "008e071fe438cd5361da3f4195c6d17d7c02f73ef5f06395fc7fd043c5dc2b5b",
+       "nonce": "9428598005"
+      }
+     ],
+     "memo": "",
+     "timeout_height": "0",
+     "unordered": false,
+     "timeout_timestamp": null,
+     "extension_options": [],
+     "non_critical_extension_options": []
+    },
+    "auth_info": {
+     "signer_infos": [
+      {
+       "public_key": {
+        "@type": "/cosmos.crypto.secp256k1.PubKey",
+        "key": "A9rOaUqsZUAFSWyMWfwTlhEKlEhhlaJGKdTOkGvNeeil"
+       },
+       "mode_info": {
+        "single": {
+         "mode": "SIGN_MODE_DIRECT"
+        }
+       },
+       "sequence": "19"
+      }
+     ],
+     "fee": {
+      "amount": [
+       {
+        "denom": "ualpha",
+        "amount": "0"
+       }
+      ],
+      "gas_limit": "500000",
+      "payer": "",
+      "granter": ""
+     },
+     "tip": null
+    },
+    "signatures": [
+     "dqgG86no8FsHl22I+Ne4ynhk2phnchbf0K/x1JjSY0Y8jb9j/wL62EZd2/ap2ZcmxJUsIq1L6POXhu19PLqnuA=="
+    ]
+   },
+   "raw": "Cr0BCroBCi0vc3RydWN0cy5zdHJ1Y3RzLk1zZ1N0cnVjdE9yZVJlZmluZXJ5Q29tcGxldGUSiAEKLnN0cnVjdHMxZmRjZjkzajhjbTh2dnhnZzNmbDU5eHBydncyZGo2NXY4M3RyN3ASCDUtMzQyODEwGkAwMDhlMDcxZmU0MzhjZDUzNjFkYTNmNDE5NWM2ZDE3ZDdjMDJmNzNlZjVmMDYzOTVmYzdmZDA0M2M1ZGMyYjViIgo5NDI4NTk4MDA1EmUKUApGCh8vY29zbW9zLmNyeXB0by5zZWNwMjU2azEuUHViS2V5EiMKIQPazmlKrGVABUlsjFn8E5YRCpRIYZWiRinUzpBrzXnopRIECgIIARgTEhEKCwoGdWFscGhhEgEwEKDCHhpAdqgG86no8FsHl22I+Ne4ynhk2phnchbf0K/x1JjSY0Y8jb9j/wL62EZd2/ap2ZcmxJUsIq1L6POXhu19PLqnuA==",
+   "accountNumber": "1895"
+  },
+  {
+   "action": "MsgPlanetRaidComplete",
+   "hash": "C0BF43EB42B10FA17DF0CB47549AE25387F16828AC49275A9EB96C2DFC1070F3",
+   "height": "2982763",
+   "json": {
+    "body": {
+     "messages": [
+      {
+       "@type": "/structs.structs.MsgPlanetRaidComplete",
+       "creator": "structs17gfv3ycye7xwhy3rl0x7c6fwjgw5aprsjp69yn",
+       "fleetId": "9-2136",
+       "proof": "000006b49ff10c8a667d1075bbbbd99c4e0a3e5a203e200b1250d92275c91bc3",
+       "nonce": "6797498592"
+      }
+     ],
+     "memo": "",
+     "timeout_height": "0",
+     "unordered": false,
+     "timeout_timestamp": null,
+     "extension_options": [],
+     "non_critical_extension_options": []
+    },
+    "auth_info": {
+     "signer_infos": [
+      {
+       "public_key": {
+        "@type": "/cosmos.crypto.secp256k1.PubKey",
+        "key": "A4qPvDH3ibH9w7GRimDFE8QQ1qDnchRv6wYCDnYYKDjN"
+       },
+       "mode_info": {
+        "single": {
+         "mode": "SIGN_MODE_DIRECT"
+        }
+       },
+       "sequence": "4978"
+      }
+     ],
+     "fee": {
+      "amount": [
+       {
+        "denom": "ualpha",
+        "amount": "0"
+       }
+      ],
+      "gas_limit": "500000",
+      "payer": "",
+      "granter": ""
+     },
+     "tip": null
+    },
+    "signatures": [
+     "hzLRv10bqaKRXqdba4P8kaMbu9J1v/up9wBXKrpOfb8K8DnwIWZQlrke1O2Y1b0LanM1/KHsgWw10GCHzHPqHw=="
+    ]
+   },
+   "raw": "CrQBCrEBCiYvc3RydWN0cy5zdHJ1Y3RzLk1zZ1BsYW5ldFJhaWRDb21wbGV0ZRKGAQouc3RydWN0czE3Z2Z2M3ljeWU3eHdoeTNybDB4N2M2ZndqZ3c1YXByc2pwNjl5bhIGOS0yMTM2GkAwMDAwMDZiNDlmZjEwYzhhNjY3ZDEwNzViYmJiZDk5YzRlMGEzZTVhMjAzZTIwMGIxMjUwZDkyMjc1YzkxYmMzIgo2Nzk3NDk4NTkyEmYKUQpGCh8vY29zbW9zLmNyeXB0by5zZWNwMjU2azEuUHViS2V5EiMKIQOKj7wx94mx/cOxkYpgxRPEENag53IUb+sGAg52GCg4zRIECgIIARjyJhIRCgsKBnVhbHBoYRIBMBCgwh4aQIcy0b9dG6mikV6nW2uD/JGjG7vSdb/7qfcAVyq6Tn2/CvA58CFmUJa5HtTtmNW9C2pzNfyh7IFsNdBgh8xz6h8=",
+   "accountNumber": "2250"
+  },
+  {
+   "action": "MsgStructDefenseSet",
+   "hash": "04EAEAAEC2F883E285A04D48912D8DBCD6B3F67518DE01D71F17BBA8F20EA85A",
+   "height": "3007025",
+   "json": {
+    "body": {
+     "messages": [
+      {
+       "@type": "/structs.structs.MsgStructDefenseSet",
+       "creator": "structs1mh55l54x7jvhf6nk9wz9fx5y58hja90lz6498r",
+       "defenderStructId": "5-130545",
+       "protectedStructId": "5-109456"
+      }
+     ],
+     "memo": "",
+     "timeout_height": "0",
+     "unordered": false,
+     "timeout_timestamp": null,
+     "extension_options": [],
+     "non_critical_extension_options": []
+    },
+    "auth_info": {
+     "signer_infos": [
+      {
+       "public_key": {
+        "@type": "/cosmos.crypto.secp256k1.PubKey",
+        "key": "AkGSO5kOpiHDmdpLhjOR0Kq6dzt45egHygDH1oaQghH2"
+       },
+       "mode_info": {
+        "single": {
+         "mode": "SIGN_MODE_DIRECT"
+        }
+       },
+       "sequence": "556"
+      }
+     ],
+     "fee": {
+      "amount": [
+       {
+        "denom": "ualpha",
+        "amount": "0"
+       }
+      ],
+      "gas_limit": "500000",
+      "payer": "",
+      "granter": ""
+     },
+     "tip": null
+    },
+    "signatures": [
+     "/JKDZVlQ6G877N7oPtZjrfs+Tyii/ESq1p+Euf7SOV0VUX6e78Jy6oQGhHACEAZUH1lBKz7OqB55WbXgZ1VRfw=="
+    ]
+   },
+   "raw": "Cm4KbAokL3N0cnVjdHMuc3RydWN0cy5Nc2dTdHJ1Y3REZWZlbnNlU2V0EkQKLnN0cnVjdHMxbWg1NWw1NHg3anZoZjZuazl3ejlmeDV5NThoamE5MGx6NjQ5OHISCDUtMTMwNTQ1Ggg1LTEwOTQ1NhJmClEKRgofL2Nvc21vcy5jcnlwdG8uc2VjcDI1NmsxLlB1YktleRIjCiECQZI7mQ6mIcOZ2kuGM5HQqrp3O3jl6AfKAMfWhpCCEfYSBAoCCAEYrAQSEQoLCgZ1YWxwaGESATAQoMIeGkD8koNlWVDobzvs3ug+1mOt+z5PKKL8RKrWn4S5/tI5XRVRfp7vwnLqhAaEcAIQBlQfWUErPs6oHnlZteBnVVF/",
+   "accountNumber": "2597"
+  },
+  {
+   "action": "MsgPlayerUpdateName",
+   "hash": "81B5E5A3F7F2600A8B3C5E28DFA6E0DCD4342F0178AAB886B421341BCB2D30C4",
+   "height": "2837951",
+   "json": {
+    "body": {
+     "messages": [
+      {
+       "@type": "/structs.structs.MsgPlayerUpdateName",
+       "creator": "structs10tt5fndk9fjvcvc80tpdz0x6kvww6nuk0axh7d",
+       "playerId": "1-371",
+       "name": "Sally-Campbell"
+      }
+     ],
+     "memo": "",
+     "timeout_height": "0",
+     "unordered": false,
+     "timeout_timestamp": null,
+     "extension_options": [],
+     "non_critical_extension_options": []
+    },
+    "auth_info": {
+     "signer_infos": [
+      {
+       "public_key": {
+        "@type": "/cosmos.crypto.secp256k1.PubKey",
+        "key": "AyYeDAMNSSI77GabXX3UVaJj4UHjaSOZomMIST2i3ZiI"
+       },
+       "mode_info": {
+        "single": {
+         "mode": "SIGN_MODE_DIRECT"
+        }
+       },
+       "sequence": "4570"
+      }
+     ],
+     "fee": {
+      "amount": [
+       {
+        "denom": "ualpha",
+        "amount": "0"
+       }
+      ],
+      "gas_limit": "500000",
+      "payer": "",
+      "granter": ""
+     },
+     "tip": null
+    },
+    "signatures": [
+     "hEeo8sZ/VOdbbVFqS94q1AktO2bpAUH6ouusXr90XWQZc3JZ8nfkk4rIGGPs0usv2CBLmkJaEFmYgQ3ff1ZBOg=="
+    ]
+   },
+   "raw": "CnEKbwokL3N0cnVjdHMuc3RydWN0cy5Nc2dQbGF5ZXJVcGRhdGVOYW1lEkcKLnN0cnVjdHMxMHR0NWZuZGs5Zmp2Y3ZjODB0cGR6MHg2a3Z3dzZudWswYXhoN2QSBTEtMzcxGg5TYWxseS1DYW1wYmVsbBJmClEKRgofL2Nvc21vcy5jcnlwdG8uc2VjcDI1NmsxLlB1YktleRIjCiEDJh4MAw1JIjvsZptdfdRVomPhQeNpI5miYwhJPaLdmIgSBAoCCAEY2iMSEQoLCgZ1YWxwaGESATAQoMIeGkCER6jyxn9U51ttUWpL3irUCS07ZukBQfqi66xev3RdZBlzclnyd+STisgYY+zS6y/YIEuaQloQWZiBDd9/VkE6",
+   "accountNumber": "467"
+  },
+  {
+   "action": "MsgPlanetExplore",
+   "hash": "F2DF2E76FA4735C65A49BC194F8F29EAFBBEC2E3FF952BB523C9426039BDA9E1",
+   "height": "3006193",
+   "json": {
+    "body": {
+     "messages": [
+      {
+       "@type": "/structs.structs.MsgPlanetExplore",
+       "creator": "structs1jhx9l32kg7jew5vl9835580pawmesvh72afxcz",
+       "playerId": "1-2369",
+       "name": ""
+      }
+     ],
+     "memo": "",
+     "timeout_height": "0",
+     "unordered": false,
+     "timeout_timestamp": null,
+     "extension_options": [],
+     "non_critical_extension_options": []
+    },
+    "auth_info": {
+     "signer_infos": [
+      {
+       "public_key": {
+        "@type": "/cosmos.crypto.secp256k1.PubKey",
+        "key": "AxyAudKoLMjZFuM12c3kx9Gd4qxgQ5RDeSPhu/YG9DXM"
+       },
+       "mode_info": {
+        "single": {
+         "mode": "SIGN_MODE_DIRECT"
+        }
+       },
+       "sequence": "597"
+      }
+     ],
+     "fee": {
+      "amount": [
+       {
+        "denom": "ualpha",
+        "amount": "0"
+       }
+      ],
+      "gas_limit": "500000",
+      "payer": "",
+      "granter": ""
+     },
+     "tip": null
+    },
+    "signatures": [
+     "oJ1j0wRgQ3nn+nM+XWSYUnytErn4fzS3N6QYpTEqpFBiElTaTBvjVawIVqxHLEm5j6Sev/kcbtO722gKA5RH1w=="
+    ]
+   },
+   "raw": "Cl8KXQohL3N0cnVjdHMuc3RydWN0cy5Nc2dQbGFuZXRFeHBsb3JlEjgKLnN0cnVjdHMxamh4OWwzMmtnN2pldzV2bDk4MzU1ODBwYXdtZXN2aDcyYWZ4Y3oSBjEtMjM2ORJmClEKRgofL2Nvc21vcy5jcnlwdG8uc2VjcDI1NmsxLlB1YktleRIjCiEDHIC50qgsyNkW4zXZzeTH0Z3irGBDlEN5I+G79gb0NcwSBAoCCAEY1QQSEQoLCgZ1YWxwaGESATAQoMIeGkCgnWPTBGBDeef6cz5dZJhSfK0Sufh/NLc3pBilMSqkUGISVNpMG+NVrAhWrEcsSbmPpJ6/+Rxu07vbaAoDlEfX",
+   "accountNumber": "2483"
+  },
+  {
+   "action": "MsgStructActivate",
+   "hash": "BD1057FD88D7F649588EB046F620269A72B70138D796217F6DA6843DC85E5BC1",
+   "height": "2989641",
+   "json": {
+    "body": {
+     "messages": [
+      {
+       "@type": "/structs.structs.MsgStructActivate",
+       "creator": "structs18ga8mea07nvlnmturvh03sjvggf6v8043cexgd",
+       "structId": "5-417700"
+      }
+     ],
+     "memo": "",
+     "timeout_height": "0",
+     "unordered": false,
+     "timeout_timestamp": null,
+     "extension_options": [],
+     "non_critical_extension_options": []
+    },
+    "auth_info": {
+     "signer_infos": [
+      {
+       "public_key": {
+        "@type": "/cosmos.crypto.secp256k1.PubKey",
+        "key": "AoTr+yn8PdMPfXVsmbr+50cutU7i9zlWsg2MBK55Yn4u"
+       },
+       "mode_info": {
+        "single": {
+         "mode": "SIGN_MODE_DIRECT"
+        }
+       },
+       "sequence": "86"
+      }
+     ],
+     "fee": {
+      "amount": [
+       {
+        "denom": "ualpha",
+        "amount": "0"
+       }
+      ],
+      "gas_limit": "500000",
+      "payer": "",
+      "granter": ""
+     },
+     "tip": null
+    },
+    "signatures": [
+     "6wzu0pNJmE54cY6YEJYIvumxga0J5nCRcL2B0xUJRJcNgUQf401JNcsg+es6vF30LH2vOBigQS9aErRU96czuA=="
+    ]
+   },
+   "raw": "CmIKYAoiL3N0cnVjdHMuc3RydWN0cy5Nc2dTdHJ1Y3RBY3RpdmF0ZRI6Ci5zdHJ1Y3RzMThnYThtZWEwN252bG5tdHVydmgwM3NqdmdnZjZ2ODA0M2NleGdkEgg1LTQxNzcwMBJlClAKRgofL2Nvc21vcy5jcnlwdG8uc2VjcDI1NmsxLlB1YktleRIjCiEChOv7Kfw90w99dWyZuv7nRy61TuL3OVayDYwErnlifi4SBAoCCAEYVhIRCgsKBnVhbHBoYRIBMBCgwh4aQOsM7tKTSZhOeHGOmBCWCL7psYGtCeZwkXC9gdMVCUSXDYFEH+NNSTXLIPnrOrxd9Cx9rzgYoEEvWhK0VPenM7g=",
+   "accountNumber": "4045"
+  },
+  {
+   "action": "MsgStructStealthActivate",
+   "hash": "24A8657D746E64B4D29B40D808808756A52333550B0F28B87250B223BCC5944D",
+   "height": "2969251",
+   "json": {
+    "body": {
+     "messages": [
+      {
+       "@type": "/structs.structs.MsgStructStealthActivate",
+       "creator": "structs1tvcgxdv86749a5ny94yylz4tj02374w369ksqt",
+       "structId": "5-187648"
+      }
+     ],
+     "memo": "",
+     "timeout_height": "0",
+     "unordered": false,
+     "timeout_timestamp": null,
+     "extension_options": [],
+     "non_critical_extension_options": []
+    },
+    "auth_info": {
+     "signer_infos": [
+      {
+       "public_key": {
+        "@type": "/cosmos.crypto.secp256k1.PubKey",
+        "key": "A/ZV62f0AUparNg8EitTsXRbwMZiWeOvpdIetQyVM806"
+       },
+       "mode_info": {
+        "single": {
+         "mode": "SIGN_MODE_DIRECT"
+        }
+       },
+       "sequence": "36"
+      }
+     ],
+     "fee": {
+      "amount": [
+       {
+        "denom": "ualpha",
+        "amount": "0"
+       }
+      ],
+      "gas_limit": "500000",
+      "payer": "",
+      "granter": ""
+     },
+     "tip": null
+    },
+    "signatures": [
+     "rxfZBlBRLndDj95Zz5ZPs77Kfl4yyKy6zM+yUuW92O5bET/YtkafTuaGMYOlj1/3gNO36hk3CK5SdH1VHVfsBA=="
+    ]
+   },
+   "raw": "CmkKZwopL3N0cnVjdHMuc3RydWN0cy5Nc2dTdHJ1Y3RTdGVhbHRoQWN0aXZhdGUSOgouc3RydWN0czF0dmNneGR2ODY3NDlhNW55OTR5eWx6NHRqMDIzNzR3MzY5a3NxdBIINS0xODc2NDgSZQpQCkYKHy9jb3Ntb3MuY3J5cHRvLnNlY3AyNTZrMS5QdWJLZXkSIwohA/ZV62f0AUparNg8EitTsXRbwMZiWeOvpdIetQyVM806EgQKAggBGCQSEQoLCgZ1YWxwaGESATAQoMIeGkCvF9kGUFEud0OP3lnPlk+zvsp+XjLIrLrMz7JS5b3Y7lsRP9i2Rp9O5oYxg6WPX/eA07fqGTcIrlJ0fVUdV+wE",
+   "accountNumber": "4584"
+  },
+  {
+   "action": "MsgAllocationCreate",
+   "hash": "D3BFF09FD6E7AD0AE316DC26615699E696EBFB6527A8B8CCFCC517456DCB91AF",
+   "height": "2540753",
+   "json": {
+    "body": {
+     "messages": [
+      {
+       "@type": "/structs.structs.MsgAllocationCreate",
+       "creator": "structs12wll0unjn6rzmjchnqy8e07txfeaf4w8y3x6ne",
+       "controller": "1-194",
+       "sourceObjectId": "1-194",
+       "allocationType": "dynamic",
+       "power": "1000000"
+      }
+     ],
+     "memo": "",
+     "timeout_height": "0",
+     "unordered": false,
+     "timeout_timestamp": null,
+     "extension_options": [],
+     "non_critical_extension_options": []
+    },
+    "auth_info": {
+     "signer_infos": [
+      {
+       "public_key": {
+        "@type": "/cosmos.crypto.secp256k1.PubKey",
+        "key": "Ag3q+sz8IIJZauzI76kqLR7hPw89c64sWBl6K6p6MJ76"
+       },
+       "mode_info": {
+        "single": {
+         "mode": "SIGN_MODE_DIRECT"
+        }
+       },
+       "sequence": "1164"
+      }
+     ],
+     "fee": {
+      "amount": [
+       {
+        "denom": "ualpha",
+        "amount": "0"
+       }
+      ],
+      "gas_limit": "500000",
+      "payer": "",
+      "granter": ""
+     },
+     "tip": null
+    },
+    "signatures": [
+     "vDjRZJYOeoAJO9yMh87yqy8uPPK59PgkKTULEUUaggddgrRN8fxSsGj8VsclScyNszCIN583kOIlwOxCm3a45g=="
+    ]
+   },
+   "raw": "Cm4KbAokL3N0cnVjdHMuc3RydWN0cy5Nc2dBbGxvY2F0aW9uQ3JlYXRlEkQKLnN0cnVjdHMxMndsbDB1bmpuNnJ6bWpjaG5xeThlMDd0eGZlYWY0dzh5M3g2bmUSBTEtMTk0GgUxLTE5NCABKMCEPRJmClEKRgofL2Nvc21vcy5jcnlwdG8uc2VjcDI1NmsxLlB1YktleRIjCiECDer6zPwggllq7MjvqSotHuE/Dz1zrixYGXorqnownvoSBAoCCAEYjAkSEQoLCgZ1YWxwaGESATAQoMIeGkC8ONFklg56gAk73IyHzvKrLy488rn0+CQpNQsRRRqCB12CtE3x/FKwaPxWxyVJzI2zMIg3nzeQ4iXA7EKbdrjm",
+   "accountNumber": "288"
+  },
+  {
+   "action": "MsgReactorInfuse",
+   "hash": "1CCF9CAFF17496A8A37753302C4FC6D089938C6C240DEC340E9EAF4432CBA7CF",
+   "height": "3002153",
+   "json": {
+    "body": {
+     "messages": [
+      {
+       "@type": "/structs.structs.MsgReactorInfuse",
+       "creator": "structs1wr780fs48248wqtrdd4s9v305yfy7mkz94ujg5",
+       "delegator_address": "structs1wr780fs48248wqtrdd4s9v305yfy7mkz94ujg5",
+       "validator_address": "structsvaloper1c3r8a73mmvu5ep4pvjqntjpkl442pp0e9epyr6",
+       "amount": {
+        "denom": "ualpha",
+        "amount": "1000000"
+       }
+      }
+     ],
+     "memo": "",
+     "timeout_height": "0",
+     "unordered": false,
+     "timeout_timestamp": null,
+     "extension_options": [],
+     "non_critical_extension_options": []
+    },
+    "auth_info": {
+     "signer_infos": [
+      {
+       "public_key": {
+        "@type": "/cosmos.crypto.secp256k1.PubKey",
+        "key": "AiaR3rd9aqf9nZCOx06HUOq3RAh49Ltgx+NARy76AfPj"
+       },
+       "mode_info": {
+        "single": {
+         "mode": "SIGN_MODE_DIRECT"
+        }
+       },
+       "sequence": "20"
+      }
+     ],
+     "fee": {
+      "amount": [
+       {
+        "denom": "ualpha",
+        "amount": "0"
+       }
+      ],
+      "gas_limit": "500000",
+      "payer": "",
+      "granter": ""
+     },
+     "tip": null
+    },
+    "signatures": [
+     "Z/G721pPq6ec/mids8lg91Qei64VcVcEzlVwQa6TJqNB22b3hlBB94nbthyRExQ/Nus//RXuoOUN1FJXhMEHgQ=="
+    ]
+   },
+   "raw": "CtMBCtABCiEvc3RydWN0cy5zdHJ1Y3RzLk1zZ1JlYWN0b3JJbmZ1c2USqgEKLnN0cnVjdHMxd3I3ODBmczQ4MjQ4d3F0cmRkNHM5djMwNXlmeTdta3o5NHVqZzUSLnN0cnVjdHMxd3I3ODBmczQ4MjQ4d3F0cmRkNHM5djMwNXlmeTdta3o5NHVqZzUaNXN0cnVjdHN2YWxvcGVyMWMzcjhhNzNtbXZ1NWVwNHB2anFudGpwa2w0NDJwcDBlOWVweXI2IhEKBnVhbHBoYRIHMTAwMDAwMBJlClAKRgofL2Nvc21vcy5jcnlwdG8uc2VjcDI1NmsxLlB1YktleRIjCiECJpHet31qp/2dkI7HTodQ6rdECHj0u2DH40BHLvoB8+MSBAoCCAEYFBIRCgsKBnVhbHBoYRIBMBCgwh4aQGfxu9taT6unnP5onbPJYPdUHouuFXFXBM5VcEGukyajQdtm94ZQQfeJ27YckRMUPzbrP/0V7qDlDdRSV4TBB4E=",
+   "accountNumber": "322"
+  },
+  {
+   "action": "MsgPlayerSend",
+   "hash": "BD179FEB898FA66DD88E238414EB7FFBCA926DCCE9256421756129B7BFEEB9DE",
+   "height": "3006970",
+   "json": {
+    "body": {
+     "messages": [
+      {
+       "@type": "/structs.structs.MsgPlayerSend",
+       "creator": "structs1tln7p7a68jfh00hwf32yr6au2f4ue825wpjjkv",
+       "from_address": "structs1tln7p7a68jfh00hwf32yr6au2f4ue825wpjjkv",
+       "to_address": "structs12wll0unjn6rzmjchnqy8e07txfeaf4w8y3x6ne",
+       "amount": [
+        {
+         "denom": "ualpha",
+         "amount": "4000000"
+        }
+       ]
+      }
+     ],
+     "memo": "",
+     "timeout_height": "0",
+     "unordered": false,
+     "timeout_timestamp": null,
+     "extension_options": [],
+     "non_critical_extension_options": []
+    },
+    "auth_info": {
+     "signer_infos": [
+      {
+       "public_key": {
+        "@type": "/cosmos.crypto.secp256k1.PubKey",
+        "key": "AxYfg1TEfbfhwUgqGQ6m+ZZ2idNfIcufg/lm9N4EEse/"
+       },
+       "mode_info": {
+        "single": {
+         "mode": "SIGN_MODE_DIRECT"
+        }
+       },
+       "sequence": "1008"
+      }
+     ],
+     "fee": {
+      "amount": [
+       {
+        "denom": "ualpha",
+        "amount": "0"
+       }
+      ],
+      "gas_limit": "500000",
+      "payer": "",
+      "granter": ""
+     },
+     "tip": null
+    },
+    "signatures": [
+     "63+5xTYe7FV1QhfiBLJ3nvPAtH69TQX985/54yXUY1VbOWoQgXK60uXg9xpOX9RSKFHQBSj2/n/UMbE5CCLIag=="
+    ]
+   },
+   "raw": "CskBCsYBCh4vc3RydWN0cy5zdHJ1Y3RzLk1zZ1BsYXllclNlbmQSowEKLnN0cnVjdHMxdGxuN3A3YTY4amZoMDBod2YzMnlyNmF1MmY0dWU4MjV3cGpqa3YSLnN0cnVjdHMxdGxuN3A3YTY4amZoMDBod2YzMnlyNmF1MmY0dWU4MjV3cGpqa3YaLnN0cnVjdHMxMndsbDB1bmpuNnJ6bWpjaG5xeThlMDd0eGZlYWY0dzh5M3g2bmUiEQoGdWFscGhhEgc0MDAwMDAwEmYKUQpGCh8vY29zbW9zLmNyeXB0by5zZWNwMjU2azEuUHViS2V5EiMKIQMWH4NUxH234cFIKhkOpvmWdonTXyHLn4P5ZvTeBBLHvxIECgIIARjwBxIRCgsKBnVhbHBoYRIBMBCgwh4aQOt/ucU2HuxVdUIX4gSyd57zwLR+vU0F/fOf+eMl1GNVWzlqEIFyutLl4PcaTl/UUihR0AUo9v5/1DGxOQgiyGo=",
+   "accountNumber": "1001"
+  },
+  {
+   "action": "MsgGuildMembershipJoinProxy",
+   "hash": "D992494B0685C567E860E41781781129BED8C6AB91C611D11D05D14BACE04553",
+   "height": "2998440",
+   "json": {
+    "body": {
+     "messages": [
+      {
+       "@type": "/structs.structs.MsgGuildMembershipJoinProxy",
+       "creator": "structs1w0qehnewxngux650prpc7ru7du0rmzwgygtg3m",
+       "address": "structs1wgwz8dmx0qfgn2axddjzvf2vt5ugewk2ch6dqw",
+       "substationId": "",
+       "proofPubKey": "0308a57484e8fd4ae1748f3a8f2d8c92974d64ec360239800c5a1ce9931999b5d3",
+       "proofSignature": "11d81d0b0a65b744c2f5c1bbaf166ea3bcc52840fc148fe27cf56be83bdee1dc5d0eac5ae3bded918763195d407457e3510b07cd5e27762532f0c468df62b96c00",
+       "playerName": "Ipadroid",
+       "playerPfp": "",
+       "playerPfpClientRenderAttributes": "{\"arms\": 32, \"body\": 50, \"head\": 54, \"neck\": 4, \"background\": 1}"
+      }
+     ],
+     "memo": "",
+     "timeout_height": "0",
+     "unordered": false,
+     "timeout_timestamp": null,
+     "extension_options": [],
+     "non_critical_extension_options": []
+    },
+    "auth_info": {
+     "signer_infos": [
+      {
+       "public_key": {
+        "@type": "/cosmos.crypto.secp256k1.PubKey",
+        "key": "A8qOQ86Wrokt46R0w++Sm42CRP6f/luak+ZUxnYh7xQw"
+       },
+       "mode_info": {
+        "single": {
+         "mode": "SIGN_MODE_DIRECT"
+        }
+       },
+       "sequence": "607"
+      }
+     ],
+     "fee": {
+      "amount": [],
+      "gas_limit": "104854",
+      "payer": "",
+      "granter": ""
+     },
+     "tip": null
+    },
+    "signatures": [
+     "CUCPx5UhlwWVRX0oXgopPfYjcnMdHqraC0oiElddoUJN225tfOIN3G40p1DVPrXHKn+ZwsZb7pqUkFpezutgnA=="
+    ]
+   },
+   "raw": "CqkDCqYDCiwvc3RydWN0cy5zdHJ1Y3RzLk1zZ0d1aWxkTWVtYmVyc2hpcEpvaW5Qcm94eRL1Agouc3RydWN0czF3MHFlaG5ld3huZ3V4NjUwcHJwYzdydTdkdTBybXp3Z3lndGczbRIuc3RydWN0czF3Z3d6OGRteDBxZmduMmF4ZGRqenZmMnZ0NXVnZXdrMmNoNmRxdyJCMDMwOGE1NzQ4NGU4ZmQ0YWUxNzQ4ZjNhOGYyZDhjOTI5NzRkNjRlYzM2MDIzOTgwMGM1YTFjZTk5MzE5OTliNWQzKoIBMTFkODFkMGIwYTY1Yjc0NGMyZjVjMWJiYWYxNjZlYTNiY2M1Mjg0MGZjMTQ4ZmUyN2NmNTZiZTgzYmRlZTFkYzVkMGVhYzVhZTNiZGVkOTE4NzYzMTk1ZDQwNzQ1N2UzNTEwYjA3Y2Q1ZTI3NzYyNTMyZjBjNDY4ZGY2MmI5NmMwMDIISXBhZHJvaWRCQHsiYXJtcyI6IDMyLCAiYm9keSI6IDUwLCAiaGVhZCI6IDU0LCAibmVjayI6IDQsICJiYWNrZ3JvdW5kIjogMX0SWQpRCkYKHy9jb3Ntb3MuY3J5cHRvLnNlY3AyNTZrMS5QdWJLZXkSIwohA8qOQ86Wrokt46R0w++Sm42CRP6f/luak+ZUxnYh7xQwEgQKAggBGN8EEgQQlrMGGkAJQI/HlSGXBZVFfSheCik99iNycx0eqtoLSiISV12hQk3bbm184g3cbjSnUNU+tccqf5nCxlvumpSQWl7O62Cc",
+   "accountNumber": "502"
+  },
+  {
+   "action": "MsgStructGeneratorInfuse",
+   "hash": "9639640059433A00C96BC07DC705E82FF1AFC22FE7F6AFFCEF97BFD73C1AD7C9",
+   "height": "2967931",
+   "json": {
+    "body": {
+     "messages": [
+      {
+       "@type": "/structs.structs.MsgStructGeneratorInfuse",
+       "creator": "structs17efkvymrmku36hgeu0e399zfumgt9vmfwwqaqu",
+       "structId": "5-187078",
+       "infuseAmount": "1000000ualpha"
+      }
+     ],
+     "memo": "",
+     "timeout_height": "0",
+     "unordered": false,
+     "timeout_timestamp": null,
+     "extension_options": [],
+     "non_critical_extension_options": []
+    },
+    "auth_info": {
+     "signer_infos": [
+      {
+       "public_key": {
+        "@type": "/cosmos.crypto.secp256k1.PubKey",
+        "key": "Ape5CGhsKsBI9wyz6plkRoaFeP25iAb56btILjTreQUc"
+       },
+       "mode_info": {
+        "single": {
+         "mode": "SIGN_MODE_DIRECT"
+        }
+       },
+       "sequence": "39"
+      }
+     ],
+     "fee": {
+      "amount": [
+       {
+        "denom": "ualpha",
+        "amount": "0"
+       }
+      ],
+      "gas_limit": "500000",
+      "payer": "",
+      "granter": ""
+     },
+     "tip": null
+    },
+    "signatures": [
+     "0P3qZUsFwDuBtxGUGlGAi2llrtBzRqK5s4SiwQeqVoQTImYXPe0bxlV1F7QNtcxkc0lenD5kX0wRp6+kUNxfig=="
+    ]
+   },
+   "raw": "CngKdgopL3N0cnVjdHMuc3RydWN0cy5Nc2dTdHJ1Y3RHZW5lcmF0b3JJbmZ1c2USSQouc3RydWN0czE3ZWZrdnltcm1rdTM2aGdldTBlMzk5emZ1bWd0OXZtZnd3cWFxdRIINS0xODcwNzgaDTEwMDAwMDB1YWxwaGESZQpQCkYKHy9jb3Ntb3MuY3J5cHRvLnNlY3AyNTZrMS5QdWJLZXkSIwohApe5CGhsKsBI9wyz6plkRoaFeP25iAb56btILjTreQUcEgQKAggBGCcSEQoLCgZ1YWxwaGESATAQoMIeGkDQ/eplSwXAO4G3EZQaUYCLaWWu0HNGormzhKLBB6pWhBMiZhc97RvGVXUXtA21zGRzSV6cPmRfTBGnr6RQ3F+K",
+   "accountNumber": "3191"
+  },
+  {
+   "action": "MsgPlayerUpdatePfpClientRenderAttributes",
+   "hash": "72B570CAEFE2703D5362F2840800F9D58AAF86D51487019CACC7E5A07FB7ED38",
+   "height": "2986718",
+   "json": {
+    "body": {
+     "messages": [
+      {
+       "@type": "/structs.structs.MsgPlayerUpdatePfpClientRenderAttributes",
+       "creator": "structs1gel637wwayzlurl2sf65g47s30v7xc3dnz93hz",
+       "playerId": "1-2035",
+       "pfpClientRenderAttributes": "{\"head\":64,\"neck\":7,\"body\":38,\"arms\":29,\"background\":2}"
+      }
+     ],
+     "memo": "",
+     "timeout_height": "0",
+     "unordered": false,
+     "timeout_timestamp": null,
+     "extension_options": [],
+     "non_critical_extension_options": []
+    },
+    "auth_info": {
+     "signer_infos": [
+      {
+       "public_key": {
+        "@type": "/cosmos.crypto.secp256k1.PubKey",
+        "key": "AxCRVEeubucGc758nClaUudIhx9eP5SAxB2jGCs/n4h2"
+       },
+       "mode_info": {
+        "single": {
+         "mode": "SIGN_MODE_DIRECT"
+        }
+       },
+       "sequence": "75"
+      }
+     ],
+     "fee": {
+      "amount": [
+       {
+        "denom": "ualpha",
+        "amount": "0"
+       }
+      ],
+      "gas_limit": "500000",
+      "payer": "",
+      "granter": ""
+     },
+     "tip": null
+    },
+    "signatures": [
+     "1s+BXjb10zU2rLnm0m5OoyjtavXXG0gstqwS3T0w2rVgmtxlhrdq/TwIuL0EWd1fAeqAh7OlvSXyYN9C9+/Haw=="
+    ]
+   },
+   "raw": "CrEBCq4BCjkvc3RydWN0cy5zdHJ1Y3RzLk1zZ1BsYXllclVwZGF0ZVBmcENsaWVudFJlbmRlckF0dHJpYnV0ZXMScQouc3RydWN0czFnZWw2Mzd3d2F5emx1cmwyc2Y2NWc0N3MzMHY3eGMzZG56OTNoehIGMS0yMDM1Gjd7ImhlYWQiOjY0LCJuZWNrIjo3LCJib2R5IjozOCwiYXJtcyI6MjksImJhY2tncm91bmQiOjJ9EmUKUApGCh8vY29zbW9zLmNyeXB0by5zZWNwMjU2azEuUHViS2V5EiMKIQMQkVRHrm7nBnO+fJwpWlLnSIcfXj+UgMQdoxgrP5+IdhIECgIIARhLEhEKCwoGdWFscGhhEgEwEKDCHhpA1s+BXjb10zU2rLnm0m5OoyjtavXXG0gstqwS3T0w2rVgmtxlhrdq/TwIuL0EWd1fAeqAh7OlvSXyYN9C9+/Haw==",
+   "accountNumber": "2149"
+  }
+ ]
+}

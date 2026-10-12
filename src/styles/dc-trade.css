@@ -1,0 +1,438 @@
+/* The Dreamcast pass over Trade and Team: the Economy console (power, fuel, market, banks, send),
+ * the Guild Hall, Chat's sign-in and Intel. Loaded after dc.css, so equal-specificity rules here
+ * win. The kit's rules: a picture and a number first, a label of a word or two, every explanation
+ * one hover away (title) or in Expert mode (.x-only). Each frame sets --hub to its hub's colour. */
+
+/* ── Shared: icon pills, numbers with icons, empty states ───────────────── */
+.dct-tabs { display: flex; align-items: center; gap: 8px; padding: 2px 14px 12px; overflow-x: auto; scrollbar-width: none; flex: none; border-bottom: 0; }
+.dct-tabs::-webkit-scrollbar { display: none; }
+.dct-tab { appearance: none; display: inline-flex; align-items: center; gap: 7px; flex: none; min-height: 40px; padding: 6px 16px 6px 12px; border-radius: 999px; cursor: pointer;
+  border: 2px solid rgba(110, 140, 240, 0.45); background: var(--dc-glass); color: #fff; text-decoration: none; white-space: nowrap;
+  font-family: var(--font-chrome); font-weight: 900; font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase; text-shadow: none;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12), inset 0 -3px 0 rgba(0, 0, 0, 0.25); transition: transform 0.12s, background-color 0.12s, border-color 0.12s; }
+.dct-tab-ico { display: inline-flex; color: var(--hub, var(--dc-accent)); }
+.dct-tab:hover { border-color: #fff; color: #fff; background: color-mix(in srgb, var(--hub, var(--dc-accent)) 28%, var(--dc-glass)); transform: translateY(-1px); }
+.dct-tab.on, .dct-tab.active { color: var(--dc-void); background: #fff; border-color: var(--dc-accent); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.15); }
+.dct-tab.on .dct-tab-ico, .dct-tab.active .dct-tab-ico { color: var(--dc-void); }
+.dct-tab:focus-visible, .dct-learn:focus-visible { outline: 3px solid var(--dc-accent); outline-offset: 2px; }
+.dct-tab::after, .dct-tab::before { display: none !important; }
+/* The Academy pill at the end of a tab row: the lesson for the tab on show. */
+.dct-learn { display: inline-flex; align-items: center; gap: 7px; flex: none; margin-left: auto; min-height: 40px; padding: 6px 16px 6px 12px; border-radius: 999px; text-decoration: none;
+  border: 2px solid rgba(245, 197, 24, 0.6); background: rgba(245, 197, 24, 0.12); color: var(--dc-x); font-family: var(--font-chrome); font-weight: 900; font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase; }
+.dct-learn > span:first-child { display: inline-flex; }
+.dct-learn:hover { background: var(--dc-x); color: var(--dc-void); border-color: #fff; }
+
+.dct-title { display: flex; flex-direction: row; align-items: center; gap: 10px; min-width: 0; }
+.dct-title-ico { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex: none; border-radius: 50%;
+  color: var(--dc-void); background: var(--hub, var(--dc-accent)); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.22), 0 0 0 3px color-mix(in srgb, var(--hub, var(--dc-accent)) 30%, transparent); }
+.btn.dct-iconbtn { display: inline-flex; align-items: center; justify-content: center; width: 40px; min-width: 40px; height: 40px; min-height: 40px; padding: 0; border-radius: 50%; }
+.btn.dct-iconbtn .ico { display: block; }
+.dct-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 12px; border-radius: 999px; white-space: nowrap;
+  border: 2px solid rgba(143, 168, 255, 0.4); background: rgba(255, 255, 255, 0.06); color: var(--text-hint); font-family: var(--font-chrome); font-weight: 900; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; }
+.dct-chip > span:first-child { display: inline-flex; color: var(--hub, var(--dc-accent)); }
+.dct-chip-ico { display: inline-flex; color: var(--hub, var(--dc-accent)); }
+
+/* A number and its picture. The picture's colour says the kind: alpha gold, power cyan, fuel orange. */
+.dct-num { display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-chrome); font-weight: 900; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dct-num-ico, .eco-tile-ico { display: inline-flex; flex: none; color: var(--accent-secondary); }
+.dct-num.k-alpha .dct-num-ico, .eco-tile-ico.k-alpha { color: var(--dc-x); }
+.dct-num.k-power .dct-num-ico, .eco-tile-ico.k-power { color: var(--accent-primary); }
+.dct-num.k-fuel .dct-num-ico, .eco-tile-ico.k-fuel { color: var(--dc-accent); }
+
+/* Empty states: a picture, two to four words and one verb. */
+.dct-blank { display: flex; align-items: center; gap: 14px; padding: 12px 14px 12px 12px; border-radius: 24px; min-width: 0;
+  border: 2px solid color-mix(in srgb, var(--hub, var(--dc-accent)) 55%, transparent); background: color-mix(in srgb, var(--hub, var(--dc-accent)) 12%, rgba(11, 18, 64, 0.85));
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.1); }
+.dct-blank-ico { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; flex: none; border-radius: 50%;
+  color: var(--hub, var(--dc-accent)); background: rgba(255, 255, 255, 0.08); }
+.dct-blank-words { flex: 1; min-width: 0; font-family: var(--font-chrome); font-weight: 900; font-size: 18px; letter-spacing: 0.04em; text-transform: uppercase; color: #fff; }
+.dct-blank .btn { flex: none; min-height: 40px; padding: 8px 20px; font-size: 15px; }
+.pane-empty.dct-empty { padding: 14px 12px; border-radius: 16px; border: 2px dashed rgba(143, 168, 255, 0.3); color: var(--text-hint);
+  font-family: var(--font-chrome); font-weight: 900; font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase; }
+.vault-alert.dct-alert { gap: 10px; padding: 6px 8px 6px 16px; border-radius: 999px; border: 2px solid rgba(245, 197, 24, 0.55); background: rgba(245, 197, 24, 0.1); box-shadow: none;
+  font-family: var(--font-chrome); font-weight: 900; font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--dc-x); }
+.vault-alert .dct-alert-ico { display: inline-flex; }
+.vault-alert.dct-alert .btn { min-height: 34px; padding: 6px 16px; font-size: 13px; }
+
+/* ── Economy: the console ───────────────────────────────────────────────── */
+.economy .eco-frame.dct-frame { border-radius: 26px; border: 3px solid color-mix(in srgb, var(--hub) 60%, transparent); background: rgba(11, 18, 64, 0.93);
+  backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12), 0 24px 60px -20px rgba(0, 0, 20, 0.9); overflow: hidden; }
+.economy .eco-frame.dct-frame::before, .economy .eco-frame.dct-frame::after { display: none; }
+.economy .dct-frame .eco-head { padding: 12px 16px 10px; border-bottom: 0; background: none; gap: 12px; }
+.economy .dct-frame .eco-title.dct-title { flex-direction: row; gap: 10px; }
+.economy .dct-frame .eco-tabs.dct-tabs { border-bottom: 0; padding: 2px 14px 12px; gap: 8px; }
+.economy .dct-frame .eco-mark { font-family: var(--font-chrome); font-weight: 900; font-size: 28px; line-height: 1; letter-spacing: 0.04em; text-transform: uppercase; color: #fff;
+  background: none; -webkit-text-fill-color: currentColor; filter: none; text-shadow: 0 3px 0 var(--dc-deep); }
+.economy .dct-frame .eco-actor { gap: 8px; }
+.economy .dct-frame .eco-actor .eco-select { min-height: 36px; border-radius: 999px; padding: 4px 12px; font-size: 13px; }
+.economy .dct-frame .eco-actor-sum { gap: 10px; font-size: 14px; }
+.economy .dct-frame .eco-status { font-family: var(--font-chrome); font-weight: 900; font-size: 13px; letter-spacing: 0.03em; }
+.economy .dct-frame .etab.dct-tab { padding: 6px 16px 6px 12px; font-size: 14px; letter-spacing: 0.04em; color: #fff; }
+.economy .dct-frame .etab.dct-tab.on { color: var(--dc-void); background: #fff; text-shadow: none; }
+.economy .dct-frame .etab.dct-tab:hover { color: #fff; }
+.economy .dct-frame .etab.dct-tab.on:hover { color: var(--dc-void); background: #fff; }
+.economy .dct-frame .eco-scroll { padding: 4px 16px 24px; }
+.economy .dct-frame .eco-alerthost:not(:empty) { margin-bottom: 12px; }
+.economy .dct-frame .eco-loading { font-family: var(--font-chrome); font-weight: 900; font-size: 20px; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; }
+.economy .dct-frame .eco-cta { padding: 0; border: 0; background: none; box-shadow: none; }
+
+/* Sections: rounded glass, an icon and a word in the head. */
+.economy .dct-frame .eco-sec { overflow: hidden; }
+.economy .dct-frame .eco-sec-head { padding: 10px 14px; border-bottom: 2px solid rgba(110, 140, 240, 0.22); background: rgba(255, 255, 255, 0.05); }
+.economy .dct-frame .eco-sec-name { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.economy .dct-frame .eco-sec-ico { display: inline-flex; color: var(--hub); flex: none; }
+.economy .dct-frame .eco-sec.player .eco-sec-ico { color: var(--accent-primary); }
+.economy .dct-frame .eco-sec.enemy .eco-sec-ico { color: var(--accent-destructive); }
+.economy .dct-frame .eco-sec.neutral .eco-sec-ico { color: var(--dc-x); }
+.economy .dct-frame .eco-sec-title { font-weight: 900; font-size: 16px; letter-spacing: 0.04em; color: #fff; }
+.economy .dct-frame .eco-sec.player .eco-sec-title, .economy .dct-frame .eco-sec.enemy .eco-sec-title, .economy .dct-frame .eco-sec.neutral .eco-sec-title { color: #fff; }
+.economy .dct-frame .eco-sec-body { padding: 12px 14px; }
+
+/* Tiles: the number big, its icon beside it, one or two words under it. */
+.economy .dct-frame .eco-tiles { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.economy .dct-frame .eco-tile { padding: 10px 14px; border-radius: 18px; border: 2px solid rgba(110, 140, 240, 0.4); background: var(--dc-glass);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12), inset 0 -4px 0 rgba(0, 0, 0, 0.2); gap: 2px; }
+.economy .dct-frame .eco-tile::before { display: none; }
+.economy .dct-frame .eco-tile.player { border-color: rgba(41, 224, 255, 0.55); }
+.economy .dct-frame .eco-tile.enemy { border-color: rgba(255, 61, 90, 0.6); }
+.economy .dct-frame .eco-tile.warn, .economy .dct-frame .eco-tile.neutral { border-color: rgba(245, 197, 24, 0.55); }
+.economy .dct-frame .eco-tile .eco-big { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-chrome); font-weight: 900; font-size: 24px; line-height: 28px; color: #fff; filter: none; }
+.economy .dct-frame .eco-tile.player .eco-big, .economy .dct-frame .eco-tile.enemy .eco-big, .economy .dct-frame .eco-tile.warn .eco-big, .economy .dct-frame .eco-tile.neutral .eco-big { color: #fff; }
+.economy .dct-frame .eco-tile .t-label { font-size: 12px; letter-spacing: 0.06em; }
+.economy .dct-frame .eco-big { font-family: var(--font-chrome); font-weight: 900; filter: none; }
+.economy .dct-frame .eco-num { font-family: var(--font-chrome); font-weight: 900; }
+.economy .dct-frame .eco-id { font-family: var(--font-chrome); font-weight: 900; font-size: 13px; letter-spacing: 0.02em; }
+
+/* Meters: rounded, cut into cells. */
+.economy .dct-frame .eco-meter { height: 14px; border-radius: 999px; border: 2px solid rgba(120, 150, 255, 0.35); background: rgba(0, 0, 0, 0.35); box-shadow: none; }
+.economy .dct-frame .eco-meter::after { background: repeating-linear-gradient(90deg, transparent 0 9px, rgba(7, 11, 44, 0.7) 9px 11px); }
+.economy .dct-frame .eco-meter > i + i { border-left: 0; }
+.economy .dct-frame .eco-meter .own, .economy .dct-frame .eco-legend .own { background: var(--accent-primary); box-shadow: none; }
+.economy .dct-frame .eco-meter .share, .economy .dct-frame .eco-legend .share { background: rgba(41, 224, 255, 0.45); }
+.economy .dct-frame .eco-meter .alloc, .economy .dct-frame .eco-legend .alloc { background: var(--dc-x); }
+.economy .dct-frame .eco-meter .structs, .economy .dct-frame .eco-legend .structs { background: var(--accent-secondary); }
+.economy .dct-frame .eco-gauge-row .eco-meter { height: 20px; }
+.economy .dct-frame .eco-gauge-row { grid-template-columns: 34px minmax(0, 1fr) 84px; }
+.economy .dct-frame .eco-gauge-ico { display: inline-flex; justify-content: center; }
+.economy .dct-frame .eco-gauge-v { font-family: var(--font-chrome); font-weight: 900; font-size: 15px; }
+.economy .dct-frame .eco-legend i { border-radius: 50%; }
+
+/* Economy's and Intel's tab buttons carry their old classes (.etab, .itab) whose screen CSS
+ * outweighs .dct-tab: the whole pill is restated at their weight. */
+.economy .dct-frame .etab.dct-tab, .intel .dct-frame .itab.dct-tab { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; border-radius: 999px;
+  border: 2px solid rgba(110, 140, 240, 0.45); background: var(--dc-glass); box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12), inset 0 -3px 0 rgba(0, 0, 0, 0.25);
+  font-family: var(--font-chrome); font-weight: 900; text-transform: uppercase; }
+.economy .dct-frame .etab.dct-tab:hover, .intel .dct-frame .itab.dct-tab:hover { border-color: #fff; background: color-mix(in srgb, var(--hub) 28%, var(--dc-glass)); }
+.economy .dct-frame .etab.dct-tab.on, .intel .dct-frame .itab.dct-tab.on { border-color: var(--dc-accent); background: #fff; box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.15); }
+.economy .dct-frame .etab.dct-tab::after, .intel .dct-frame .itab.dct-tab::after { display: none; }
+
+/* The power hero: the state as a big word, the headroom as a huge number. */
+.economy .dct-frame .eco-hero { border-radius: 24px; background: var(--dc-glass); border: 3px solid rgba(41, 224, 255, 0.55); }
+.economy .dct-frame .eco-hero.warn { background: color-mix(in srgb, var(--dc-x) 10%, var(--dc-glass)); border-color: rgba(245, 197, 24, 0.6); }
+.economy .dct-frame .eco-hero.enemy { background: color-mix(in srgb, var(--accent-destructive) 14%, var(--dc-glass)); border-color: rgba(255, 61, 90, 0.7); }
+.economy .dct-frame .eco-hero-state { font-family: var(--font-chrome); font-weight: 900; font-size: 26px; letter-spacing: 0.04em; line-height: 1.1; }
+.economy .dct-frame .eco-huge { font-family: var(--font-chrome); font-weight: 900; font-size: 40px; line-height: 1; text-shadow: 0 4px 0 var(--dc-deep); display: inline-flex; align-items: center; gap: 8px; }
+.economy .dct-frame .eco-risk { font-size: 13px; }
+.economy .dct-frame .eco-risk b { color: var(--dc-x); font-weight: 900; }
+
+/* Lists, items, cards. */
+.economy .dct-frame .eco-item { border-radius: 16px; border: 2px solid rgba(110, 140, 240, 0.32); background: rgba(255, 255, 255, 0.04); }
+.economy .dct-frame .eco-item.home, .economy .dct-frame .eco-card.home { border-color: rgba(41, 224, 255, 0.6); background: rgba(41, 224, 255, 0.08); }
+.economy .dct-frame .eco-line { border-radius: 12px; border-bottom: 0; padding: 6px 8px; }
+.economy .dct-frame .eco-line:nth-child(odd) { background-color: rgba(255, 255, 255, 0.03); }
+.economy .dct-frame .eco-line.enemy { border-left: 0; background: rgba(255, 61, 90, 0.12); }
+.economy .dct-frame .eco-line.warn { border-left: 0; background: rgba(245, 197, 24, 0.1); }
+.economy .dct-frame .eco-ord { width: 22px; height: 22px; border-radius: 50%; background: rgba(255, 255, 255, 0.12); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 900; }
+.economy .dct-frame .eco-cards { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.economy .dct-frame .eco-card { border-radius: 20px; border: 2px solid rgba(110, 140, 240, 0.4); background: var(--dc-glass); padding: 12px 14px;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12), inset 0 -4px 0 rgba(0, 0, 0, 0.2); }
+.economy .dct-frame .eco-card:hover { border-color: #fff; box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.14), inset 0 -4px 0 rgba(0, 0, 0, 0.2); }
+.economy .dct-frame .eco-card.broken::before, .economy .dct-frame .eco-card.offer::before { display: none; }
+.economy .dct-frame .eco-card.broken { border-color: rgba(255, 61, 90, 0.5); }
+.economy .dct-frame .eco-card .t-label-lg { font-weight: 900; color: #fff; }
+.economy .dct-frame .eco-price { align-items: center; }
+.economy .dct-frame .eco-price .eco-big { display: inline-flex; align-items: center; gap: 6px; font-size: 28px; line-height: 32px; text-shadow: 0 3px 0 var(--dc-deep); }
+.economy .dct-frame .eco-price .eco-per { font-family: var(--font-chrome); font-weight: 900; font-size: 13px; color: var(--text-hint); }
+/* Icon key/values: three numbers in a row, each with its picture. */
+.dct-stats { display: flex; flex-wrap: wrap; gap: 6px 14px; color: #fff; font-size: 14px; }
+.dct-stats .dct-num-ico { color: var(--hub, var(--accent-secondary)); }
+.dct-stats .c-enemy { color: var(--accent-destructive); }
+.economy .dct-frame .eco-row-acts { gap: 6px; }
+.economy .dct-frame .eco-row-acts .btn.mini, .economy .dct-frame .eco-sec .btn.mini, .economy .dct-frame .eco-form .btn.mini { min-height: 32px; padding: 5px 14px; font-size: 12px; }
+.economy .dct-frame .eco-table .eco-tr { border-bottom: 0; border-radius: 12px; padding: 8px 10px; font-size: 13px; }
+.economy .dct-frame .eco-table .eco-tr:nth-child(even) { background: rgba(255, 255, 255, 0.04); }
+.economy .dct-frame .eco-tr.head { color: var(--text-hint); }
+.economy .dct-frame .eco-tr.head .ico { color: var(--hub); }
+.economy .dct-frame .eco-tr .dct-num-ico { color: var(--accent-primary); }
+
+/* Banks. */
+.economy .dct-frame .eco-bank { border-radius: 22px; background: var(--dc-glass); border: 2px solid rgba(245, 197, 24, 0.4); }
+.economy .dct-frame .eco-bank.home { border-color: var(--dc-x); box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12); }
+.economy .dct-frame .eco-bank-name { font-weight: 900; font-size: 17px; letter-spacing: 0.04em; color: #fff; }
+.economy .dct-frame .eco-bank-unit { font-weight: 900; font-size: 20px; color: var(--dc-x); text-shadow: none; }
+.economy .dct-frame .eco-ratio { border-radius: 999px; border: 2px solid rgba(245, 197, 24, 0.35); background: rgba(0, 0, 0, 0.25); padding: 6px 14px; align-items: center; }
+.economy .dct-frame .eco-ratio .eco-big { font-size: 24px; color: #fff; }
+
+/* Forms: short labels; what each field means is its hover. */
+.economy .dct-frame .eco-form { border-radius: 18px; border: 2px dashed rgba(41, 224, 255, 0.45); background: rgba(41, 224, 255, 0.06); }
+.economy .dct-frame .eco-labeled .t-label { font-size: 12px; letter-spacing: 0.06em; }
+.economy .dct-frame .eco-input, .economy .dct-frame .eco-select { min-height: 36px; border-radius: 12px; font-size: 14px; }
+.economy .dct-frame .eco-field .input { border-radius: 12px 0 0 12px; }
+.economy .dct-frame .eco-unit { border-radius: 0 12px 12px 0; border: 2px solid rgba(120, 150, 255, 0.45); border-left: 0; background: rgba(255, 255, 255, 0.08); font-weight: 900; letter-spacing: 0.04em; }
+.economy .dct-frame .eco-preview { font-size: 13px; }
+.economy .dct-frame .eco-filters .btn.active { color: var(--dc-void); background: #fff; border-color: var(--dc-accent); }
+.economy .dct-frame .eco-rung { border-radius: 14px; border: 2px solid rgba(110, 140, 240, 0.3); background: rgba(255, 255, 255, 0.04); }
+.economy .dct-frame .eco-rung .eco-num { font-size: 16px; }
+
+@media (max-width: 720px) {
+  .economy .eco-frame.dct-frame { border-radius: 0; border-width: 0; }
+  .economy .dct-frame .eco-head { padding: 8px 12px; }
+  /* One header row on the TV and phones while just looking (title, chip, refresh); with a
+   * commander to pick, the picker and its numbers take a row of their own. */
+  .economy .dct-frame .eco-actor:not(:has(select)) { order: 0; flex: 1 1 auto; min-width: 0; margin-left: auto; justify-content: flex-end; }
+  .economy .dct-frame .eco-headtools { margin-left: 0; flex: none; }
+  .economy .dct-frame .eco-status { max-width: 34vw; overflow: hidden; text-overflow: ellipsis; }
+  .economy .dct-frame .eco-mark { font-size: 22px; }
+  .dct-title-ico { width: 36px; height: 36px; }
+  .dct-title-ico .ico { width: 20px; height: 20px; }
+  /* Phones and the TV: the tab on show keeps its word, the others are pictures. A pill whose
+   * picture is only a colour (a guild's dot) keeps its word. */
+  .dct-tabs { gap: 6px; padding: 2px 10px 8px; }
+  .dct-tab { padding: 6px 10px; justify-content: center; min-width: 44px; }
+  .dct-tab:not(.on):not(.active) > .dct-tab-ico + .dct-word { display: none; }
+  .dct-learn { padding: 6px 10px; min-width: 44px; justify-content: center; }
+  .dct-learn > span:last-child { display: none; }
+  .economy .dct-frame .etab.dct-tab { padding: 6px 10px; }
+  .economy .dct-frame .eco-tabs.dct-tabs { justify-content: flex-start; padding: 2px 10px 8px; gap: 6px; }
+  .economy .dct-frame .eco-scroll { padding: 2px 10px 20px; }
+  .economy .dct-frame .eco-tile .eco-big { font-size: 20px; line-height: 24px; }
+  .economy .dct-frame .eco-huge { font-size: 30px; }
+  .economy .dct-frame .eco-hero-state { font-size: 20px; }
+  .dct-blank { flex-wrap: wrap; border-radius: 20px; }
+  .dct-blank-words { font-size: 16px; }
+  .economy .dct-frame .eco-row-acts .btn.mini, .economy .dct-frame .eco-sec .btn.mini, .economy .dct-frame .eco-form .btn.mini { min-height: 40px; }
+}
+.economy .dct-frame .eco-eq { font-family: var(--font-chrome); font-weight: 900; font-size: 20px; color: var(--text-hint); }
+.economy .dct-frame .eco-ratio { flex-wrap: nowrap; gap: 6px; min-width: 0; overflow: hidden; }
+.economy .dct-frame .eco-ratio .eco-big { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font-size: 22px; line-height: 28px; }
+.economy .dct-frame .eco-ratio .eco-bank-unit { font-size: 18px; }
+.economy .dct-frame .eco-ratio .dct-num { font-size: 22px; }
+.economy .dct-frame .eco-ratio .dct-num-ico .ico { width: 20px; height: 20px; }
+.economy .dct-frame .eco-coin .dct-num { font-size: 15px; }
+
+/* ── Guild Hall: pills, the guild's card, a page of faces ───────────────── */
+.ops-wrap.dct-guild.panel { border-radius: 26px; border: 3px solid color-mix(in srgb, var(--hub) 60%, transparent); --panel-tint: rgba(11, 18, 64, 0.93); overflow: hidden; }
+.dct-guild .panel-head.dct-guild-head { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 0; background: none; }
+.dct-guild-head .dct-title-ico { width: 40px; height: 40px; }
+.dct-guild .ops-nav.dct-tabs { flex: 1; min-width: 0; flex-wrap: nowrap; padding: 2px 0; }
+.dct-guild .ops-nav .btn.dct-tab { min-height: 40px; padding: 6px 16px 6px 12px; font-size: 14px; border-radius: 999px; border: 2px solid rgba(110, 140, 240, 0.45); background: var(--dc-glass); color: #fff;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12), inset 0 -3px 0 rgba(0, 0, 0, 0.25); }
+.dct-guild .ops-nav .btn.dct-tab:hover { border-color: #fff; background: color-mix(in srgb, var(--hub) 28%, var(--dc-glass)); }
+.dct-guild .ops-nav .btn.dct-tab.active { color: var(--dc-void); background: #fff; border-color: var(--dc-accent); }
+.dct-gdot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; flex: none; background: var(--gc); box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25); }
+.dct-guild .ops-page { padding: 4px 14px 14px; gap: 12px; }
+
+.foundry.dct-ghero { border-radius: 22px; border: 2px solid color-mix(in srgb, var(--hub) 60%, transparent); background: color-mix(in srgb, var(--hub) 16%, var(--dc-glass)); padding: 14px 18px; }
+.dct-ghero .t-display { font-size: 26px; line-height: 1.1; color: #fff; }
+.dct-motto { font-size: 13px; color: var(--text-hint); }
+.dct-gstats { gap: 18px; align-items: center; }
+.dct-gstats .dct-num { font-size: 18px; color: #fff; text-decoration: none; }
+.dct-gstats .dct-num-ico { color: var(--hub); }
+.dct-leader .dct-num-ico { color: var(--dc-x); }
+.dct-leader:hover { color: var(--dc-x); }
+.dct-gacts .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; }
+.dct-gacts .btn > span:first-child { display: inline-flex; }
+.dct-desk { padding: 12px; display: flex; flex-direction: column; gap: 8px; border-radius: 20px; }
+.dct-desk .rep { border-radius: 16px; border: 2px solid rgba(110, 140, 240, 0.3); }
+.dct-guild .ops-bar .dct-chip-ico { padding: 0 4px; }
+.dct-guild .input.mini-select { min-height: 38px; border-radius: 999px; padding: 6px 14px; }
+.dct-rbar { gap: 10px; }
+.dct-rbar > .t-label { font-size: 14px; color: #fff; }
+.dct-pager { display: inline-flex; align-items: center; gap: 6px; }
+.dct-pager-n { font-family: var(--font-chrome); font-weight: 900; font-size: 16px; min-width: 52px; text-align: center; color: #fff; }
+
+.guild-roster.dct-roster { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.dct-member { position: relative; border-radius: 20px; border: 2px solid rgba(110, 140, 240, 0.4); background: var(--dc-glass);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12), inset 0 -4px 0 rgba(0, 0, 0, 0.2); transition: transform 0.12s, border-color 0.12s; min-width: 0; }
+.dct-member:hover, .dct-member:focus-within { border-color: #fff; transform: translateY(-2px); }
+.dct-member.me { border-color: var(--accent-primary); }
+.dct-member-link { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 8px 12px; min-height: 132px; color: #fff; text-decoration: none; border-radius: 18px; }
+.dct-member-link:focus-visible { outline: 3px solid var(--dc-accent); outline-offset: 2px; }
+.dct-member .pfp { width: 64px; height: 64px; border-radius: 18px; border-width: 2px; }
+.dct-member-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-chrome); font-weight: 900; font-size: 14px; letter-spacing: 0.03em; text-transform: uppercase; }
+.dct-rank { display: inline-flex; align-items: center; gap: 3px; padding: 1px 9px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); color: var(--text-hint);
+  font-family: var(--font-chrome); font-weight: 900; font-size: 13px; }
+.dct-rank > span { display: inline-flex; color: var(--hub); }
+.dct-rank.lead { background: rgba(245, 197, 24, 0.16); color: var(--dc-x); }
+.dct-rank.lead > span { color: var(--dc-x); }
+.dct-member-acts { display: flex; gap: 4px; justify-content: center; padding: 0 8px 10px; }
+.dct-member-acts .btn.mini { min-height: 30px; padding: 4px 10px; }
+.dct-guild .guild-empty.dct-blank { margin: 24px auto; max-width: 560px; flex-direction: row; align-items: center; padding: 12px 14px 12px 12px; border-radius: 24px; }
+.dct-guild .vault-alert.dct-alert { align-self: flex-start; }
+
+@media (max-width: 720px) {
+  .ops-wrap.dct-guild.panel { border-radius: 18px; border-width: 2px; }
+  .dct-guild .panel-head.dct-guild-head { padding: 8px 10px; gap: 8px; }
+  .dct-guild-head .dct-title-ico { display: none; }
+  .dct-guild .ops-nav.dct-tabs { overflow-x: auto; gap: 6px; }
+  .dct-guild .ops-nav .btn.dct-tab { padding: 6px 10px; }
+  .dct-guild .ops-page { padding: 2px 10px 12px; }
+  .dct-ghero .t-display { font-size: 20px; }
+  .dct-gacts { flex-direction: row; flex-wrap: wrap; }
+  .guild-roster.dct-roster { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+  .dct-member-link { min-height: 104px; padding: 10px 6px 8px; }
+  .dct-member .pfp { width: 48px; height: 48px; }
+  .dct-rbar .input.mini-select { flex: 1 1 100%; }
+  .dct-member-acts .btn.mini { min-height: 40px; }
+}
+
+/* ── Intel (News & Rankings): the console, icon pills, tiles with pictures ─ */
+.intel .intel-frame.dct-frame { border-radius: 26px; border: 3px solid color-mix(in srgb, var(--hub) 60%, transparent); background: rgba(11, 18, 64, 0.93);
+  backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12), 0 24px 60px -20px rgba(0, 0, 20, 0.9); overflow: hidden; }
+.intel .intel-frame.dct-frame::before, .intel .intel-frame.dct-frame::after { display: none; }
+.intel .dct-frame .intel-head { padding: 12px 16px 10px; border-bottom: 0; background: none; gap: 12px; }
+.intel .dct-frame .intel-title.dct-title { flex-direction: row; gap: 10px; }
+.intel .dct-frame .intel-mark { font-family: var(--font-chrome); font-weight: 900; font-size: 28px; line-height: 1; letter-spacing: 0.04em; text-transform: uppercase; color: #fff;
+  background: none; -webkit-text-fill-color: currentColor; filter: none; text-shadow: 0 3px 0 var(--dc-deep); }
+.intel .dct-frame .uplink { border-radius: 999px; border-width: 2px; }
+.intel .dct-frame .input.source { border-radius: 999px; min-height: 34px; }
+.intel .dct-frame .intel-tabs.dct-tabs { border-bottom: 0; padding: 2px 14px 12px; gap: 8px; }
+.intel .dct-frame .itab.dct-tab { padding: 6px 16px 6px 12px; font-size: 14px; letter-spacing: 0.04em; color: #fff; text-shadow: none; }
+.intel .dct-frame .itab.dct-tab.on { color: var(--dc-void); background: #fff; }
+.intel .dct-frame .itab.dct-tab:hover { color: #fff; }
+.intel .dct-frame .itab.dct-tab.on:hover { color: var(--dc-void); background: #fff; }
+.intel .dct-frame .itab.dct-tab::after { display: none; }
+.intel .dct-frame .itab-live { width: 8px; height: 8px; color: var(--accent-destructive); }
+.intel .dct-frame .intel-scroll { padding: 4px 16px 24px; }
+
+.intel .dct-frame .isec-head { gap: 8px; color: #fff; }
+.intel .dct-frame .isec-head .t-label-lg { font-weight: 900; font-size: 16px; letter-spacing: 0.04em; }
+.intel .dct-frame .isec-head::after { height: 2px; border-radius: 2px; background: rgba(148, 164, 228, 0.25); }
+.intel .dct-frame .isec-ico { display: inline-flex; color: var(--hub); flex: none; }
+.intel .dct-frame .tiles { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.intel .dct-frame .itile { padding: 10px 14px; border-radius: 18px; border: 2px solid rgba(110, 140, 240, 0.4); background: var(--dc-glass);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12), inset 0 -4px 0 rgba(0, 0, 0, 0.2); }
+.intel .dct-frame .itile::before { display: none; }
+.intel .dct-frame .itile.player { border-color: rgba(41, 224, 255, 0.55); }
+.intel .dct-frame .itile.enemy { border-color: rgba(255, 61, 90, 0.6); }
+.intel .dct-frame .itile.warn { border-color: rgba(245, 197, 24, 0.55); }
+.intel .dct-frame .itile-v { display: flex; align-items: center; gap: 6px; margin: 0; font-family: var(--font-chrome); font-weight: 900; font-size: 24px; line-height: 28px; color: #fff; filter: none; }
+.intel .dct-frame .itile.player .itile-v, .intel .dct-frame .itile.enemy .itile-v, .intel .dct-frame .itile.warn .itile-v { color: #fff; }
+.intel .dct-frame .itile-ico { display: inline-flex; flex: none; color: var(--hub); }
+.intel .dct-frame .itile.enemy .itile-ico { color: var(--accent-destructive); }
+.intel .dct-frame .itile.player .itile-ico { color: var(--accent-primary); }
+.intel .dct-frame .itile.warn .itile-ico { color: var(--dc-x); }
+.intel .dct-frame .itile .t-label { font-weight: 900; font-size: 12px; letter-spacing: 0.06em; margin-top: 2px; }
+.intel .dct-frame .iloading { font-family: var(--font-chrome); font-weight: 900; font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase; }
+.intel .dct-frame .iquiet { padding: 12px; border-radius: 16px; border: 2px dashed rgba(143, 168, 255, 0.3); text-align: center;
+  font-family: var(--font-chrome); font-weight: 900; font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase; }
+.intel .dct-frame .ierror { border-radius: 16px; border-width: 2px; }
+.intel .dct-frame .ierror.dct-locked { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; padding: 6px 16px 6px 12px; border-radius: 999px;
+  border: 2px solid rgba(245, 197, 24, 0.5); background: rgba(245, 197, 24, 0.1); color: var(--dc-x); }
+.intel .dct-frame .ierror.dct-locked > span:first-child { display: inline-flex; }
+.intel .dct-frame .ierror.dct-locked .t-label { color: var(--dc-x); font-weight: 900; font-size: 13px; letter-spacing: 0.04em; }
+.intel .dct-frame .ierror.dct-locked .x-only { color: var(--text-hint); }
+
+/* Activity: the feed in a rounded well; pause and clear are round glyph buttons. */
+.intel .dct-frame .afilter { border-radius: 999px; min-height: 40px; padding: 6px 16px; }
+.intel .dct-frame .apause { font-size: 14px; letter-spacing: -0.05em; }
+.intel .dct-frame .apause.wide { width: auto; min-width: 40px; padding: 0 14px; gap: 6px; border-radius: 999px; letter-spacing: 0; }
+.intel .dct-frame .apause.active { color: var(--dc-void); background: #fff; border-color: var(--dc-accent); }
+.intel .dct-frame .achip { min-height: 34px; padding: 4px 12px; border-radius: 999px; border-width: 2px; font-family: var(--font-chrome); font-weight: 900; font-size: 13px; letter-spacing: 0.04em; }
+.intel .dct-frame .achip i { width: 10px; height: 10px; border-radius: 50%; border-width: 2px; }
+.intel .dct-frame .achip.on i { box-shadow: none; }
+.intel .dct-frame .achip .num { font-family: var(--font-chrome); font-weight: 900; font-size: 13px; }
+.intel .dct-frame .alist { border-radius: 20px; border: 2px solid rgba(110, 140, 240, 0.35); background: rgba(5, 9, 40, 0.55); }
+.intel .dct-frame .aempty.dct-blank { margin: 14px; border-radius: 22px; }
+.intel .dct-frame .arow { border-bottom: 1px solid rgba(110, 140, 240, 0.15); }
+.intel .dct-frame .arow .atag { font-weight: 900; letter-spacing: 0.06em; font-size: 12px; }
+.dct-more { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; }
+.dct-more > span:first-child { display: inline-flex; }
+
+/* Guild cards and boards. */
+.intel .dct-frame .gcard { border-radius: 22px; border-width: 2px; background: color-mix(in srgb, var(--gc) 10%, var(--dc-glass)); }
+.intel .dct-frame .gcard::after { display: none; }
+.intel .dct-frame .gcard:hover { border-color: #fff; }
+.intel .dct-frame .gcard-name { font-weight: 900; font-size: 17px; letter-spacing: 0.04em; }
+.intel .dct-frame .gcard-stats { border-top: 0; padding-top: 0; }
+.intel .dct-frame .gcard-stats > div { display: flex; align-items: center; gap: 6px; }
+.intel .dct-frame .gcard-stats .num { font-family: var(--font-chrome); font-weight: 900; font-size: 16px; }
+.intel .dct-frame .gcard-stats .dct-num-ico { color: var(--gc); }
+.intel .dct-frame .gcard-stats .dct-num-ico.k-power { color: var(--accent-primary); }
+.intel .dct-frame .gcard-stats .dct-num-ico.k-fuel { color: var(--dc-accent); }
+.intel .dct-frame .glogo { border-radius: 14px; border-width: 2px; }
+.intel .dct-frame .chart-card, .intel .dct-frame .lb-card { border-radius: 20px; border: 2px solid rgba(110, 140, 240, 0.35); }
+.intel .dct-frame .chart-card > .t-label { font-weight: 900; color: #fff; }
+.intel .dct-frame .subtabs .btn.active { color: var(--dc-void); background: #fff; border-color: var(--dc-accent); }
+
+@media (max-width: 720px) {
+  .intel .intel-frame.dct-frame { border-radius: 0; border-width: 0; }
+  .intel .dct-frame .intel-head { padding: 8px 12px; }
+  .intel .dct-frame .intel-mark { font-size: 22px; letter-spacing: 0.04em; }
+  .intel .dct-frame .intel-tabs.dct-tabs { padding: 2px 10px 8px; gap: 6px; }
+  .intel .dct-frame .itab.dct-tab { padding: 6px 10px; }
+  .intel .dct-frame .intel-scroll { padding: 2px 10px 20px; }
+  .intel .dct-frame .itile-v { font-size: 20px; line-height: 24px; }
+}
+.intel .dct-frame .chip.dct-svc { display: inline-flex; align-items: center; gap: 5px; }
+.intel .dct-frame .chip.dct-svc > span { display: inline-flex; }
+.intel .dct-frame .chip.dct-svc.off { opacity: 0.45; text-decoration: line-through; }
+.intel .dct-frame .gcard-stats { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.intel .dct-frame .gcard-stats .num { white-space: nowrap; }
+.dct-state { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; flex: none; border-radius: 50%; color: var(--dc-void); }
+.dct-state.on { background: var(--dc-y); }
+.dct-state.off { background: var(--accent-destructive); color: #fff; }
+.intel .dct-frame .arow a.id-link { padding: 3px 0; }
+@media (max-width: 720px) {
+  .dct-guild .dct-leader { min-height: 40px; }
+  .dct-guild .input.mini-select { min-height: 40px; }
+  .intel .dct-frame .achip { min-height: 40px; }
+  .intel .dct-frame .arow a.id-link { padding: 11px 0; }
+}
+.intel .intel-frame.dct-frame { top: 10px; bottom: 12px; }
+.intel .dct-frame .arow a.id-link { border-bottom: 0; text-decoration: underline dotted rgba(158, 239, 255, 0.45); text-underline-offset: 3px; }
+@media (max-width: 720px) { .intel .intel-frame.dct-frame { top: 0; bottom: 0; } }
+.economy .dct-frame .eco-range { height: 28px; }
+.dct-policy { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; flex: none; border-radius: 50%; border: 2px solid currentColor; background: rgba(255, 255, 255, 0.06); color: var(--text-hint); }
+.dct-policy.player { color: var(--dc-y); }
+.dct-policy.neutral { color: var(--dc-x); }
+.dct-policy.enemy { color: var(--accent-destructive); }
+@media (max-width: 720px) { .economy .dct-frame .eco-input { min-height: 40px; } }
+.economy .dct-frame .btn.dct-x { min-width: 32px; padding-left: 10px; padding-right: 10px; }
+@media (max-width: 720px) {
+  .intel .dct-frame .subtabs .btn.mini, .intel .dct-frame .bar-row.link { min-height: 40px; }
+}
+
+/* The Guild Hall's lobby (no guild yet): a card per guild to look inside, console-menu style. */
+.dct-guild .dct-blank.guild-empty { margin: 4px 0 0; max-width: none; }
+.dct-gcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.dct-gcard { appearance: none; position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px 12px 12px; min-height: 176px; cursor: pointer; color: #fff; text-align: center;
+  border-radius: 22px; border: 2px solid color-mix(in srgb, var(--gc) 55%, transparent); background: color-mix(in srgb, var(--gc) 14%, var(--dc-glass));
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12), inset 0 -4px 0 rgba(0, 0, 0, 0.22); transition: transform 0.12s, border-color 0.12s, background-color 0.12s; }
+.dct-gcard::before { content: ''; position: absolute; left: 18px; right: 18px; top: 0; height: 4px; border-radius: 0 0 4px 4px; background: var(--gc); }
+.dct-gcard:hover, .dct-gcard:focus-visible { transform: translateY(-3px); border-color: #fff; background: color-mix(in srgb, var(--gc) 28%, var(--dc-glass)); outline: none; }
+.dct-gcard:focus-visible { box-shadow: 0 0 0 4px var(--dc-accent); }
+.dct-gmono { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 50%; flex: none;
+  background: var(--gc); color: var(--dc-void); font-family: var(--font-chrome); font-weight: 900; font-size: 16px; letter-spacing: 0.02em; box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.22); }
+.dct-gcard-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-chrome); font-weight: 900; font-size: 17px; letter-spacing: 0.03em; text-transform: uppercase; }
+.dct-gcard .dct-num { font-size: 18px; }
+.dct-gcard .dct-num-ico { color: var(--gc); }
+.dct-gcard-go { display: inline-flex; align-items: center; gap: 6px; margin-top: auto; font-family: var(--font-chrome); font-weight: 900; font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-hint); }
+.dct-gcard-go .dc-face { width: 24px; height: 24px; font-size: 13px; }
+.dct-gcard:hover .dct-gcard-go, .dct-gcard:focus-visible .dct-gcard-go { color: #fff; }
+@media (max-width: 720px) {
+  .dct-gcards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .dct-gcard { min-height: 150px; padding: 14px 8px 10px; }
+  .dct-gmono { width: 48px; height: 48px; font-size: 14px; }
+  .dct-gcard-name { font-size: 15px; }
+}
+.economy .dct-frame .eco-th { display: inline-flex; align-items: center; gap: 5px; }
+.economy .dct-frame .eco-th > span { display: inline-flex; color: var(--hub); }
+/* The Market's placeholder cards while the galaxy is read. */
+.dct-skel { gap: 10px; min-height: 124px; pointer-events: none; }
+.dct-skel i { display: block; height: 14px; border-radius: 999px; background: linear-gradient(90deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06)); background-size: 200% 100%; animation: dct-shimmer 1.4s linear infinite; }
+.dct-skel i.big { height: 28px; }
+.dct-skel i.w60 { width: 60%; } .dct-skel i.w40 { width: 40%; } .dct-skel i.w30 { width: 30%; }
+.economy .dct-frame .eco-loading.dct-skel-note { padding: 0; justify-content: flex-start; font-size: 14px; }
+@keyframes dct-shimmer { from { background-position: 200% 0; } to { background-position: 0 0; } }
+@media (prefers-reduced-motion: reduce) { .dct-skel i { animation: none; } }

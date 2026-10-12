@@ -1,0 +1,3404 @@
+{
+ "summary": {
+  "at": "2026-10-11T04:32:47.277Z",
+  "gl": "metal",
+  "ms": 208962,
+  "checks": 45,
+  "failed": 0,
+  "warned": 45,
+  "words": 3060,
+  "wordsBefore": null
+ },
+ "budgets": {
+  "about": "Cert budgets (scripts/studio/cert.mjs). Hardware numbers follow the Dreamcast: ~3M polygons a second is ~60k triangles a frame at 50-60 fps. Words count visible words; numbers are free. Over budget warns; STUDIO_STRICT=1 fails.",
+  "routes": [
+   "/",
+   "/planet/2-1",
+   "/combat",
+   "/grid",
+   "/sim",
+   "/sim/daily",
+   "/codex/5",
+   "/command",
+   "/ops/proofs",
+   "/forge/MsgStructAttack",
+   "/intel/activity",
+   "/guild/0-5",
+   "/comms",
+   "/economy",
+   "/academy"
+  ],
+  "minFontPx": 11,
+  "minTapFine": 24,
+  "minTapCoarse": 40,
+  "default": {
+   "words": 40,
+   "tiny": 0,
+   "tris": 60000,
+   "calls": 300,
+   "fps": 50
+  },
+  "screens": {
+   "/academy": {
+    "words": 90
+   },
+   "/forge/MsgStructAttack": {
+    "words": 90
+   },
+   "/comms": {
+    "words": 60
+   },
+   "/intel/activity": {
+    "words": 90
+   }
+  }
+ },
+ "results": [
+  {
+   "route": "/",
+   "view": "desktop",
+   "problems": [],
+   "warnings": [
+    "words 140 (budget 40)",
+    "minFont 8 (budget 11)",
+    "tiny 4 (budget 0)"
+   ],
+   "mounted": true,
+   "words": 140,
+   "minFont": 8,
+   "small": [
+    "span.title-dot.on 10px \"LIVE\"",
+    "span.brand-name 10px \"STRUCTS\"",
+    "span.hub-label 10px \"Base\"",
+    "span.hub-label 10px \"Battle\"",
+    "span.hub-label 10px \"Explore\"",
+    "span.hub-label 10px \"Trade\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.title-inner",
+     "words": 54,
+     "sample": "STRUCTS COMMAND DECK In the distant future the species of the galaxy race for Al"
+    },
+    {
+     "sel": "span.col",
+     "words": 18,
+     "sample": "Enlist Start your own base: pick a name and a guild (your team). Free, and ready"
+    },
+    {
+     "sel": "span.col",
+     "words": 17,
+     "sample": "Learn to play The Academy: quick lessons on strategy, money and code. Earn XP as"
+    },
+    {
+     "sel": "span.col",
+     "words": 16,
+     "sample": "Fight a practice battle No account needed. Start easy, then try today’s challeng"
+    },
+    {
+     "sel": "span.col",
+     "words": 14,
+     "sample": "Watch the live galaxy Every planet, fleet and raid, live, as each block lands."
+    },
+    {
+     "sel": "div.title-links",
+     "words": 7,
+     "sample": "playstructs.com structs.ai docs Esc skip"
+    }
+   ],
+   "tiny": 4,
+   "tinySample": [
+    "a 107×15",
+    "a 105×15",
+    "a.brand 147×20",
+    "button.tb-conn.ok 20×20"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 10184,
+   "calls": 43,
+   "points": 162724,
+   "textures": 19,
+   "res": "1440×900",
+   "heapMB": 85,
+   "dom": 694,
+   "png": 3567874,
+   "shot": "shots/title-desktop.jpg",
+   "pass": true
+  },
+  {
+   "route": "/",
+   "view": "tv",
+   "problems": [],
+   "warnings": [
+    "words 114 (budget 40)",
+    "minFont 6 (budget 11)",
+    "tiny 3 (budget 0)"
+   ],
+   "mounted": true,
+   "words": 114,
+   "minFont": 6,
+   "small": [
+    "span.title-dot.on 10px \"LIVE\"",
+    "span.hub-label 6px \"Base\"",
+    "span.hub-label 6px \"Battle\"",
+    "span.hub-label 6px \"Explore\"",
+    "span.hub-label 6px \"Trade\"",
+    "span.hub-label 6px \"Team\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.title-inner",
+     "words": 30,
+     "sample": "STRUCTS COMMAND DECK In the distant future the species of the galaxy race for Al"
+    },
+    {
+     "sel": "span.col",
+     "words": 18,
+     "sample": "Enlist Start your own base: pick a name and a guild (your team). Free, and ready"
+    },
+    {
+     "sel": "span.col",
+     "words": 17,
+     "sample": "Learn to play The Academy: quick lessons on strategy, money and code. Earn XP as"
+    },
+    {
+     "sel": "span.col",
+     "words": 16,
+     "sample": "Fight a practice battle No account needed. Start easy, then try today’s challeng"
+    },
+    {
+     "sel": "span.col",
+     "words": 14,
+     "sample": "Watch the live galaxy Every planet, fleet and raid, live, as each block lands."
+    },
+    {
+     "sel": "div.title-links",
+     "words": 7,
+     "sample": "playstructs.com structs.ai docs Esc skip"
+    }
+   ],
+   "tiny": 3,
+   "tinySample": [
+    "a 107×15",
+    "a 105×15",
+    "a.brand 20×20"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 10184,
+   "calls": 43,
+   "points": 162724,
+   "textures": 19,
+   "res": "640×480",
+   "heapMB": 81,
+   "dom": 694,
+   "png": 952090,
+   "shot": "shots/title-tv.jpg",
+   "pass": true
+  },
+  {
+   "route": "/",
+   "view": "phone",
+   "problems": [],
+   "warnings": [
+    "minFont 6 (budget 11)",
+    "tiny 7 (budget 0)"
+   ],
+   "mounted": true,
+   "words": 125,
+   "minFont": 6,
+   "small": [
+    "div.title-sub 10px \"COMMAND DECK\"",
+    "span.hub-label 6px \"Base\"",
+    "span.hub-label 6px \"Battle\"",
+    "span.hub-label 6px \"Explore\"",
+    "span.hub-label 6px \"Trade\"",
+    "span.hub-label 6px \"Team\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.title-inner",
+     "words": 54,
+     "sample": "STRUCTS COMMAND DECK In the distant future the species of the galaxy race for Al"
+    },
+    {
+     "sel": "span.col",
+     "words": 18,
+     "sample": "Enlist Start your own base: pick a name and a guild (your team). Free, and ready"
+    },
+    {
+     "sel": "span.col",
+     "words": 17,
+     "sample": "Learn to play The Academy: quick lessons on strategy, money and code. Earn XP as"
+    },
+    {
+     "sel": "span.col",
+     "words": 16,
+     "sample": "Fight a practice battle No account needed. Start easy, then try today’s challeng"
+    },
+    {
+     "sel": "span.col",
+     "words": 14,
+     "sample": "Watch the live galaxy Every planet, fleet and raid, live, as each block lands."
+    },
+    {
+     "sel": "button.hub",
+     "words": 1,
+     "sample": "Base"
+    }
+   ],
+   "tiny": 7,
+   "tinySample": [
+    "button.hub 34×43",
+    "button.hub 34×43",
+    "button.hub 27×43",
+    "a.tb-academy 30×28",
+    "button.btn.ghost 28×32",
+    "button.wallet-chip.empty 24×30"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 10184,
+   "calls": 43,
+   "points": 162724,
+   "textures": 19,
+   "res": "780×1688",
+   "heapMB": 82,
+   "dom": 694,
+   "png": 3241990,
+   "shot": "shots/title-phone.jpg",
+   "pass": true
+  },
+  {
+   "route": "/planet/2-1",
+   "view": "desktop",
+   "problems": [],
+   "warnings": [
+    "words 223 (budget 40)",
+    "minFont 7 (budget 11)",
+    "tiny 13 (budget 0)",
+    "tris 138072 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 223,
+   "minFont": 7,
+   "small": [
+    "span.t-label 8px \"Planet 2-1\"",
+    "span.chip.player 7px \"Active\"",
+    "span.term 8px \"Unmined ore\"",
+    "span.term 8px \"Shield\"",
+    "span 8px \"Defense cannons\"",
+    "span.term 8px \"Mining\""
+   ],
+   "blocks": [
+    {
+     "sel": "ol.guide-tries",
+     "words": 36,
+     "sample": "Hover a ship or building to see its health and job. Press “Fight a copy of it” ("
+    },
+    {
+     "sel": "div.panel-body.col",
+     "words": 32,
+     "sample": "Practise this fight No fleet with a Command Ship here to simulate. Puts these re"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 22,
+     "sample": "One world up close: its defences, its fleet and its owner’s stats. Real attacks "
+    },
+    {
+     "sel": "div.panel-body.col",
+     "words": 18,
+     "sample": "Tyjuq Unmined ore Each mining run lifts one ore into the commander’s hold, where"
+    },
+    {
+     "sel": "div.feed.scroll",
+     "words": 16,
+     "sample": "Quiet here. Builds, mining, raids and attacks on this world show up here as they"
+    },
+    {
+     "sel": "div.kv.dossier-kv",
+     "words": 13,
+     "sample": "Shield Defense cannons Mining idle Refining idle Raid clock not raidable Slots u"
+    }
+   ],
+   "tiny": 13,
+   "tinySample": [
+    "span.term 109×8",
+    "span.term 158×11",
+    "span.term 158×11",
+    "span.term 158×11",
+    "span.term 158×11",
+    "span.term 66×8"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 138072,
+   "calls": 54,
+   "points": 5165,
+   "textures": 25,
+   "res": "1440×900",
+   "heapMB": 33,
+   "dom": 299,
+   "png": 3497850,
+   "shot": "shots/planet_2-1-desktop.jpg",
+   "pass": true
+  },
+  {
+   "route": "/planet/2-1",
+   "view": "tv",
+   "problems": [],
+   "warnings": [
+    "words 106 (budget 40)",
+    "minFont 6 (budget 11)",
+    "tiny 3 (budget 0)",
+    "tris 138072 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 106,
+   "minFont": 6,
+   "small": [
+    "span.t-label 8px \"Planet 2-1\"",
+    "span.chip.player 7px \"Active\"",
+    "span.fold-ind.t-label 8px \"Dossier\"",
+    "button.btn.ghost 8px \"◂ Galaxy\"",
+    "span.t-label.c-hint 7px \"Map of 2-1\"",
+    "button.btn.ghost 8px \"Refresh\""
+   ],
+   "blocks": [
+    {
+     "sel": "ol.guide-tries",
+     "words": 36,
+     "sample": "Hover a ship or building to see its health and job. Press “Fight a copy of it” ("
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 22,
+     "sample": "One world up close: its defences, its fleet and its owner’s stats. Real attacks "
+    },
+    {
+     "sel": "div.action-bar.panel",
+     "words": 10,
+     "sample": "Click any ship or building to see what it is"
+    },
+    {
+     "sel": "div.guide-foot",
+     "words": 8,
+     "sample": "Got it Lesson: Meet your units Hide tips"
+    },
+    {
+     "sel": "div.col",
+     "words": 6,
+     "sample": "Explore · you are here Planet Map"
+    },
+    {
+     "sel": "div.planet-crumbs",
+     "words": 4,
+     "sample": "◂ Galaxy Map of 2-1 Refresh"
+    }
+   ],
+   "tiny": 3,
+   "tinySample": [
+    "a.brand 20×20",
+    "button.guide-off 66×23",
+    "button.toast-act 120×17"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 138072,
+   "calls": 54,
+   "points": 5165,
+   "textures": 25,
+   "res": "640×480",
+   "heapMB": 31,
+   "dom": 299,
+   "png": 878986,
+   "shot": "shots/planet_2-1-tv.jpg",
+   "pass": true
+  },
+  {
+   "route": "/planet/2-1",
+   "view": "phone",
+   "problems": [],
+   "warnings": [
+    "minFont 6 (budget 11)",
+    "tiny 14 (budget 0)",
+    "tris 138072 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 108,
+   "minFont": 6,
+   "small": [
+    "span.t-label 8px \"Planet 2-1\"",
+    "span.chip.player 7px \"Active\"",
+    "span.fold-ind.t-label 8px \"Dossier\"",
+    "button.btn.ghost 8px \"◂ Galaxy\"",
+    "span.t-label.c-hint 7px \"Map of 2-1\"",
+    "button.btn.ghost 8px \"Refresh\""
+   ],
+   "blocks": [
+    {
+     "sel": "ol.guide-tries",
+     "words": 36,
+     "sample": "Hover a ship or building to see its health and job. Press “Fight a copy of it” ("
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 22,
+     "sample": "One world up close: its defences, its fleet and its owner’s stats. Real attacks "
+    },
+    {
+     "sel": "div.action-bar.panel",
+     "words": 10,
+     "sample": "Click any ship or building to see what it is"
+    },
+    {
+     "sel": "div.guide-foot",
+     "words": 8,
+     "sample": "Got it Lesson: Meet your units Hide tips"
+    },
+    {
+     "sel": "div.planet-columns.t-label",
+     "words": 6,
+     "sample": "Planetary slots Planetary shield 25 Home fleet"
+    },
+    {
+     "sel": "div.col",
+     "words": 6,
+     "sample": "Explore · you are here Planet Map"
+    }
+   ],
+   "tiny": 14,
+   "tinySample": [
+    "button.btn.ghost 96×26",
+    "button.btn.ghost 96×26",
+    "button.hub 34×43",
+    "button.hub 34×43",
+    "button.hub 27×43",
+    "a.tb-academy 30×28"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 138072,
+   "calls": 54,
+   "points": 5165,
+   "textures": 25,
+   "res": "780×1688",
+   "heapMB": 37,
+   "dom": 299,
+   "png": 3302834,
+   "shot": "shots/planet_2-1-phone.jpg",
+   "pass": true
+  },
+  {
+   "route": "/combat",
+   "view": "desktop",
+   "problems": [],
+   "warnings": [
+    "words 330 (budget 40)",
+    "minFont 7 (budget 11)",
+    "tiny 10 (budget 0)",
+    "tris 156514 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 330,
+   "minFont": 7,
+   "small": [
+    "span.t-label 8px \"Battle Replays\"",
+    "span.chip 7px \"3,358 on chain\"",
+    "span.t-label.c-hint 8px \"Most active\"",
+    "span.when.num 10px \"9h\"",
+    "span.cr-eng 9px \"3-part fight\"",
+    "span.when.num 10px \"9h\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.panel-body.col",
+     "words": 35,
+     "sample": "10/10/2026, 3:27:52 PM · 9h ago Connie-Mitchell ’s Cruiser (Water) fired Planeta"
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 32,
+     "sample": "Pick any fight from the list. Press “Watch the whole fight” to see a full raid f"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 17,
+     "sample": "Every real attack in the galaxy, replayed shot by shot from the blockchain’s own"
+    },
+    {
+     "sel": "div.panel-body.col",
+     "words": 15,
+     "sample": "Real fights between real players, newest first. Pick one to watch it, shot by sh"
+    },
+    {
+     "sel": "div.row.wrap",
+     "words": 15,
+     "sample": "▶ Watch the whole fight (3 attacks) Open the planet ▸ Connie-Mitchell’s record ▸"
+    },
+    {
+     "sel": "span.what",
+     "words": 10,
+     "sample": "Connie-Mitchell’s Cruiser → Command Ship of Gindara 2 damage · destroyed 3-part "
+    }
+   ],
+   "tiny": 10,
+   "tinySample": [
+    "button.linkish 81×14",
+    "button.linkish 65×14",
+    "button.linkish 137×14",
+    "button.linkish 133×14",
+    "button.linkish.c-enemy 117×18",
+    "button.linkish.c-player 62×18"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 156514,
+   "calls": 106,
+   "points": 5178,
+   "textures": 68,
+   "res": "1440×900",
+   "heapMB": 39,
+   "dom": 572,
+   "png": 3398970,
+   "shot": "shots/combat-desktop.jpg",
+   "pass": true
+  },
+  {
+   "route": "/combat",
+   "view": "tv",
+   "problems": [],
+   "warnings": [
+    "words 128 (budget 40)",
+    "minFont 6 (budget 11)",
+    "tiny 5 (budget 0)",
+    "tris 156514 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 128,
+   "minFont": 6,
+   "small": [
+    "span.t-label 8px \"Battle Replays\"",
+    "span.chip 7px \"3,358 on chain\"",
+    "span.when.num 10px \"9h\"",
+    "span.cr-eng 9px \"3-part fight\"",
+    "span.when.num 10px \"9h\"",
+    "span.cr-eng 9px \"3-part fight\""
+   ],
+   "blocks": [
+    {
+     "sel": "ol.guide-tries",
+     "words": 32,
+     "sample": "Pick any fight from the list. Press “Watch the whole fight” to see a full raid f"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 17,
+     "sample": "Every real attack in the galaxy, replayed shot by shot from the blockchain’s own"
+    },
+    {
+     "sel": "div.panel-body.col",
+     "words": 13,
+     "sample": "10/10/2026, 3:27:52 PM · 9h ago Connie-Mitchell ’s Cruiser (Water) fired Planeta"
+    },
+    {
+     "sel": "span.what",
+     "words": 10,
+     "sample": "Connie-Mitchell’s Cruiser → Command Ship of Gindara 2 damage · destroyed 3-part "
+    },
+    {
+     "sel": "span.what",
+     "words": 9,
+     "sample": "Connie-Mitchell’s Cruiser → Command Ship of Gindara 2 damage 3-part fight"
+    },
+    {
+     "sel": "div",
+     "words": 8,
+     "sample": "Command Ship (Land) of Gindara 2 damage · 2→0/6 HP DESTROYED"
+    }
+   ],
+   "tiny": 5,
+   "tinySample": [
+    "button.linkish.c-enemy 117×18",
+    "button.linkish.c-player 62×18",
+    "a.brand 20×20",
+    "button.toast-act 120×17",
+    "button.guide-off 66×23"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 156514,
+   "calls": 106,
+   "points": 5178,
+   "textures": 68,
+   "res": "640×480",
+   "heapMB": 38,
+   "dom": 572,
+   "png": 942690,
+   "shot": "shots/combat-tv.jpg",
+   "pass": true
+  },
+  {
+   "route": "/combat",
+   "view": "phone",
+   "problems": [],
+   "warnings": [
+    "minFont 6 (budget 11)",
+    "tiny 24 (budget 0)",
+    "tris 156522 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 151,
+   "minFont": 6,
+   "small": [
+    "span.t-label 8px \"Battle Replays\"",
+    "span.chip 7px \"3,358 on chain\"",
+    "span.when.num 10px \"9h\"",
+    "span.cr-eng 9px \"3-part fight\"",
+    "span.when.num 10px \"9h\"",
+    "span.cr-eng 9px \"3-part fight\""
+   ],
+   "blocks": [
+    {
+     "sel": "ol.guide-tries",
+     "words": 32,
+     "sample": "Pick any fight from the list. Press “Watch the whole fight” to see a full raid f"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 17,
+     "sample": "Every real attack in the galaxy, replayed shot by shot from the blockchain’s own"
+    },
+    {
+     "sel": "div.row.wrap",
+     "words": 15,
+     "sample": "▶ Watch the whole fight (3 attacks) Open the planet ▸ Connie-Mitchell’s record ▸"
+    },
+    {
+     "sel": "div.panel-body.col",
+     "words": 13,
+     "sample": "10/10/2026, 3:27:52 PM · 9h ago Connie-Mitchell ’s Cruiser (Water) fired Planeta"
+    },
+    {
+     "sel": "span.what",
+     "words": 10,
+     "sample": "Connie-Mitchell’s Cruiser → Command Ship of Gindara 2 damage · destroyed 3-part "
+    },
+    {
+     "sel": "div.screen.combat",
+     "words": 10,
+     "sample": "20 ships and buildings, as they stood just before the fight"
+    }
+   ],
+   "tiny": 24,
+   "tinySample": [
+    "button.btn.ghost 147×24",
+    "button.linkish.c-enemy 117×18",
+    "button.linkish.c-player 62×18",
+    "button.btn.secondary 310×24",
+    "button.btn.ghost 161×24",
+    "button.btn.ghost 237×24"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 156522,
+   "calls": 106,
+   "points": 5178,
+   "textures": 68,
+   "res": "780×1688",
+   "heapMB": 40,
+   "dom": 572,
+   "png": 3431798,
+   "shot": "shots/combat-phone.jpg",
+   "pass": true
+  },
+  {
+   "route": "/grid",
+   "view": "desktop",
+   "problems": [],
+   "warnings": [
+    "words 203 (budget 40)",
+    "minFont 7 (budget 11)",
+    "tiny 4 (budget 0)",
+    "tris 103756 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 203,
+   "minFont": 7,
+   "small": [
+    "span.t-label 8px \"Power grid · energy\"",
+    "button.btn.ghost 7px \"Refresh\"",
+    "div.t-label.c-hint 8px \"Reactors\"",
+    "div.t-label.c-hint 8px \"Fuel infused\"",
+    "div.t-label.c-hint 8px \"Substations\"",
+    "div.t-label.c-hint 8px \"Connections\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.panel-body.col",
+     "words": 50,
+     "sample": "The Grid Reactors (the big glowing stars) turn alpha into power. The power flows"
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 26,
+     "sample": "Hover a glowing beam to see who powers whom. Click a substation to see how its p"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 18,
+     "sample": "Where the galaxy’s energy comes from: reactors at the top feed substations, and "
+    },
+    {
+     "sel": "div.grid-legend.t-tiny",
+     "words": 9,
+     "sample": "Power flow Rented power Fuel (alpha in) A player"
+    },
+    {
+     "sel": "div.col",
+     "words": 6,
+     "sample": "Guild power Energy market Compare 8 sellers ▸"
+    },
+    {
+     "sel": "div.col",
+     "words": 6,
+     "sample": "Explore · you are here Power Grid"
+    }
+   ],
+   "tiny": 4,
+   "tinySample": [
+    "a.brand 147×20",
+    "button.tb-conn.ok 20×20",
+    "button.toast-act 120×17",
+    "button.guide-off 66×23"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 103756,
+   "calls": 255,
+   "points": 11737,
+   "textures": 22,
+   "res": "1440×900",
+   "heapMB": 33,
+   "dom": 401,
+   "png": 3751878,
+   "shot": "shots/grid-desktop.jpg",
+   "pass": true
+  },
+  {
+   "route": "/grid",
+   "view": "tv",
+   "problems": [],
+   "warnings": [
+    "words 121 (budget 40)",
+    "minFont 6 (budget 11)",
+    "tiny 3 (budget 0)",
+    "tris 107724 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 121,
+   "minFont": 6,
+   "small": [
+    "span.t-label 8px \"Power grid · energy\"",
+    "button.btn.ghost 7px \"Refresh\"",
+    "div.t-label.c-hint 8px \"Reactors\"",
+    "div.t-label.c-hint 8px \"Fuel infused\"",
+    "span.t-label 8px \"Elites\"",
+    "span.t-label 8px \"Entry\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.panel-body.col",
+     "words": 39,
+     "sample": "The Grid Reactors (the big glowing stars) turn alpha into power. The power flows"
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 26,
+     "sample": "Hover a glowing beam to see who powers whom. Click a substation to see how its p"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 18,
+     "sample": "Where the galaxy’s energy comes from: reactors at the top feed substations, and "
+    },
+    {
+     "sel": "div.col",
+     "words": 6,
+     "sample": "Explore · you are here Power Grid"
+    },
+    {
+     "sel": "div.guide-foot",
+     "words": 6,
+     "sample": "Got it Lesson done ✓ Hide tips"
+    },
+    {
+     "sel": "div.panel-head",
+     "words": 4,
+     "sample": "Power grid · energy Refresh"
+    }
+   ],
+   "tiny": 3,
+   "tinySample": [
+    "a.brand 20×20",
+    "button.toast-act 120×17",
+    "button.guide-off 66×23"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 107724,
+   "calls": 256,
+   "points": 11737,
+   "textures": 22,
+   "res": "640×480",
+   "heapMB": 28,
+   "dom": 401,
+   "png": 989246,
+   "shot": "shots/grid-tv.jpg",
+   "pass": true
+  },
+  {
+   "route": "/grid",
+   "view": "phone",
+   "problems": [],
+   "warnings": [
+    "minFont 6 (budget 11)",
+    "tiny 13 (budget 0)",
+    "tris 99788 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 128,
+   "minFont": 6,
+   "small": [
+    "span.t-label 8px \"Power grid · energy\"",
+    "button.btn.ghost 7px \"Refresh\"",
+    "div.t-label.c-hint 8px \"Reactors\"",
+    "div.t-label.c-hint 8px \"Fuel infused\"",
+    "div.t-label.c-hint 8px \"Substations\"",
+    "div.t-label.c-hint 8px \"Connections\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.panel-body.col",
+     "words": 39,
+     "sample": "The Grid Reactors (the big glowing stars) turn alpha into power. The power flows"
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 26,
+     "sample": "Hover a glowing beam to see who powers whom. Click a substation to see how its p"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 18,
+     "sample": "Where the galaxy’s energy comes from: reactors at the top feed substations, and "
+    },
+    {
+     "sel": "div.col",
+     "words": 6,
+     "sample": "Explore · you are here Power Grid"
+    },
+    {
+     "sel": "div.guide-foot",
+     "words": 6,
+     "sample": "Got it Lesson done ✓ Hide tips"
+    },
+    {
+     "sel": "div.panel-head",
+     "words": 4,
+     "sample": "Power grid · energy Refresh"
+    }
+   ],
+   "tiny": 13,
+   "tinySample": [
+    "button.btn.ghost 84×24",
+    "button.hub 34×43",
+    "button.hub 34×43",
+    "button.hub 27×43",
+    "a.tb-academy 30×28",
+    "button.btn.ghost 28×32"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 99788,
+   "calls": 253,
+   "points": 11737,
+   "textures": 22,
+   "res": "780×1688",
+   "heapMB": 43,
+   "dom": 401,
+   "png": 3495906,
+   "shot": "shots/grid-phone.jpg",
+   "pass": true
+  },
+  {
+   "route": "/sim",
+   "view": "desktop",
+   "problems": [],
+   "warnings": [
+    "words 220 (budget 40)",
+    "minFont 7 (budget 11)",
+    "tiny 5 (budget 0)",
+    "tris 125384 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 220,
+   "minFont": 7,
+   "small": [
+    "span.t-label 8px \"Training Battles\"",
+    "span.chip.player 7px \"real game rules\"",
+    "div.t-label.c-hint 8px \"How big is the enemy fleet?\"",
+    "span 8px \"Easy\"",
+    "span.sub 10px \"4 enemy ships\"",
+    "span 8px \"Difficult\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.panel-body.col",
+     "words": 74,
+     "sample": "Practice battle Two fleets meet away from home. Every shot follows the real game"
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 30,
+     "sample": "Pick how big the enemy is, then press Start battle. Click one of your ships, cho"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 18,
+     "sample": "Your fleet against the computer, using the real game’s combat rules. Nothing her"
+    },
+    {
+     "sel": "button.btn.choice",
+     "words": 15,
+     "sample": "Daily Challenge · Silent Anvil Fortress · the same battle for everyone today · n"
+    },
+    {
+     "sel": "button.btn.choice",
+     "words": 13,
+     "sample": "Gauntlet ▸ five battles in a row Ships you lose stay lost · your best: 0/5"
+    },
+    {
+     "sel": "div.keys.t-tiny",
+     "words": 9,
+     "sample": "fire G guard D drift Tab next Space pause"
+    }
+   ],
+   "tiny": 5,
+   "tinySample": [
+    "span.term 46×14",
+    "a.brand 147×20",
+    "button.tb-conn.ok 20×20",
+    "button.guide-off 66×23",
+    "button.toast-act 120×17"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 125384,
+   "calls": 94,
+   "points": 5115,
+   "textures": 71,
+   "res": "1440×900",
+   "heapMB": 38,
+   "dom": 345,
+   "png": 3606250,
+   "shot": "shots/sim-desktop.jpg",
+   "pass": true
+  },
+  {
+   "route": "/sim",
+   "view": "tv",
+   "problems": [],
+   "warnings": [
+    "words 132 (budget 40)",
+    "minFont 6 (budget 11)",
+    "tiny 5 (budget 0)",
+    "tris 125384 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 132,
+   "minFont": 6,
+   "small": [
+    "span.t-label 8px \"Training Battles\"",
+    "span.chip.player 7px \"real game rules\"",
+    "div.t-label.c-hint 8px \"How big is the enemy fleet?\"",
+    "span 8px \"Easy\"",
+    "span 8px \"Difficult\"",
+    "button.btn.ghost 8px \"New fleets\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.panel-body.col",
+     "words": 35,
+     "sample": "Practice battle Two fleets meet away from home. Every shot follows the real game"
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 30,
+     "sample": "Pick how big the enemy is, then press Start battle. Click one of your ships, cho"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 18,
+     "sample": "Your fleet against the computer, using the real game’s combat rules. Nothing her"
+    },
+    {
+     "sel": "div.keys.t-tiny",
+     "words": 9,
+     "sample": "fire G guard D drift Tab next Space pause"
+    },
+    {
+     "sel": "div.guide-foot",
+     "words": 9,
+     "sample": "Got it Lesson: Win a practice battle Hide tips"
+    },
+    {
+     "sel": "div.col",
+     "words": 6,
+     "sample": "Battle · you are here Training Battles"
+    }
+   ],
+   "tiny": 5,
+   "tinySample": [
+    "span.term 46×14",
+    "span.term 116×14",
+    "a.brand 20×20",
+    "button.guide-off 66×23",
+    "button.toast-act 120×17"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 125384,
+   "calls": 94,
+   "points": 5115,
+   "textures": 71,
+   "res": "640×480",
+   "heapMB": 37,
+   "dom": 345,
+   "png": 948578,
+   "shot": "shots/sim-tv.jpg",
+   "pass": true
+  },
+  {
+   "route": "/sim",
+   "view": "phone",
+   "problems": [],
+   "warnings": [
+    "minFont 6 (budget 11)",
+    "tiny 15 (budget 0)",
+    "tris 125386 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 160,
+   "minFont": 6,
+   "small": [
+    "span.t-label 8px \"Training Battles\"",
+    "span.chip.player 7px \"real game rules\"",
+    "div.t-label.c-hint 8px \"How big is the enemy fleet?\"",
+    "span 8px \"Easy\"",
+    "span.sub 10px \"4 enemy ships\"",
+    "span 8px \"Difficult\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.panel-body.col",
+     "words": 36,
+     "sample": "Practice battle Two fleets meet away from home. Every shot follows the real game"
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 30,
+     "sample": "Pick how big the enemy is, then press Start battle. Click one of your ships, cho"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 18,
+     "sample": "Your fleet against the computer, using the real game’s combat rules. Nothing her"
+    },
+    {
+     "sel": "button.btn.choice",
+     "words": 15,
+     "sample": "Daily Challenge · Silent Anvil Fortress · the same battle for everyone today · n"
+    },
+    {
+     "sel": "button.btn.choice",
+     "words": 13,
+     "sample": "Gauntlet ▸ five battles in a row Ships you lose stay lost · your best: 0/5"
+    },
+    {
+     "sel": "div.guide-foot",
+     "words": 9,
+     "sample": "Got it Lesson: Win a practice battle Hide tips"
+    }
+   ],
+   "tiny": 15,
+   "tinySample": [
+    "span.term 46×14",
+    "span.term 116×14",
+    "button.btn.ghost 135×32",
+    "button.hub 34×43",
+    "button.hub 34×43",
+    "button.hub 27×43"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 125386,
+   "calls": 94,
+   "points": 5115,
+   "textures": 71,
+   "res": "780×1688",
+   "heapMB": 45,
+   "dom": 345,
+   "png": 3575082,
+   "shot": "shots/sim-phone.jpg",
+   "pass": true
+  },
+  {
+   "route": "/sim/daily",
+   "view": "desktop",
+   "problems": [],
+   "warnings": [
+    "words 225 (budget 40)",
+    "minFont 7 (budget 11)",
+    "tiny 5 (budget 0)",
+    "tris 135810 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 225,
+   "minFont": 7,
+   "small": [
+    "span.t-label 8px \"Training Battles\"",
+    "span.chip.player 7px \"real game rules\"",
+    "div.t-label.c-hint 8px \"How big is the enemy fleet?\"",
+    "span 8px \"Easy\"",
+    "span.sub 10px \"4 enemy ships\"",
+    "span 8px \"Difficult\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.panel-body.col",
+     "words": 79,
+     "sample": "Practice battle Two fleets meet away from home. Every shot follows the real game"
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 30,
+     "sample": "Pick how big the enemy is, then press Start battle. Click one of your ships, cho"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 18,
+     "sample": "Your fleet against the computer, using the real game’s combat rules. Nothing her"
+    },
+    {
+     "sel": "button.btn.choice",
+     "words": 15,
+     "sample": "Daily Challenge · Silent Anvil Fortress · the same battle for everyone today · n"
+    },
+    {
+     "sel": "button.btn.choice",
+     "words": 13,
+     "sample": "Gauntlet ▸ five battles in a row Ships you lose stay lost · your best: 0/5"
+    },
+    {
+     "sel": "div.keys.t-tiny",
+     "words": 9,
+     "sample": "fire G guard D drift Tab next Space pause"
+    }
+   ],
+   "tiny": 5,
+   "tinySample": [
+    "span.term 46×14",
+    "a.brand 147×20",
+    "button.tb-conn.ok 20×20",
+    "button.toast-act 120×17",
+    "button.guide-off 66×23"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 135810,
+   "calls": 121,
+   "points": 5115,
+   "textures": 80,
+   "res": "1440×900",
+   "heapMB": 50,
+   "dom": 406,
+   "png": 3633542,
+   "shot": "shots/sim_daily-desktop.jpg",
+   "pass": true
+  },
+  {
+   "route": "/sim/daily",
+   "view": "tv",
+   "problems": [],
+   "warnings": [
+    "words 132 (budget 40)",
+    "minFont 6 (budget 11)",
+    "tiny 5 (budget 0)",
+    "tris 135828 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 132,
+   "minFont": 6,
+   "small": [
+    "span.t-label 8px \"Training Battles\"",
+    "span.chip.player 7px \"real game rules\"",
+    "div.t-label.c-hint 8px \"How big is the enemy fleet?\"",
+    "span 8px \"Easy\"",
+    "span 8px \"Difficult\"",
+    "button.btn.ghost 8px \"Leave daily\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.panel-body.col",
+     "words": 35,
+     "sample": "Practice battle Two fleets meet away from home. Every shot follows the real game"
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 30,
+     "sample": "Pick how big the enemy is, then press Start battle. Click one of your ships, cho"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 18,
+     "sample": "Your fleet against the computer, using the real game’s combat rules. Nothing her"
+    },
+    {
+     "sel": "div.keys.t-tiny",
+     "words": 9,
+     "sample": "fire G guard D drift Tab next Space pause"
+    },
+    {
+     "sel": "div.guide-foot",
+     "words": 9,
+     "sample": "Got it Lesson: Win a practice battle Hide tips"
+    },
+    {
+     "sel": "div.col",
+     "words": 6,
+     "sample": "Battle · you are here Training Battles"
+    }
+   ],
+   "tiny": 5,
+   "tinySample": [
+    "span.term 46×14",
+    "span.term 116×14",
+    "a.brand 20×20",
+    "button.toast-act 120×17",
+    "button.guide-off 66×23"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 135828,
+   "calls": 121,
+   "points": 5115,
+   "textures": 80,
+   "res": "640×480",
+   "heapMB": 37,
+   "dom": 406,
+   "png": 941202,
+   "shot": "shots/sim_daily-tv.jpg",
+   "pass": true
+  },
+  {
+   "route": "/sim/daily",
+   "view": "phone",
+   "problems": [],
+   "warnings": [
+    "minFont 6 (budget 11)",
+    "tiny 15 (budget 0)",
+    "tris 135816 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 160,
+   "minFont": 6,
+   "small": [
+    "span.t-label 8px \"Training Battles\"",
+    "span.chip.player 7px \"real game rules\"",
+    "div.t-label.c-hint 8px \"How big is the enemy fleet?\"",
+    "span 8px \"Easy\"",
+    "span.sub 10px \"4 enemy ships\"",
+    "span 8px \"Difficult\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.panel-body.col",
+     "words": 36,
+     "sample": "Practice battle Two fleets meet away from home. Every shot follows the real game"
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 30,
+     "sample": "Pick how big the enemy is, then press Start battle. Click one of your ships, cho"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 18,
+     "sample": "Your fleet against the computer, using the real game’s combat rules. Nothing her"
+    },
+    {
+     "sel": "button.btn.choice",
+     "words": 15,
+     "sample": "Daily Challenge · Silent Anvil Fortress · the same battle for everyone today · n"
+    },
+    {
+     "sel": "button.btn.choice",
+     "words": 13,
+     "sample": "Gauntlet ▸ five battles in a row Ships you lose stay lost · your best: 0/5"
+    },
+    {
+     "sel": "div.guide-foot",
+     "words": 9,
+     "sample": "Got it Lesson: Win a practice battle Hide tips"
+    }
+   ],
+   "tiny": 15,
+   "tinySample": [
+    "span.term 46×14",
+    "span.term 116×14",
+    "button.btn.ghost 140×32",
+    "button.hub 34×43",
+    "button.hub 34×43",
+    "button.hub 27×43"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 135816,
+   "calls": 121,
+   "points": 5115,
+   "textures": 80,
+   "res": "780×1688",
+   "heapMB": 38,
+   "dom": 406,
+   "png": 3583154,
+   "shot": "shots/sim_daily-phone.jpg",
+   "pass": true
+  },
+  {
+   "route": "/codex/5",
+   "view": "desktop",
+   "problems": [],
+   "warnings": [
+    "words 226 (budget 40)",
+    "minFont 7 (budget 11)",
+    "tiny 18 (budget 0)"
+   ],
+   "mounted": true,
+   "words": 226,
+   "minFont": 7,
+   "small": [
+    "span.t-label 8px \"Unit Guide · codex\"",
+    "button.btn.ghost 7px \"Matchups\"",
+    "div.t-label.c-hint 8px \"Fleet leader\"",
+    "div.t-label.c-hint 8px \"Ships · Space\"",
+    "div.t-label.c-hint 8px \"Ships · Air\"",
+    "div.t-label.c-hint 8px \"Ships · Land\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.panel-body.col",
+     "words": 28,
+     "sample": "Pursuit Fighter “Squall” Strikes Air. Squalls hunt in the clouds and nowhere els"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 23,
+     "sample": "Every unit in the game, with what it can hit and what can hit it. Know your unit"
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 20,
+     "sample": "Click any unit in the list. Drag the 3D model to turn it. Press Matchups to see "
+    },
+    {
+     "sel": "div.kv",
+     "words": 14,
+     "sample": "Health Power use 60 W Build cost Build limit Unlimited Fires back 1 same layer /"
+    },
+    {
+     "sel": "div.kv",
+     "words": 14,
+     "sample": "Type Smart Reach Air Damage Accuracy Always hits Charge Guards can block it Yes"
+    },
+    {
+     "sel": "div.weapon-block",
+     "words": 10,
+     "sample": "Counter-Attack Fires back at attackers in reach, once per attack."
+    }
+   ],
+   "tiny": 18,
+   "tinySample": [
+    "span.term 98×11",
+    "span.term 98×11",
+    "span.term 184×11",
+    "span.term 184×11",
+    "span.term 184×11",
+    "button.chip.player 122×15"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 22646,
+   "calls": 51,
+   "points": 6640,
+   "textures": 23,
+   "res": "1440×900",
+   "heapMB": 36,
+   "dom": 393,
+   "png": 3231926,
+   "shot": "shots/codex_5-desktop.jpg",
+   "pass": true
+  },
+  {
+   "route": "/codex/5",
+   "view": "tv",
+   "problems": [],
+   "warnings": [
+    "words 101 (budget 40)",
+    "minFont 6 (budget 11)",
+    "tiny 3 (budget 0)"
+   ],
+   "mounted": true,
+   "words": 101,
+   "minFont": 6,
+   "small": [
+    "span.t-label 8px \"Unit Guide · codex\"",
+    "button.btn.ghost 7px \"Matchups\"",
+    "div.t-label.c-hint 8px \"Fleet leader\"",
+    "div.t-label.c-hint 8px \"Ships · Space\"",
+    "span.t-label 8px \"Fleet unit\"",
+    "span.hub-label 6px \"Base\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.guide-card.panel",
+     "words": 23,
+     "sample": "Every unit in the game, with what it can hit and what can hit it. Know your unit"
+    },
+    {
+     "sel": "div.panel-body.col",
+     "words": 20,
+     "sample": "Pursuit Fighter “Squall” Strikes Air. Squalls hunt in the clouds and nowhere els"
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 20,
+     "sample": "Click any unit in the list. Drag the 3D model to turn it. Press Matchups to see "
+    },
+    {
+     "sel": "div.col",
+     "words": 6,
+     "sample": "Battle · you are here Unit Guide"
+    },
+    {
+     "sel": "div.guide-foot",
+     "words": 6,
+     "sample": "Got it Lesson done ✓ Hide tips"
+    },
+    {
+     "sel": "div.panel-head",
+     "words": 4,
+     "sample": "Unit Guide · codex Matchups"
+    }
+   ],
+   "tiny": 3,
+   "tinySample": [
+    "a.brand 20×20",
+    "button.toast-act 120×17",
+    "button.guide-off 66×23"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 22646,
+   "calls": 51,
+   "points": 6640,
+   "textures": 23,
+   "res": "640×480",
+   "heapMB": 35,
+   "dom": 393,
+   "png": 795134,
+   "shot": "shots/codex_5-tv.jpg",
+   "pass": true
+  },
+  {
+   "route": "/codex/5",
+   "view": "phone",
+   "problems": [],
+   "warnings": [
+    "minFont 6 (budget 11)",
+    "tiny 15 (budget 0)"
+   ],
+   "mounted": true,
+   "words": 114,
+   "minFont": 6,
+   "small": [
+    "span.t-label 8px \"Unit Guide · codex\"",
+    "button.btn.ghost 7px \"Matchups\"",
+    "div.t-label.c-hint 8px \"Fleet leader\"",
+    "div.t-label.c-hint 8px \"Ships · Space\"",
+    "div.t-label.c-hint 8px \"Ships · Air\"",
+    "span.t-label 8px \"Fleet unit\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.guide-card.panel",
+     "words": 23,
+     "sample": "Every unit in the game, with what it can hit and what can hit it. Know your unit"
+    },
+    {
+     "sel": "div.panel-body.col",
+     "words": 20,
+     "sample": "Pursuit Fighter “Squall” Strikes Air. Squalls hunt in the clouds and nowhere els"
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 20,
+     "sample": "Click any unit in the list. Drag the 3D model to turn it. Press Matchups to see "
+    },
+    {
+     "sel": "div.kv",
+     "words": 9,
+     "sample": "Health Power use 60 W Build cost Build limit Unlimited"
+    },
+    {
+     "sel": "div.col",
+     "words": 6,
+     "sample": "Battle · you are here Unit Guide"
+    },
+    {
+     "sel": "div.guide-foot",
+     "words": 6,
+     "sample": "Got it Lesson done ✓ Hide tips"
+    }
+   ],
+   "tiny": 15,
+   "tinySample": [
+    "button.btn.ghost 94×24",
+    "span.term 98×11",
+    "span.term 98×11",
+    "button.hub 34×43",
+    "button.hub 34×43",
+    "button.hub 27×43"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 22646,
+   "calls": 51,
+   "points": 6640,
+   "textures": 23,
+   "res": "780×1688",
+   "heapMB": 48,
+   "dom": 393,
+   "png": 3232106,
+   "shot": "shots/codex_5-phone.jpg",
+   "pass": true
+  },
+  {
+   "route": "/command",
+   "view": "desktop",
+   "problems": [],
+   "warnings": [
+    "words 200 (budget 40)",
+    "minFont 7 (budget 11)",
+    "tiny 6 (budget 0)",
+    "tris 82774 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 200,
+   "minFont": 7,
+   "small": [
+    "button.btn.solid 10px \"Enlist\"",
+    "button.btn.ghost 10px \"Practice battle first\"",
+    "button.btn.ghost 10px \"Academy\"",
+    "div.t-label-lg.c-player 10px \"Build\"",
+    "div.t-label-lg.c-player 10px \"Mine & refine\"",
+    "div.t-label-lg.c-player 10px \"Raid\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.cd-enlist.panel",
+     "words": 51,
+     "sample": "Start your own base Enlist a free commander in seconds: pick a name and a guild "
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 35,
+     "sample": "No commander yet? Press Enlist: it’s free and takes seconds. Click an empty + sl"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 20,
+     "sample": "Your commander’s home: planet slots to build in, your fleet, and an advisor with"
+    },
+    {
+     "sel": "div.cd-feature",
+     "words": 18,
+     "sample": "Mine & refine Dig ore out of your planet, then refine it into alpha before raide"
+    },
+    {
+     "sel": "div.cd-feature",
+     "words": 17,
+     "sample": "Build Put machines (structs) into your planet’s slots. Your computer solves a pu"
+    },
+    {
+     "sel": "div.cd-feature",
+     "words": 14,
+     "sample": "Raid Sail your fleet to another world, beat its defenders and take its ore."
+    }
+   ],
+   "tiny": 6,
+   "tinySample": [
+    "a 107×11",
+    "a 66×11",
+    "a.brand 147×20",
+    "button.tb-conn.ok 20×20",
+    "button.guide-off 66×23",
+    "button.toast-act 120×17"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 82774,
+   "calls": 31,
+   "points": 3509,
+   "textures": 18,
+   "res": "1440×900",
+   "heapMB": 40,
+   "dom": 226,
+   "png": 3101938,
+   "shot": "shots/command-desktop.jpg",
+   "pass": true
+  },
+  {
+   "route": "/command",
+   "view": "tv",
+   "problems": [],
+   "warnings": [
+    "words 187 (budget 40)",
+    "minFont 6 (budget 11)",
+    "tiny 3 (budget 0)",
+    "tris 82774 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 187,
+   "minFont": 6,
+   "small": [
+    "button.btn.solid 10px \"Enlist\"",
+    "button.btn.ghost 10px \"Practice battle first\"",
+    "button.btn.ghost 10px \"Academy\"",
+    "div.t-label-lg.c-player 10px \"Build\"",
+    "div.t-label-lg.c-player 10px \"Mine & refine\"",
+    "div.t-label-lg.c-player 10px \"Raid\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.cd-enlist.panel",
+     "words": 40,
+     "sample": "Start your own base Enlist a free commander in seconds: pick a name and a guild "
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 35,
+     "sample": "No commander yet? Press Enlist: it’s free and takes seconds. Click an empty + sl"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 20,
+     "sample": "Your commander’s home: planet slots to build in, your fleet, and an advisor with"
+    },
+    {
+     "sel": "div.cd-feature",
+     "words": 18,
+     "sample": "Mine & refine Dig ore out of your planet, then refine it into alpha before raide"
+    },
+    {
+     "sel": "div.cd-feature",
+     "words": 17,
+     "sample": "Build Put machines (structs) into your planet’s slots. Your computer solves a pu"
+    },
+    {
+     "sel": "div.cd-feature",
+     "words": 14,
+     "sample": "Raid Sail your fleet to another world, beat its defenders and take its ore."
+    }
+   ],
+   "tiny": 3,
+   "tinySample": [
+    "a.brand 20×20",
+    "button.guide-off 66×23",
+    "button.toast-act 120×17"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 82774,
+   "calls": 31,
+   "points": 3509,
+   "textures": 18,
+   "res": "640×480",
+   "heapMB": 38,
+   "dom": 226,
+   "png": 794774,
+   "shot": "shots/command-tv.jpg",
+   "pass": true
+  },
+  {
+   "route": "/command",
+   "view": "phone",
+   "problems": [],
+   "warnings": [
+    "minFont 6 (budget 11)",
+    "tiny 13 (budget 0)",
+    "tris 82774 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 196,
+   "minFont": 6,
+   "small": [
+    "button.btn.solid 10px \"Enlist\"",
+    "button.btn.ghost 10px \"Practice battle first\"",
+    "button.btn.ghost 10px \"Academy\"",
+    "div.t-label-lg.c-player 10px \"Build\"",
+    "div.t-label-lg.c-player 10px \"Mine & refine\"",
+    "div.t-label-lg.c-player 10px \"Raid\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.cd-enlist.panel",
+     "words": 51,
+     "sample": "Start your own base Enlist a free commander in seconds: pick a name and a guild "
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 35,
+     "sample": "No commander yet? Press Enlist: it’s free and takes seconds. Click an empty + sl"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 20,
+     "sample": "Your commander’s home: planet slots to build in, your fleet, and an advisor with"
+    },
+    {
+     "sel": "div.cd-feature",
+     "words": 18,
+     "sample": "Mine & refine Dig ore out of your planet, then refine it into alpha before raide"
+    },
+    {
+     "sel": "div.cd-feature",
+     "words": 17,
+     "sample": "Build Put machines (structs) into your planet’s slots. Your computer solves a pu"
+    },
+    {
+     "sel": "div.cd-feature",
+     "words": 14,
+     "sample": "Raid Sail your fleet to another world, beat its defenders and take its ore."
+    }
+   ],
+   "tiny": 13,
+   "tinySample": [
+    "a 107×11",
+    "a 66×11",
+    "button.hub.active 34×43",
+    "button.hub 34×43",
+    "button.hub 27×43",
+    "a.tb-academy 30×28"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 82774,
+   "calls": 31,
+   "points": 3509,
+   "textures": 18,
+   "res": "780×1688",
+   "heapMB": 40,
+   "dom": 226,
+   "png": 3159822,
+   "shot": "shots/command-phone.jpg",
+   "pass": true
+  },
+  {
+   "route": "/ops/proofs",
+   "view": "desktop",
+   "problems": [],
+   "warnings": [
+    "words 179 (budget 40)",
+    "minFont 7 (budget 11)",
+    "tiny 5 (budget 0)",
+    "tris 70678 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 179,
+   "minFont": 7,
+   "small": [
+    "button.btn 8px \"Moves\"",
+    "button.btn.active 8px \"Proof Engine\"",
+    "button.btn 8px \"Robot Helpers\"",
+    "button.btn 8px \"Robot Rules\"",
+    "button.btn 8px \"Rank & Missions\"",
+    "button.btn 8px \"Health\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.ops-page.scroll",
+     "words": 44,
+     "sample": "Builds, mining and raids finish when your computer solves a puzzle: it guesses m"
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 24,
+     "sample": "Proof Engine: watch your computer solve puzzles. Robot Helpers: make players tha"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 19,
+     "sample": "The machinery behind your base: your moves, the puzzle solver, robot helpers, ro"
+    },
+    {
+     "sel": "div.ops-grid",
+     "words": 16,
+     "sample": "No puzzles to solve right now. Building, mining and raiding give your computer p"
+    },
+    {
+     "sel": "div.ops-nav",
+     "words": 10,
+     "sample": "Moves Proof Engine Robot Helpers Robot Rules Rank & Missions Health"
+    },
+    {
+     "sel": "div.guide-foot",
+     "words": 10,
+     "sample": "Got it Lesson: Proof of work: puzzle power Hide tips"
+    }
+   ],
+   "tiny": 5,
+   "tinySample": [
+    "input.range 380×18",
+    "a.brand 147×20",
+    "button.tb-conn.ok 20×20",
+    "button.guide-off 66×23",
+    "button.toast-act 120×17"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 70678,
+   "calls": 27,
+   "points": 3500,
+   "textures": 18,
+   "res": "1440×900",
+   "heapMB": 40,
+   "dom": 255,
+   "png": 3025262,
+   "shot": "shots/ops_proofs-desktop.jpg",
+   "pass": true
+  },
+  {
+   "route": "/ops/proofs",
+   "view": "tv",
+   "problems": [],
+   "warnings": [
+    "words 177 (budget 40)",
+    "minFont 6 (budget 11)",
+    "tiny 4 (budget 0)",
+    "tris 70678 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 177,
+   "minFont": 6,
+   "small": [
+    "button.btn 8px \"Moves\"",
+    "button.btn.active 8px \"Proof Engine\"",
+    "button.btn 8px \"Robot Helpers\"",
+    "button.btn 8px \"Robot Rules\"",
+    "button.btn 8px \"Rank & Missions\"",
+    "button.btn 8px \"Health\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.ops-page.scroll",
+     "words": 44,
+     "sample": "Builds, mining and raids finish when your computer solves a puzzle: it guesses m"
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 24,
+     "sample": "Proof Engine: watch your computer solve puzzles. Robot Helpers: make players tha"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 19,
+     "sample": "The machinery behind your base: your moves, the puzzle solver, robot helpers, ro"
+    },
+    {
+     "sel": "div.ops-grid",
+     "words": 16,
+     "sample": "No puzzles to solve right now. Building, mining and raiding give your computer p"
+    },
+    {
+     "sel": "div.ops-nav",
+     "words": 10,
+     "sample": "Moves Proof Engine Robot Helpers Robot Rules Rank & Missions Health"
+    },
+    {
+     "sel": "div.guide-foot",
+     "words": 10,
+     "sample": "Got it Lesson: Proof of work: puzzle power Hide tips"
+    }
+   ],
+   "tiny": 4,
+   "tinySample": [
+    "input.range 362×18",
+    "a.brand 20×20",
+    "button.guide-off 66×23",
+    "button.toast-act 120×17"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 70678,
+   "calls": 27,
+   "points": 3500,
+   "textures": 18,
+   "res": "640×480",
+   "heapMB": 38,
+   "dom": 255,
+   "png": 778386,
+   "shot": "shots/ops_proofs-tv.jpg",
+   "pass": true
+  },
+  {
+   "route": "/ops/proofs",
+   "view": "phone",
+   "problems": [],
+   "warnings": [
+    "minFont 6 (budget 11)",
+    "tiny 19 (budget 0)",
+    "tris 70678 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 175,
+   "minFont": 6,
+   "small": [
+    "button.btn 8px \"Moves\"",
+    "button.btn.active 8px \"Proof Engine\"",
+    "button.btn 8px \"Robot Helpers\"",
+    "button.btn 8px \"Robot Rules\"",
+    "button.btn 8px \"Rank & Missions\"",
+    "button.btn 8px \"Health\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.ops-page.scroll",
+     "words": 44,
+     "sample": "Builds, mining and raids finish when your computer solves a puzzle: it guesses m"
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 24,
+     "sample": "Proof Engine: watch your computer solve puzzles. Robot Helpers: make players tha"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 19,
+     "sample": "The machinery behind your base: your moves, the puzzle solver, robot helpers, ro"
+    },
+    {
+     "sel": "div.ops-grid",
+     "words": 16,
+     "sample": "No puzzles to solve right now. Building, mining and raiding give your computer p"
+    },
+    {
+     "sel": "div.ops-nav",
+     "words": 10,
+     "sample": "Moves Proof Engine Robot Helpers Robot Rules Rank & Missions Health"
+    },
+    {
+     "sel": "div.guide-foot",
+     "words": 10,
+     "sample": "Got it Lesson: Proof of work: puzzle power Hide tips"
+    }
+   ],
+   "tiny": 19,
+   "tinySample": [
+    "button.btn 82×26",
+    "button.btn.active 147×26",
+    "button.btn 165×26",
+    "button.btn 142×26",
+    "button.btn 169×26",
+    "button.btn 93×26"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 70678,
+   "calls": 27,
+   "points": 3500,
+   "textures": 18,
+   "res": "780×1688",
+   "heapMB": 40,
+   "dom": 255,
+   "png": 2979830,
+   "shot": "shots/ops_proofs-phone.jpg",
+   "pass": true
+  },
+  {
+   "route": "/forge/MsgStructAttack",
+   "view": "desktop",
+   "problems": [],
+   "warnings": [
+    "words 233 (budget 90)",
+    "minFont 7 (budget 11)",
+    "tiny 4 (budget 0)",
+    "tris 70678 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 233,
+   "minFont": 7,
+   "small": [
+    "span.t-label 8px \"Code Lab · Forge\"",
+    "div.t-label.c-hint 8px \"Start here: everyday moves\"",
+    "div.t-label.c-hint 8px \"Structs\"",
+    "div.t-label.c-hint 8px \"Fleet\"",
+    "div.t-label.c-hint 8px \"Planet\"",
+    "span.chip.warn 7px \"spends charge\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.fg-group",
+     "words": 46,
+     "sample": "Structs Struct Activate Struct Deactivate Struct Deactivate Batch Struct Build I"
+    },
+    {
+     "sel": "div.fg-form.scroll",
+     "words": 30,
+     "sample": "No commander yet: you can build a message and see it as code, but testing or sen"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 28,
+     "sample": "Every move in the game is a message with named fields, like a function call in c"
+    },
+    {
+     "sel": "div.fg-code",
+     "words": 27,
+     "sample": "As code structAttack({ operatingStructId: ?, targetStructId: ?, weaponSystem: ? "
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 25,
+     "sample": "Pick a message from the list. Fill in a box and watch the “As code” line change."
+    },
+    {
+     "sel": "div.fg-group",
+     "words": 18,
+     "sample": "Start here: everyday moves Struct Attack Struct Build Initiate Fleet Move Planet"
+    }
+   ],
+   "tiny": 4,
+   "tinySample": [
+    "a.brand 147×20",
+    "button.tb-conn.ok 20×20",
+    "button.toast-act 120×17",
+    "button.guide-off 66×23"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 70678,
+   "calls": 27,
+   "points": 3500,
+   "textures": 18,
+   "res": "1440×900",
+   "heapMB": 32,
+   "dom": 394,
+   "png": 3148222,
+   "shot": "shots/forge_MsgStructAttack-desktop.jpg",
+   "pass": true
+  },
+  {
+   "route": "/forge/MsgStructAttack",
+   "view": "tv",
+   "problems": [],
+   "warnings": [
+    "words 126 (budget 90)",
+    "minFont 6 (budget 11)",
+    "tiny 3 (budget 0)",
+    "tris 70678 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 126,
+   "minFont": 6,
+   "small": [
+    "span.t-label 8px \"Code Lab · Forge\"",
+    "div.t-label.c-hint 8px \"Start here: everyday moves\"",
+    "span.chip.warn 7px \"spends charge\"",
+    "span.t-label 8px \"operatingStructId\"",
+    "span.t-label 8px \"targetStructId\"",
+    "span.t-label 8px \"weaponSystem\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.guide-card.panel",
+     "words": 28,
+     "sample": "Every move in the game is a message with named fields, like a function call in c"
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 25,
+     "sample": "Pick a message from the list. Fill in a box and watch the “As code” line change."
+    },
+    {
+     "sel": "div.fg-form.scroll",
+     "words": 21,
+     "sample": "No commander yet: you can build a message and see it as code, but testing or sen"
+    },
+    {
+     "sel": "div.fg-group",
+     "words": 11,
+     "sample": "Start here: everyday moves Struct Attack Struct Build Initiate Fleet Move"
+    },
+    {
+     "sel": "div.col",
+     "words": 6,
+     "sample": "Lab · you are here Code Lab"
+    },
+    {
+     "sel": "div.guide-foot",
+     "words": 6,
+     "sample": "Got it Lesson done ✓ Hide tips"
+    }
+   ],
+   "tiny": 3,
+   "tinySample": [
+    "a.brand 20×20",
+    "button.toast-act 120×17",
+    "button.guide-off 66×23"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 70678,
+   "calls": 27,
+   "points": 3500,
+   "textures": 18,
+   "res": "640×480",
+   "heapMB": 26,
+   "dom": 394,
+   "png": 818366,
+   "shot": "shots/forge_MsgStructAttack-tv.jpg",
+   "pass": true
+  },
+  {
+   "route": "/forge/MsgStructAttack",
+   "view": "phone",
+   "problems": [],
+   "warnings": [
+    "minFont 6 (budget 11)",
+    "tiny 23 (budget 0)",
+    "tris 70678 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 163,
+   "minFont": 6,
+   "small": [
+    "span.t-label 8px \"Code Lab · Forge\"",
+    "div.t-label.c-hint 8px \"Start here: everyday moves\"",
+    "div.t-label.c-hint 8px \"Structs\"",
+    "span.chip.warn 7px \"spends charge\"",
+    "span.t-label 8px \"operatingStructId\"",
+    "span.t-label 8px \"targetStructId\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.guide-card.panel",
+     "words": 28,
+     "sample": "Every move in the game is a message with named fields, like a function call in c"
+    },
+    {
+     "sel": "div.fg-code",
+     "words": 27,
+     "sample": "As code structAttack({ operatingStructId: ?, targetStructId: ?, weaponSystem: ? "
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 25,
+     "sample": "Pick a message from the list. Fill in a box and watch the “As code” line change."
+    },
+    {
+     "sel": "div.fg-form.scroll",
+     "words": 21,
+     "sample": "No commander yet: you can build a message and see it as code, but testing or sen"
+    },
+    {
+     "sel": "div.fg-group",
+     "words": 18,
+     "sample": "Start here: everyday moves Struct Attack Struct Build Initiate Fleet Move Planet"
+    },
+    {
+     "sel": "div.col",
+     "words": 6,
+     "sample": "Lab · you are here Code Lab"
+    }
+   ],
+   "tiny": 23,
+   "tinySample": [
+    "input.input 356×36",
+    "button.fg-item.on 364×26",
+    "button.fg-item 364×26",
+    "button.fg-item 364×26",
+    "button.fg-item 364×26",
+    "button.fg-item 364×26"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 70678,
+   "calls": 27,
+   "points": 3500,
+   "textures": 18,
+   "res": "780×1688",
+   "heapMB": 25,
+   "dom": 394,
+   "png": 3036242,
+   "shot": "shots/forge_MsgStructAttack-phone.jpg",
+   "pass": true
+  },
+  {
+   "route": "/intel/activity",
+   "view": "desktop",
+   "problems": [],
+   "warnings": [
+    "words 107 (budget 90)",
+    "minFont 7 (budget 11)",
+    "tiny 4 (budget 0)",
+    "tris 70678 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 107,
+   "minFont": 7,
+   "small": [
+    "span.t-label.c-hint 8px \"News & Rankings\"",
+    "span.itab-long 9px \"Activity\"",
+    "span.itab-long 9px \"Guilds\"",
+    "span.itab-long 9px \"Raids\"",
+    "span.itab-long 9px \"Leaderboards\"",
+    "span.itab-long 9px \"Stats\""
+   ],
+   "blocks": [
+    {
+     "sel": "ol.guide-tries",
+     "words": 20,
+     "sample": "Activity shows events the moment they happen. Leaderboards rank the galaxy’s top"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 16,
+     "sample": "What is happening right now: live events, who is raiding whom, leaderboards and "
+    },
+    {
+     "sel": "div.intel-scroll.scroll",
+     "words": 15,
+     "sample": "Everything happening in the galaxy right now, the moment it happens: builds, min"
+    },
+    {
+     "sel": "div.row.wrap",
+     "words": 7,
+     "sample": "Combat Fleets Structs Grid Economy People Market"
+    },
+    {
+     "sel": "div.col",
+     "words": 6,
+     "sample": "Explore · you are here News & Rankings"
+    },
+    {
+     "sel": "div.alist",
+     "words": 5,
+     "sample": "Connecting to the live news…"
+    }
+   ],
+   "tiny": 4,
+   "tinySample": [
+    "a.brand 147×20",
+    "button.tb-conn.ok 20×20",
+    "button.guide-off 66×23",
+    "button.toast-act 120×17"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 70678,
+   "calls": 27,
+   "points": 3500,
+   "textures": 18,
+   "res": "1440×900",
+   "heapMB": 37,
+   "dom": 276,
+   "png": 2923842,
+   "shot": "shots/intel_activity-desktop.jpg",
+   "pass": true
+  },
+  {
+   "route": "/intel/activity",
+   "view": "tv",
+   "problems": [],
+   "warnings": [
+    "words 100 (budget 90)",
+    "minFont 6 (budget 11)",
+    "tiny 3 (budget 0)",
+    "tris 70678 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 100,
+   "minFont": 6,
+   "small": [
+    "span.itab-short 9px \"Live\"",
+    "span.itab-short 9px \"Guilds\"",
+    "span.itab-short 9px \"Raids\"",
+    "span.itab-short 9px \"Boards\"",
+    "span.itab-short 9px \"Stats\"",
+    "span.itab-short 9px \"Ledger\""
+   ],
+   "blocks": [
+    {
+     "sel": "ol.guide-tries",
+     "words": 20,
+     "sample": "Activity shows events the moment they happen. Leaderboards rank the galaxy’s top"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 16,
+     "sample": "What is happening right now: live events, who is raiding whom, leaderboards and "
+    },
+    {
+     "sel": "div.intel-scroll.scroll",
+     "words": 15,
+     "sample": "Everything happening in the galaxy right now, the moment it happens: builds, min"
+    },
+    {
+     "sel": "div.row.wrap",
+     "words": 7,
+     "sample": "Combat Fleets Structs Grid Economy People Market"
+    },
+    {
+     "sel": "div.col",
+     "words": 6,
+     "sample": "Explore · you are here News & Rankings"
+    },
+    {
+     "sel": "div.alist",
+     "words": 5,
+     "sample": "Connecting to the live news…"
+    }
+   ],
+   "tiny": 3,
+   "tinySample": [
+    "a.brand 20×20",
+    "button.guide-off 66×23",
+    "button.toast-act 120×17"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 70678,
+   "calls": 27,
+   "points": 3500,
+   "textures": 18,
+   "res": "640×480",
+   "heapMB": 39,
+   "dom": 276,
+   "png": 748422,
+   "shot": "shots/intel_activity-tv.jpg",
+   "pass": true
+  },
+  {
+   "route": "/intel/activity",
+   "view": "phone",
+   "problems": [],
+   "warnings": [
+    "minFont 6 (budget 11)",
+    "tiny 27 (budget 0)",
+    "tris 70678 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 100,
+   "minFont": 6,
+   "small": [
+    "span.itab-short 9px \"Live\"",
+    "span.itab-short 9px \"Guilds\"",
+    "span.itab-short 9px \"Raids\"",
+    "span.itab-short 9px \"Boards\"",
+    "span.itab-short 9px \"Stats\"",
+    "button.btn.mini 7px \"Pause\""
+   ],
+   "blocks": [
+    {
+     "sel": "ol.guide-tries",
+     "words": 20,
+     "sample": "Activity shows events the moment they happen. Leaderboards rank the galaxy’s top"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 16,
+     "sample": "What is happening right now: live events, who is raiding whom, leaderboards and "
+    },
+    {
+     "sel": "div.intel-scroll.scroll",
+     "words": 15,
+     "sample": "Everything happening in the galaxy right now, the moment it happens: builds, min"
+    },
+    {
+     "sel": "div.row.wrap",
+     "words": 7,
+     "sample": "Combat Fleets Structs Grid Economy People Market"
+    },
+    {
+     "sel": "div.col",
+     "words": 6,
+     "sample": "Explore · you are here News & Rankings"
+    },
+    {
+     "sel": "div.alist",
+     "words": 5,
+     "sample": "Connecting to the live news…"
+    }
+   ],
+   "tiny": 27,
+   "tinySample": [
+    "button.itab.on 76×31",
+    "button.itab 89×31",
+    "button.itab 77×31",
+    "button.itab 96×31",
+    "button.itab 83×31",
+    "input.input.afilter 225×30"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 70678,
+   "calls": 27,
+   "points": 3500,
+   "textures": 18,
+   "res": "780×1688",
+   "heapMB": 37,
+   "dom": 276,
+   "png": 2851538,
+   "shot": "shots/intel_activity-phone.jpg",
+   "pass": true
+  },
+  {
+   "route": "/guild/0-5",
+   "view": "desktop",
+   "problems": [],
+   "warnings": [
+    "words 166 (budget 40)",
+    "minFont 7 (budget 11)",
+    "tiny 48 (budget 0)",
+    "tris 70678 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 166,
+   "minFont": 7,
+   "small": [
+    "button.btn.active 8px \"Hall\"",
+    "button.btn 8px \"Permissions\"",
+    "button.btn 8px \"Orbital Hydro\"",
+    "button.btn 8px \"Guild 0-2\"",
+    "button.btn 8px \"Guild 0-3\"",
+    "button.btn 8px \"Guild 0-4\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.guide-card.panel",
+     "words": 18,
+     "sample": "Your team: who is in it, their ranks, and who is allowed to act for you. Try thi"
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 18,
+     "sample": "See every member and their rank. Request to join another guild. Permissions deci"
+    },
+    {
+     "sel": "div.ops-nav",
+     "words": 8,
+     "sample": "Hall Permissions Orbital Hydro Guild 0-2 Guild 0-3 Guild 0-4 Guild 0-5"
+    },
+    {
+     "sel": "div.col",
+     "words": 6,
+     "sample": "Team · you are here Guild Hall"
+    },
+    {
+     "sel": "div.guide-foot",
+     "words": 4,
+     "sample": "Got it Hide tips"
+    },
+    {
+     "sel": "div.row.wrap",
+     "words": 3,
+     "sample": "513 members led by 1-404"
+    }
+   ],
+   "tiny": 48,
+   "tinySample": [
+    "a.t-label-lg.lnk 276×16",
+    "a.t-label-lg.lnk 276×16",
+    "a.t-label-lg.lnk 276×16",
+    "a.t-label-lg.lnk 276×16",
+    "a.t-label-lg.lnk 276×16",
+    "a.t-label-lg.lnk 276×16"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 70678,
+   "calls": 27,
+   "points": 3500,
+   "textures": 18,
+   "res": "1440×900",
+   "heapMB": 24,
+   "dom": 2227,
+   "png": 3032610,
+   "shot": "shots/guild_0-5-desktop.jpg",
+   "pass": true
+  },
+  {
+   "route": "/guild/0-5",
+   "view": "tv",
+   "problems": [],
+   "warnings": [
+    "words 96 (budget 40)",
+    "minFont 6 (budget 11)",
+    "tiny 9 (budget 0)",
+    "tris 70678 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 96,
+   "minFont": 6,
+   "small": [
+    "button.btn.active 8px \"Hall\"",
+    "button.btn 8px \"Permissions\"",
+    "button.btn 8px \"Orbital Hydro\"",
+    "button.btn 8px \"Guild 0-2\"",
+    "button.btn 8px \"Guild 0-3\"",
+    "button.btn 8px \"Kilgore Crabla\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.guide-card.panel",
+     "words": 18,
+     "sample": "Your team: who is in it, their ranks, and who is allowed to act for you. Try thi"
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 18,
+     "sample": "See every member and their rank. Request to join another guild. Permissions deci"
+    },
+    {
+     "sel": "div.ops-nav",
+     "words": 10,
+     "sample": "Hall Permissions Orbital Hydro Guild 0-2 Guild 0-3 Kilgore Crabla SN Corp"
+    },
+    {
+     "sel": "div.col",
+     "words": 6,
+     "sample": "Team · you are here Guild Hall"
+    },
+    {
+     "sel": "div.row.wrap",
+     "words": 4,
+     "sample": "SN Corp SN.C"
+    },
+    {
+     "sel": "div.guide-foot",
+     "words": 4,
+     "sample": "Got it Hide tips"
+    }
+   ],
+   "tiny": 9,
+   "tinySample": [
+    "a.t-label-lg.lnk 230×16",
+    "a.t-label-lg.lnk 230×16",
+    "a.t-label-lg.lnk 230×16",
+    "a.t-label-lg.lnk 230×16",
+    "a.t-label-lg.lnk 230×16",
+    "a.t-label-lg.lnk 230×16"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 70678,
+   "calls": 27,
+   "points": 3500,
+   "textures": 18,
+   "res": "640×480",
+   "heapMB": 22,
+   "dom": 2229,
+   "png": 779670,
+   "shot": "shots/guild_0-5-tv.jpg",
+   "pass": true
+  },
+  {
+   "route": "/guild/0-5",
+   "view": "phone",
+   "problems": [],
+   "warnings": [
+    "minFont 6 (budget 11)",
+    "tiny 28 (budget 0)",
+    "tris 70678 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 97,
+   "minFont": 6,
+   "small": [
+    "button.btn.active 8px \"Hall\"",
+    "button.btn 8px \"Permissions\"",
+    "button.btn 8px \"Orbital Hydro\"",
+    "button.btn 8px \"Guild 0-2\"",
+    "button.btn 8px \"Guild 0-3\"",
+    "button.btn 8px \"Kilgore Crabla\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.guide-card.panel",
+     "words": 18,
+     "sample": "Your team: who is in it, their ranks, and who is allowed to act for you. Try thi"
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 18,
+     "sample": "See every member and their rank. Request to join another guild. Permissions deci"
+    },
+    {
+     "sel": "div.ops-nav",
+     "words": 10,
+     "sample": "Hall Permissions Orbital Hydro Guild 0-2 Guild 0-3 Kilgore Crabla SN Corp"
+    },
+    {
+     "sel": "div.col",
+     "words": 6,
+     "sample": "Team · you are here Guild Hall"
+    },
+    {
+     "sel": "div.row.wrap",
+     "words": 4,
+     "sample": "SN Corp SN.C"
+    },
+    {
+     "sel": "div.guide-foot",
+     "words": 4,
+     "sample": "Got it Hide tips"
+    }
+   ],
+   "tiny": 28,
+   "tinySample": [
+    "button.btn.active 70×26",
+    "button.btn 136×26",
+    "button.btn 159×26",
+    "button.btn 112×26",
+    "button.btn 112×26",
+    "button.btn 170×26"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 70678,
+   "calls": 27,
+   "points": 3500,
+   "textures": 18,
+   "res": "780×1688",
+   "heapMB": 30,
+   "dom": 2229,
+   "png": 3018714,
+   "shot": "shots/guild_0-5-phone.jpg",
+   "pass": true
+  },
+  {
+   "route": "/comms",
+   "view": "desktop",
+   "problems": [],
+   "warnings": [
+    "words 184 (budget 60)",
+    "minFont 7 (budget 11)",
+    "tiny 4 (budget 0)",
+    "tris 70678 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 184,
+   "minFont": 7,
+   "small": [
+    "div.t-label.c-player 8px \"Chat · not signed in\"",
+    "span.t-label 8px \"Commander sign-in: not here ye\"",
+    "div.t-label.c-hint 8px \"Sign in with an access token\"",
+    "span.t-label.c-hint 8px \"Homeserver\"",
+    "span.t-label.c-hint 8px \"Access token\"",
+    "button.btn.solid 8px \"Connect\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.cp-si-wallet.col",
+     "words": 58,
+     "sample": "Sign in with an access token Already signed in with another Matrix app (Element,"
+    },
+    {
+     "sel": "div.cp-si-head",
+     "words": 30,
+     "sample": "Chat · not signed in Open a channel to the galaxy Talk with your guild, ask ques"
+    },
+    {
+     "sel": "div.cp-si-state.warn",
+     "words": 24,
+     "sample": "Commander sign-in: not here yet Signing in to chat with your commander isn’t ava"
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 24,
+     "sample": "Already chat in another Matrix app? Paste its token to join here. Be kind, and n"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 15,
+     "sample": "Talk with your guild. Every planet and fleet has its own channel too. Try this"
+    },
+    {
+     "sel": "div.guide-foot",
+     "words": 8,
+     "sample": "Got it Lesson: Your secret key Hide tips"
+    }
+   ],
+   "tiny": 4,
+   "tinySample": [
+    "a.brand 147×20",
+    "button.tb-conn.ok 20×20",
+    "button.guide-off 66×23",
+    "button.toast-act 120×17"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 70678,
+   "calls": 27,
+   "points": 3500,
+   "textures": 18,
+   "res": "1440×900",
+   "heapMB": 28,
+   "dom": 253,
+   "png": 2932334,
+   "shot": "shots/comms-desktop.jpg",
+   "pass": true
+  },
+  {
+   "route": "/comms",
+   "view": "tv",
+   "problems": [],
+   "warnings": [
+    "words 181 (budget 60)",
+    "minFont 6 (budget 11)",
+    "tiny 3 (budget 0)",
+    "tris 70678 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 181,
+   "minFont": 6,
+   "small": [
+    "div.t-label.c-player 8px \"Chat · not signed in\"",
+    "span.t-label 8px \"Commander sign-in: not here ye\"",
+    "div.t-label.c-hint 8px \"Sign in with an access token\"",
+    "span.t-label.c-hint 8px \"Homeserver\"",
+    "span.t-label.c-hint 8px \"Access token\"",
+    "span.hub-label 6px \"Base\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.cp-si-wallet.col",
+     "words": 58,
+     "sample": "Sign in with an access token Already signed in with another Matrix app (Element,"
+    },
+    {
+     "sel": "div.cp-si-head",
+     "words": 30,
+     "sample": "Chat · not signed in Open a channel to the galaxy Talk with your guild, ask ques"
+    },
+    {
+     "sel": "div.cp-si-state.warn",
+     "words": 24,
+     "sample": "Commander sign-in: not here yet Signing in to chat with your commander isn’t ava"
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 24,
+     "sample": "Already chat in another Matrix app? Paste its token to join here. Be kind, and n"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 15,
+     "sample": "Talk with your guild. Every planet and fleet has its own channel too. Try this"
+    },
+    {
+     "sel": "div.guide-foot",
+     "words": 8,
+     "sample": "Got it Lesson: Your secret key Hide tips"
+    }
+   ],
+   "tiny": 3,
+   "tinySample": [
+    "a.brand 20×20",
+    "button.guide-off 66×23",
+    "button.toast-act 120×17"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 70678,
+   "calls": 27,
+   "points": 3500,
+   "textures": 18,
+   "res": "640×480",
+   "heapMB": 26,
+   "dom": 253,
+   "png": 750810,
+   "shot": "shots/comms-tv.jpg",
+   "pass": true
+  },
+  {
+   "route": "/comms",
+   "view": "phone",
+   "problems": [],
+   "warnings": [
+    "minFont 6 (budget 11)",
+    "tiny 15 (budget 0)",
+    "tris 70678 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 180,
+   "minFont": 6,
+   "small": [
+    "div.t-label.c-player 8px \"Chat · not signed in\"",
+    "span.t-label 8px \"Commander sign-in: not here ye\"",
+    "div.t-label.c-hint 8px \"Sign in with an access token\"",
+    "span.t-label.c-hint 8px \"Homeserver\"",
+    "span.t-label.c-hint 8px \"Access token\"",
+    "button.btn.solid 8px \"Connect\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.cp-si-wallet.col",
+     "words": 58,
+     "sample": "Sign in with an access token Already signed in with another Matrix app (Element,"
+    },
+    {
+     "sel": "div.cp-si-head",
+     "words": 30,
+     "sample": "Chat · not signed in Open a channel to the galaxy Talk with your guild, ask ques"
+    },
+    {
+     "sel": "div.cp-si-state.warn",
+     "words": 24,
+     "sample": "Commander sign-in: not here yet Signing in to chat with your commander isn’t ava"
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 24,
+     "sample": "Already chat in another Matrix app? Paste its token to join here. Be kind, and n"
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 15,
+     "sample": "Talk with your guild. Every planet and fleet has its own channel too. Try this"
+    },
+    {
+     "sel": "div.guide-foot",
+     "words": 8,
+     "sample": "Got it Lesson: Your secret key Hide tips"
+    }
+   ],
+   "tiny": 15,
+   "tinySample": [
+    "input.input 336×36",
+    "input.input 336×36",
+    "button.btn.solid 108×32",
+    "button.hub 34×43",
+    "button.hub.active 34×43",
+    "button.hub 27×43"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 70678,
+   "calls": 27,
+   "points": 3500,
+   "textures": 18,
+   "res": "780×1688",
+   "heapMB": 28,
+   "dom": 253,
+   "png": 2892294,
+   "shot": "shots/comms-phone.jpg",
+   "pass": true
+  },
+  {
+   "route": "/economy",
+   "view": "desktop",
+   "problems": [],
+   "warnings": [
+    "words 218 (budget 40)",
+    "minFont 7 (budget 11)",
+    "tiny 5 (budget 0)",
+    "tris 70678 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 218,
+   "minFont": 7,
+   "small": [
+    "span.t-label.c-hint 8px \"Trade · Power · Fuel · Market \"",
+    "button.btn.ghost 7px \"Refresh\"",
+    "button.etab.on 9px \"Power\"",
+    "button.etab 9px \"Fuel\"",
+    "button.etab 9px \"Market\"",
+    "button.etab 9px \"Banks\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.col.grow",
+     "words": 23,
+     "sample": "Your power grid needs a commander. Enlisting one is free and takes a few seconds"
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 23,
+     "sample": "Power: is your supply bigger than your use? Market: compare prices before you bu"
+    },
+    {
+     "sel": "div.eco-plain",
+     "words": 20,
+     "sample": "How much energy you make versus how much you use. Keep use below supply, or you "
+    },
+    {
+     "sel": "div.col",
+     "words": 17,
+     "sample": "The galaxy’s grid 17 substations share 133 MW among 4244 players. Fewer players "
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 17,
+     "sample": "The money side of the galaxy: energy, fuel, the market, guild banks and sending "
+    },
+    {
+     "sel": "div.guide-foot",
+     "words": 9,
+     "sample": "Got it Lesson: Power: supply and demand Hide tips"
+    }
+   ],
+   "tiny": 5,
+   "tinySample": [
+    "a.eco-plain-lesson 73×18",
+    "a.brand 147×20",
+    "button.tb-conn.ok 20×20",
+    "button.guide-off 66×23",
+    "button.toast-act 120×17"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 70678,
+   "calls": 27,
+   "points": 3500,
+   "textures": 18,
+   "res": "1440×900",
+   "heapMB": 28,
+   "dom": 345,
+   "png": 3009986,
+   "shot": "shots/economy-desktop.jpg",
+   "pass": true
+  },
+  {
+   "route": "/economy",
+   "view": "tv",
+   "problems": [],
+   "warnings": [
+    "words 140 (budget 40)",
+    "minFont 6 (budget 11)",
+    "tiny 4 (budget 0)",
+    "tris 70678 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 140,
+   "minFont": 6,
+   "small": [
+    "button.btn.ghost 7px \"Refresh\"",
+    "button.etab.on 8px \"Power\"",
+    "button.etab 8px \"Fuel\"",
+    "button.etab 8px \"Market\"",
+    "button.etab 8px \"Banks\"",
+    "button.etab 8px \"Transfers\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.col.grow",
+     "words": 23,
+     "sample": "Your power grid needs a commander. Enlisting one is free and takes a few seconds"
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 23,
+     "sample": "Power: is your supply bigger than your use? Market: compare prices before you bu"
+    },
+    {
+     "sel": "div.eco-plain",
+     "words": 20,
+     "sample": "How much energy you make versus how much you use. Keep use below supply, or you "
+    },
+    {
+     "sel": "div.col",
+     "words": 17,
+     "sample": "The galaxy’s grid 17 substations share 133 MW among 4244 players. Fewer players "
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 17,
+     "sample": "The money side of the galaxy: energy, fuel, the market, guild banks and sending "
+    },
+    {
+     "sel": "div.guide-foot",
+     "words": 9,
+     "sample": "Got it Lesson: Power: supply and demand Hide tips"
+    }
+   ],
+   "tiny": 4,
+   "tinySample": [
+    "a.eco-plain-lesson 73×18",
+    "a.brand 20×20",
+    "button.guide-off 66×23",
+    "button.toast-act 120×17"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 70678,
+   "calls": 27,
+   "points": 3500,
+   "textures": 18,
+   "res": "640×480",
+   "heapMB": 26,
+   "dom": 345,
+   "png": 773234,
+   "shot": "shots/economy-tv.jpg",
+   "pass": true
+  },
+  {
+   "route": "/economy",
+   "view": "phone",
+   "problems": [],
+   "warnings": [
+    "minFont 6 (budget 11)",
+    "tiny 19 (budget 0)",
+    "tris 70678 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 160,
+   "minFont": 6,
+   "small": [
+    "button.btn.ghost 7px \"Refresh\"",
+    "button.etab.on 8px \"Power\"",
+    "button.etab 8px \"Fuel\"",
+    "button.etab 8px \"Market\"",
+    "button.etab 8px \"Banks\"",
+    "button.etab 8px \"Transfers\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.col.grow",
+     "words": 23,
+     "sample": "Your power grid needs a commander. Enlisting one is free and takes a few seconds"
+    },
+    {
+     "sel": "ol.guide-tries",
+     "words": 23,
+     "sample": "Power: is your supply bigger than your use? Market: compare prices before you bu"
+    },
+    {
+     "sel": "div.eco-plain",
+     "words": 20,
+     "sample": "How much energy you make versus how much you use. Keep use below supply, or you "
+    },
+    {
+     "sel": "div.col",
+     "words": 17,
+     "sample": "The galaxy’s grid 17 substations share 133 MW among 4244 players. Fewer players "
+    },
+    {
+     "sel": "div.guide-card.panel",
+     "words": 17,
+     "sample": "The money side of the galaxy: energy, fuel, the market, guild banks and sending "
+    },
+    {
+     "sel": "div.guide-foot",
+     "words": 9,
+     "sample": "Got it Lesson: Power: supply and demand Hide tips"
+    }
+   ],
+   "tiny": 19,
+   "tinySample": [
+    "button.btn.ghost 88×24",
+    "button.etab.on 64×30",
+    "button.etab 54×30",
+    "button.etab 75×30",
+    "button.etab 64×30",
+    "button.etab 106×30"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 70678,
+   "calls": 27,
+   "points": 3500,
+   "textures": 18,
+   "res": "780×1688",
+   "heapMB": 28,
+   "dom": 345,
+   "png": 2937226,
+   "shot": "shots/economy-phone.jpg",
+   "pass": true
+  },
+  {
+   "route": "/academy",
+   "view": "desktop",
+   "problems": [],
+   "warnings": [
+    "words 206 (budget 90)",
+    "minFont 7 (budget 11)",
+    "tiny 3 (budget 0)",
+    "tris 70678 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 206,
+   "minFont": 7,
+   "small": [
+    "span.ac-daily-k 8px \"Today’s challenge\"",
+    "span.ac-badge-name 8px \"Strategist\"",
+    "span.ac-badge-name 8px \"Economist\"",
+    "span.ac-badge-name 8px \"Engineer\"",
+    "span.ac-track-name 10px \"Strategy\"",
+    "span.ac-track-name 10px \"Economics\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.ac-lesson-body",
+     "words": 34,
+     "sample": "Every struct has a job. Some shoot down planes, some sink ships, some guard othe"
+    },
+    {
+     "sel": "div.ac-hello",
+     "words": 15,
+     "sample": "Academy Learn strategy, economics and technology by playing. Every lesson earns "
+    },
+    {
+     "sel": "button.ac-daily",
+     "words": 11,
+     "sample": "Today’s challenge Silent Anvil Fortress: the same battle for everyone today."
+    },
+    {
+     "sel": "span.col",
+     "words": 9,
+     "sample": "The live game: from first build to first raid"
+    },
+    {
+     "sel": "button.ac-lesson-head",
+     "words": 8,
+     "sample": "Meet your units Next up Do it +30 XP"
+    },
+    {
+     "sel": "div.ac-do",
+     "words": 8,
+     "sample": "To finish Open the screen and look around."
+    }
+   ],
+   "tiny": 3,
+   "tinySample": [
+    "a.brand 147×20",
+    "button.tb-conn.ok 20×20",
+    "button.toast-act 120×17"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 70678,
+   "calls": 27,
+   "points": 3500,
+   "textures": 18,
+   "res": "1440×900",
+   "heapMB": 23,
+   "dom": 367,
+   "png": 2966058,
+   "shot": "shots/academy-desktop.jpg",
+   "pass": true
+  },
+  {
+   "route": "/academy",
+   "view": "tv",
+   "problems": [],
+   "warnings": [
+    "minFont 6 (budget 11)",
+    "tiny 2 (budget 0)",
+    "tris 70678 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 81,
+   "minFont": 6,
+   "small": [
+    "span.ac-daily-k 8px \"Today’s challenge\"",
+    "span.ac-kicker 9px \"Strategy track\"",
+    "span.ac-pill.next 10px \"Next up\"",
+    "span.ac-pill 10px \"Do it\"",
+    "span.hub-label 6px \"Base\"",
+    "span.hub-label 6px \"Battle\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.ac-lesson-body",
+     "words": 34,
+     "sample": "Every struct has a job. Some shoot down planes, some sink ships, some guard othe"
+    },
+    {
+     "sel": "button.ac-lesson-head",
+     "words": 8,
+     "sample": "Meet your units Next up Do it +30 XP"
+    },
+    {
+     "sel": "div.ac-head-n",
+     "words": 7,
+     "sample": "lessons · finish all for the Strategist badge"
+    },
+    {
+     "sel": "div.ac-rank",
+     "words": 6,
+     "sample": "180 XP to Ensign 0 of 27 lessons done"
+    },
+    {
+     "sel": "div.col",
+     "words": 6,
+     "sample": "Strategy track Think like a commander"
+    },
+    {
+     "sel": "button.ac-daily",
+     "words": 4,
+     "sample": "Today’s challenge Silent Anvil"
+    }
+   ],
+   "tiny": 2,
+   "tinySample": [
+    "a.brand 20×20",
+    "button.toast-act 120×17"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 70678,
+   "calls": 27,
+   "points": 3500,
+   "textures": 18,
+   "res": "640×480",
+   "heapMB": 22,
+   "dom": 367,
+   "png": 755834,
+   "shot": "shots/academy-tv.jpg",
+   "pass": true
+  },
+  {
+   "route": "/academy",
+   "view": "phone",
+   "problems": [],
+   "warnings": [
+    "minFont 6 (budget 11)",
+    "tiny 11 (budget 0)",
+    "tris 70678 (budget 60000)"
+   ],
+   "mounted": true,
+   "words": 105,
+   "minFont": 6,
+   "small": [
+    "span.ac-daily-k 8px \"Today’s challenge\"",
+    "span.ac-badge-name 8px \"Strategist\"",
+    "span.ac-badge-name 8px \"Economist\"",
+    "span.ac-badge-name 8px \"Engineer\"",
+    "span.ac-kicker 9px \"Strategy track\"",
+    "span.ac-pill.next 10px \"Next up\""
+   ],
+   "blocks": [
+    {
+     "sel": "div.ac-lesson-body",
+     "words": 34,
+     "sample": "Every struct has a job. Some shoot down planes, some sink ships, some guard othe"
+    },
+    {
+     "sel": "button.ac-daily",
+     "words": 11,
+     "sample": "Today’s challenge Silent Anvil Fortress: the same battle for everyone today."
+    },
+    {
+     "sel": "button.ac-lesson-head",
+     "words": 8,
+     "sample": "Meet your units Next up Do it +30 XP"
+    },
+    {
+     "sel": "div.ac-do",
+     "words": 8,
+     "sample": "To finish Open the screen and look around."
+    },
+    {
+     "sel": "div.ac-head-n",
+     "words": 7,
+     "sample": "lessons · finish all for the Strategist badge"
+    },
+    {
+     "sel": "div.ac-rank",
+     "words": 6,
+     "sample": "180 XP to Ensign 0 of 27 lessons done"
+    }
+   ],
+   "tiny": 11,
+   "tinySample": [
+    "button.ac-track.on 200×22",
+    "button.ac-track 200×22",
+    "button.btn.solid 105×34",
+    "button.hub 34×43",
+    "button.hub 34×43",
+    "button.hub 27×43"
+   ],
+   "wide": [],
+   "fps": 60,
+   "p95": 17,
+   "tris": 70678,
+   "calls": 27,
+   "points": 3500,
+   "textures": 18,
+   "res": "780×1688",
+   "heapMB": 36,
+   "dom": 367,
+   "png": 2871894,
+   "shot": "shots/academy-phone.jpg",
+   "pass": true
+  }
+ ]
+}

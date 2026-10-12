@@ -1,0 +1,44 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "structs-xyz",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "dev"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "structs-xyz-deck",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "5190",
+        "--strictPort"
+      ],
+      "port": 5190
+    },
+    {
+      "name": "structs-xyz-prod",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "relay/serve.mjs",
+        "8089"
+      ],
+      "port": 8089
+    },
+    {
+      "name": "structs-xyz-cadet",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "5195",
+        "--strictPort"
+      ],
+      "port": 5195
+    }
+  ]
+}

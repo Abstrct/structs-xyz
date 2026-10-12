@@ -1,0 +1,21 @@
+{
+  "id": "./",
+  "name": "Structs Command Deck",
+  "short_name": "Structs",
+  "description": "Play Structs: build, mine, raid and replicate on the chain — a full client in your browser.",
+  "start_url": "./command",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0B1240",
+  "theme_color": "#0B1240",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ],
+  "screenshots": [
+    { "src": "og.jpg", "sizes": "1200x630", "type": "image/jpeg", "form_factor": "wide", "label": "The live galaxy: every discovered world, guild-lit homes, raid arcs and battle sites" }
+  ]
+}

@@ -1,0 +1,137 @@
+/* The commander's chrome: vault, ops dock, command deck, forge. SUI rules apply: nothing
+ * rounded, colour is meaning (teal us, red them, gold neutral), chrome in ExtremeHazard. */
+
+.mono { font-family: var(--font-ticker); }
+.wrap { flex-wrap: wrap; }
+.btn.mini { min-height: 24px; padding: 4px 9px; font-size: 11px; }
+.clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.mini-select { width: auto; min-height: 26px; padding: 3px 8px; font-size: 12px; }
+
+/* ── Vault ─────────────────────────────────────────────────────────────── */
+.vault { width: min(620px, calc(100vw - 24px)); }
+.vault-body { gap: 12px; max-height: calc(100vh - 120px); user-select: text; -webkit-user-select: text; }
+.vault-hero { padding: 14px 4px 4px; display: flex; flex-direction: column; gap: 8px; }
+.vault-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.vault-choice { appearance: none; position: relative; text-align: left; padding: 16px 14px; background: linear-gradient(160deg, rgba(67,205,182,.16), rgba(19,53,70,.2) 55%), var(--scan), rgba(5,14,19,.5); border: 1px solid rgba(67,205,182,.4); cursor: pointer; display: flex; flex-direction: column; gap: 6px; transition: border-color .15s, box-shadow .2s; box-shadow: inset 2px 0 0 rgba(67,205,182,.6); }
+.vault-choice:hover { border-color: var(--accent-primary); background: linear-gradient(160deg, rgba(67,205,182,.26), rgba(28,95,106,.28) 55%), var(--scan), rgba(6,18,24,.6); box-shadow: inset 2px 0 0 var(--accent-primary), 0 0 22px rgba(67,205,182,.22); }
+.phrase-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; transition: filter .25s; }
+.phrase-grid.blur { filter: blur(7px); }
+.phrase-word { display: flex; gap: 6px; align-items: baseline; padding: 5px 7px; background: linear-gradient(180deg, rgba(67,205,182,.06), rgba(0,0,0,0)), rgba(0,0,0,.38); border: 1px solid var(--hair); text-shadow: 0 0 8px rgba(134,223,198,.3); font-family: var(--font-ticker); font-size: 12px; color: var(--text-player-highlight); }
+.phrase-word .n { color: var(--accent-disabled); font-size: 11px; min-width: 16px; }
+.phrase-input { font-family: var(--font-ticker); resize: vertical; }
+.vault-alert { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid rgba(243,200,120,.42); background: linear-gradient(90deg, rgba(243,200,120,.13), rgba(243,200,120,.03)); box-shadow: inset 2px 0 0 var(--text-warning); }
+.vault-who { padding: 6px 0; }
+.acct { display: flex; gap: 10px; align-items: center; padding: 8px; border: 1px solid var(--hair); background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0)), rgba(0,0,0,.22); }
+.acct.on { border-color: rgba(67,205,182,.5); background: linear-gradient(90deg, rgba(67,205,182,.16), rgba(19,53,70,.2)); box-shadow: inset 2px 0 0 var(--accent-primary); }
+.acct .addr { appearance: none; border: 0; background: none; padding: 0; text-align: left; cursor: copy; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.acct .addr:hover { color: var(--text-body); }
+.guild-pick { gap: 6px; max-height: 260px; overflow-y: auto; }
+.guild-opt { appearance: none; text-align: left; padding: 9px 10px; background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0)), rgba(0,0,0,.26); border: 1px solid var(--hair); cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: border-color .15s, box-shadow .15s; }
+.guild-opt:hover { border-color: var(--hair-strong); background: linear-gradient(90deg, rgba(150,190,204,.1), rgba(150,190,204,.02)), rgba(0,0,0,.26); }
+.guild-opt.on { border-color: var(--accent-primary); background: linear-gradient(90deg, rgba(67,205,182,.22), rgba(19,53,70,.3)); box-shadow: inset 0 0 0 1px var(--accent-primary), 0 0 16px rgba(67,205,182,.18); }
+.join-log { gap: 2px; }
+.join-step { animation: feedIn .35s ease; }
+@media (max-width: 560px) { .vault-choices { grid-template-columns: 1fr; } .phrase-grid { grid-template-columns: repeat(3, 1fr); } }
+
+/* ── Top bar additions ─────────────────────────────────────────────────── */
+.wallet-chip { appearance: none; display: flex; align-items: center; gap: 7px; padding: 3px 9px 3px 4px; min-height: 30px; border: 1px solid var(--hair); background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.01)), rgba(8,12,18,.6); cursor: pointer; color: var(--text-hint); transition: border-color .15s, box-shadow .15s, color .15s; }
+.wallet-chip:hover { border-color: var(--hair-strong); color: var(--text-body); box-shadow: 0 0 12px rgba(150,190,204,.12); }
+.wallet-chip.unlocked { border-color: rgba(67,205,182,.45); color: var(--accent-primary); background: linear-gradient(180deg, rgba(67,205,182,.14), rgba(67,205,182,.03)), rgba(6,14,20,.6); }
+.wallet-chip.locked { border-color: rgba(243,200,120,.45); color: var(--text-warning); background: linear-gradient(180deg, rgba(243,200,120,.12), rgba(243,200,120,.02)), rgba(12,11,9,.6); }
+.wallet-chip.empty { border-color: rgba(67,205,182,.45); color: var(--accent-primary); background: linear-gradient(180deg, rgba(67,205,182,.14), rgba(67,205,182,.03)), rgba(6,14,20,.6); text-shadow: 0 0 10px rgba(67,205,182,.45); }
+.wallet-chip.empty:hover { border-color: var(--accent-primary); box-shadow: 0 0 16px rgba(67,205,182,.25); }
+.wallet-chip .pfp { width: 22px; height: 22px; }
+.wallet-chip .lock { width: 12px; height: 12px; }
+.wallet-chip .nm { font-family: var(--font-chrome); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ops-chip { appearance: none; display: flex; align-items: center; gap: 6px; padding: 3px 8px; min-height: 28px; border: 1px solid var(--hair); background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.01)), rgba(8,12,18,.6); cursor: pointer; color: var(--text-hint); font-family: var(--font-chrome); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
+.ops-chip:hover { border-color: var(--border); color: var(--text-body); }
+.ops-chip .n { font-family: var(--font-ticker); font-size: 11px; letter-spacing: 0; color: var(--text-body); }
+.ops-chip.busy { border-color: rgba(67,205,182,.5); color: var(--accent-primary); box-shadow: 0 0 12px rgba(67,205,182,.2); }
+.ops-chip .glyph { width: 7px; height: 7px; border: 1px solid currentColor; transform: rotate(45deg); display: inline-block; }
+.ops-chip.busy .glyph { animation: spin 1.2s linear infinite; background: currentColor; }
+.ops-chip.fail { border-color: #6b2a3c; color: var(--accent-destructive); }
+.ops-chip.hash { border-color: #3e4673; color: var(--accent-secondary); }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Ops dock (slide-up console) ───────────────────────────────────────── */
+.ops-dock, .ops-dock.panel { position: fixed; right: 12px; bottom: 12px; width: min(460px, calc(100vw - 24px)); max-height: min(70vh, 640px); display: flex; flex-direction: column; z-index: calc(var(--menu-z) + 5); pointer-events: auto; transform: translateY(16px); opacity: 0; transition: transform .2s ease, opacity .2s ease; visibility: hidden; }
+.ops-dock.open { transform: none; opacity: 1; visibility: visible; }
+.ops-tabs { display: flex; gap: 2px; }
+.ops-tabs .btn { min-height: 24px; padding: 4px 9px; }
+.ops-body { overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; min-height: 120px; }
+/* Rows in a scrolling column keep their height: the list scrolls rather than squashing them. */
+.ops-body > *, .job, .task { flex: none; }
+
+.job { display: grid; grid-template-columns: 18px 1fr auto; gap: 8px; align-items: start; padding: 7px 8px; border: 1px solid var(--hair); background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0)), rgba(0,0,0,.24); position: relative; overflow: hidden; }
+.job.success { box-shadow: inset 2px 0 0 var(--accent-primary); }
+.job.failed { box-shadow: inset 2px 0 0 var(--accent-destructive); border-color: rgba(238,125,105,.35); }
+.job .ic { width: 10px; height: 10px; margin-top: 3px; background: var(--accent-disabled); }
+.job.queued .ic, .job.waiting .ic { background: var(--text-warning); }
+.job.signing .ic, .job.pending .ic { background: var(--accent-primary); box-shadow: 0 0 8px var(--accent-primary); animation: pulse 1s ease-in-out infinite; }
+.job.success .ic { background: var(--accent-primary); box-shadow: 0 0 6px rgba(67,205,182,.6); }
+.job.failed .ic { background: var(--accent-destructive); box-shadow: 0 0 6px rgba(238,125,105,.6); }
+.job.cancelled { opacity: .55; }
+.job.pending::after, .job.signing::after { content: ''; position: absolute; left: 0; bottom: 0; height: 2px; width: 40%; background: linear-gradient(90deg, transparent, var(--accent-primary), transparent); animation: sweep 1.4s linear infinite; }
+@keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
+.job .acts { display: flex; gap: 2px; }
+.job .acts .btn { min-height: 20px; padding: 2px 6px; }
+.job .meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.job .err { color: var(--text-enemy-highlight); font-size: 11px; line-height: 14px; }
+.job .hash { font-family: var(--font-ticker); font-size: 11px; color: var(--accent-disabled); cursor: copy; }
+
+.task { padding: 8px; border: 1px solid var(--hair); background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0)), rgba(0,0,0,.24); display: flex; flex-direction: column; gap: 5px; }
+.task.hashing { border-color: #3e4673; }
+.task.ready, .task.submitting { border-color: var(--surface-player-highlight); }
+.task .zeros { display: flex; gap: 1px; flex-wrap: wrap; }
+.task .zeros i { width: 7px; height: 9px; background: rgba(148,164,228,.12); border: 1px solid rgba(148,164,228,.2); }
+.task .zeros i.got { background: linear-gradient(180deg, #DDE4FF, var(--accent-secondary)); border-color: var(--accent-secondary); box-shadow: 0 0 6px rgba(148,164,228,.6); }
+.task .zeros i.need { border-color: var(--text-warning); }
+.task .zeros i.got.need { background: linear-gradient(180deg, #C2EFDD, var(--accent-primary)); border-color: var(--accent-primary); box-shadow: 0 0 6px rgba(67,205,182,.6); }
+.hash-tape { font-family: var(--font-ticker); font-size: 11px; color: var(--accent-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .8; }
+
+.pane-empty { padding: 18px 10px; text-align: center; color: var(--text-hint); font-size: 12px; }
+
+/* ── Panel screens ─────────────────────────────────────────────────────── */
+/* .screen.panel-screen, not .panel-screen: the build may link this file before screens.css, whose
+ * .screen { inset: 0 } would otherwise win and slide every panel screen under the top bar. */
+.screen.panel-screen { position: absolute; inset: 44px 0 0 0; pointer-events: none; }
+.panel-screen > * { pointer-events: auto; }
+
+/* The nav grew past what narrower screens hold (a laptop at 1024 included): it scrolls sideways,
+ * fading at its edge, and the status cluster keeps its place. The padding leaves room for focus rings. */
+@media (max-width: 1560px) { .wallet-chip .nm { display: none; } .wallet-chip { padding-right: 6px; } }
+.topbar .nav { overflow-x: auto; flex: 1 1 auto; min-width: 0; scrollbar-width: none; padding: 4px; }
+.topbar .nav::-webkit-scrollbar { display: none; }
+.topbar .nav .btn { flex: none; }
+.status-cluster { flex: none; }
+@media (max-width: 1300px) { .topbar .nav { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); } }
+@media (max-width: 900px) { .ops-chip > span:nth-child(2) { display: none; } }
+
+/* ── Command palette ───────────────────────────────────────────────────── */
+.pal-back, .modal-back.pal-back { align-items: flex-start; padding-top: 12vh; }
+.pal { width: min(680px, calc(100vw - 24px)); display: flex; flex-direction: column; max-height: 70vh; }
+.pal-input, .input.pal-input { border: 0; border-bottom: 1px solid rgba(67,205,182,.35); font-size: 16px; padding: 14px 16px; min-height: 52px; background: linear-gradient(180deg, rgba(67,205,182,.06), rgba(0,0,0,0)), rgba(4,8,12,.7); box-shadow: none; }
+.pal-input:focus, .input.pal-input:focus { box-shadow: none; }
+.pal-list { padding: 6px; display: flex; flex-direction: column; gap: 1px; }
+.pal-group { padding: 6px 8px 2px; }
+.pal-row { appearance: none; display: flex; justify-content: space-between; gap: 16px; align-items: baseline; text-align: left; padding: 7px 10px; border: 0; border-left: 2px solid transparent; background: none; cursor: pointer; color: var(--text-body); }
+.pal-row .pal-line { font-family: var(--font-ticker); font-size: 13px; color: var(--text-player-highlight); white-space: nowrap; }
+.pal-row .t-tiny { text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pal-row.on, .pal-row:hover { background: linear-gradient(90deg, rgba(67,205,182,.22), rgba(19,53,70,.25) 60%, rgba(19,53,70,0)); border-left-color: var(--accent-primary); }
+.pal-foot { padding: 6px 12px; border-top: 1px solid var(--border-subtle); }
+.wallet-chip.empty .nm { display: inline !important; }
+/* Nine destinations now: short labels sooner, and the search box yields first. */
+@media (max-width: 1600px) { .nav-long { display: none; } .nav-short { display: inline; } .nav .btn { padding: 6px 9px; } }
+@media (max-width: 1520px) { .search-box { display: none; } }
+.tg { width: min(720px, calc(100vw - 24px)); }
+.tg-body { gap: 5px; max-height: calc(100vh - 140px); }
+.tg-row { display: flex; gap: 10px; align-items: center; padding: 7px 8px; border: 1px solid rgba(238,125,105,.24); background: linear-gradient(90deg, rgba(238,125,105,.1), rgba(46,31,62,.25)); }
+.tg-rank { width: 22px; text-align: right; }
+.grass-pill { appearance: none; background: none; border: 0; cursor: pointer; padding: 0; } @media (max-width: 1100px) { .grass-pill span:last-child { display: none; } }
+.pal-btn { display: none; } @media (max-width: 1520px) { .pal-btn { display: inline-flex; } }
+/* Phones: the command line holds help, settings and sound; the chips shrink to icons. */
+@media (max-width: 520px) {
+  .status-cluster .help-btn, .status-cluster .set-btn, .status-cluster .mute-btn { display: none; }
+  .wallet-chip.empty .nm { display: none !important; }
+  .grass-pill { display: none; }
+}

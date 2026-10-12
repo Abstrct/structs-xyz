@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0B1240" />
+    <!-- No other site may frame the game: a click there could land on an approval card it can't see.
+         Servers that can say so do (frame-ancestors); a static host such as GitHub Pages can't, so
+         the page refuses for itself: framed, it hides and tries to take the whole window. -->
+    <script>if (self !== top) { document.documentElement.style.display = 'none'; try { top.location = self.location.href; } catch (e) { /* stays hidden */ } }</script>
+    <title>Structs Command Deck</title>
+    <meta name="description" content="Structs Command Deck: a full browser client for Structs. Build, mine, refine and raid on chain with proofs ground on your GPU; run replicants; chat with your guild; read the guild data layer; watch the live galaxy and replay every real attack." />
+    <link rel="canonical" href="%SITE_URL%/" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Structs Command Deck" />
+    <meta property="og:title" content="Structs Command Deck" />
+    <meta property="og:description" content="A full Structs client in your browser: a vault, every transaction, GPU proof-of-work, replicants, guild comms, the guild data layer, 3D battlefields and the live galaxy." />
+    <meta property="og:url" content="%SITE_URL%/" />
+    <meta property="og:image" content="%SITE_URL%/og.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="The live Structs galaxy: every discovered world, guild-lit home planets, raid arcs and battle sites" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Structs Command Deck" />
+    <meta name="twitter:description" content="A full Structs client in your browser: a vault, every transaction, GPU proof-of-work, replicants, guild comms, the guild data layer, 3D battlefields and the live galaxy." />
+    <meta name="twitter:image" content="%SITE_URL%/og.jpg" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="preconnect" href="%LCD_ORIGIN%" crossorigin />
+    <link rel="preload" href="/fonts/Exo2-BlackItalic.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/MPlusRounded-Medium.woff2" as="font" type="font/woff2" crossorigin />
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "VideoGame",
+      "name": "Structs Command Deck",
+      "alternateName": "Structs",
+      "url": "%SITE_URL%/",
+      "image": "%SITE_URL%/og.jpg",
+      "description": "A full browser client for Structs, the 5X space strategy game on the Cosmos blockchain: build, mine, refine and raid on chain, run replicants, chat with your guild, watch the live galaxy and replay every real attack.",
+      "applicationCategory": "GameApplication",
+      "genre": ["Strategy", "4X", "Space"],
+      "gamePlatform": "Web browser",
+      "operatingSystem": "Any",
+      "playMode": "MultiPlayer",
+      "isAccessibleForFree": true,
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "sameAs": ["https://playstructs.com", "https://structs.ai"]
+    }
+    </script>
+    <style>
+      /* Boot screen: inline, so it is whole before any bundle loads. The Structs mark breathing on
+       * night blue and NOW LOADING in the corner; a bar fills as the deck comes up. The step and tip
+       * lines stay for the code that writes them, out of sight unless something goes wrong. */
+      @font-face { font-family: 'DC Display'; src: url('/fonts/Exo2-BlackItalic.woff2') format('woff2'); font-display: swap; }
+      .boot { position: fixed; inset: 0; z-index: 10000; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px;
+        color: #fff; font-family: 'DC Display', system-ui, sans-serif; -webkit-font-smoothing: antialiased; user-select: none; -webkit-user-select: none;
+        background: #0B1240; transition: opacity .6s ease; }
+      .boot.done { opacity: 0; pointer-events: none; }
+      .boot-core { display: flex; align-items: center; gap: clamp(10px, 2vw, 20px); }
+      .boot-emblem { width: clamp(56px, 10vw, 104px); height: auto; animation: bootPulse 1.6s ease-in-out infinite; }
+      .boot-mark { font-size: clamp(40px, 10vw, 104px); line-height: 1; letter-spacing: .04em; text-shadow: 0 .06em 0 #050826; }
+      .boot-bar { width: min(320px, calc(100vw - 48px)); height: 12px; border-radius: 999px; background: rgba(255,255,255,.1); overflow: hidden; }
+      .boot-bar i { display: block; height: 100%; width: 0%; border-radius: 999px; background: #FF6A13; transition: width .35s ease; }
+      .boot-now { position: absolute; right: clamp(16px, 4vw, 48px); bottom: clamp(14px, 4vh, 40px); font-size: clamp(16px, 2.2vw, 26px); letter-spacing: .14em; animation: bootBlink 1.1s steps(1) infinite; }
+      .boot-step { display: none; }
+      .boot-tip { max-width: 440px; text-align: center; font-family: system-ui, sans-serif; font-size: 14px; line-height: 20px; padding: 0 16px; }
+      .boot-tip:not([style]) { display: none; }
+      @keyframes bootPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(.92); opacity: .75; } }
+      @keyframes bootBlink { 0%, 55% { opacity: 1; } 56%, 100% { opacity: .15; } }
+      @media (prefers-reduced-motion: reduce) { .boot *, .boot *::before, .boot *::after { animation: none !important; } }
+    </style>
+    <noscript><style>#boot { display: none; }</style></noscript>
+  </head>
+  <body>
+    <noscript><p style="color:#C5D7D9;font-family:monospace;padding:24px">Structs Command Deck needs JavaScript and WebGL for the live deck. The text below describes every screen.</p></noscript>
+    <canvas id="gl" aria-label="Structs 3D view"></canvas>
+    <div id="ui"></div>
+    <div id="fade" class="fade"></div>
+    <!--seo:start-->
+    <main id="seo">
+      <h1>Structs Command Deck</h1>
+      <p>A full browser client for <a href="https://structs.ai" rel="external">Structs</a>, the 5X space strategy game on the Cosmos blockchain where sentient machines fight over Alpha Matter. Build, mine, refine and raid on chain with proofs ground on your GPU; run replicants; chat with your guild; read the guild data layer; watch the live galaxy and replay every real attack.</p>
+      <h2>Watch, no keys needed</h2>
+      <ul>
+        <li><a href="/galaxy">Live Galaxy</a>: every planet ever discovered on the testnet, guild-lit homes, raids in flight.</li>
+        <li><a href="/combat">Combat Theatre</a>: every attack ever fought, replayed shot by shot from the chain.</li>
+        <li><a href="/grid">The Grid</a>: reactors, substations and every allocation in the energy economy.</li>
+        <li><a href="/sim">Battle Simulator</a>: fleet-versus-computer battles on the real combat rules.</li>
+        <li><a href="/codex">Codex</a>: all 22 struct types with full mechanics and matchups.</li>
+        <li><a href="/intel">Intel</a>: the guild data layer, live.</li>
+      </ul>
+      <h2>Play</h2>
+      <ul>
+        <li><a href="/command">Command Deck</a>: your commander, every struct, every action.</li>
+        <li><a href="/ops">Operations</a>: the transaction queue, proof-of-work engine and replicants.</li>
+        <li><a href="/forge">The Forge</a>: every chain message as a form.</li>
+        <li><a href="/economy">Economy</a>: power, fuel, the market, banks and transfers.</li>
+        <li><a href="/comms">Comms</a>: guild chat over Matrix.</li>
+        <li><a href="/guild">Guild Hall</a>: rosters, ranks, membership and permissions.</li>
+      </ul>
+    </main>
+    <!--seo:end-->
+    <div id="boot" class="boot">
+      <div class="boot-core">
+        <svg class="boot-emblem" aria-hidden="true" viewBox="2 3 12 10"><path d="M2.5 3.5h7.5l3.5 4.5-3.5 4.5H2.5l3.5-4.5z" fill="#43CDB6"/><path d="M2.5 3.5h7.5l1.75 2.25H4.25z" fill="#D8FCF2" opacity=".55"/><path d="M6 8l-2.2-2.8H8.1L10.3 8 8.1 10.8H3.8z" fill="#0B1240"/></svg>
+        <div class="boot-mark">STRUCTS</div>
+      </div>
+      <div class="boot-bar"><i></i></div>
+      <div class="boot-step"><span id="boot-step"></span><span id="boot-n"></span></div>
+      <div class="boot-tip" id="boot-tip"></div>
+      <div class="boot-now" aria-hidden="true">NOW LOADING</div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
