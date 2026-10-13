@@ -18,8 +18,10 @@ self.addEventListener('fetch', (e) => {
   const isStatic = /\/(assets|fonts|img|sound)\//.test(url.pathname) || /\.(png|webp|jpg|svg|webmanifest|woff2|ttf|mp3)$/.test(url.pathname);
   if (!isPage && !isStatic) return;
   if (isPage) {
-    // The page: network first (new deploys win), the cached copy when offline.
-    e.respondWith(fetch(req).then((r) => { const c = r.clone(); caches.open(CACHE).then((k) => k.put(req, c)); return r; }).catch(() => caches.match(req).then((r) => r || caches.match(self.registration.scope))));
+    // The page: network first (new deploys win), the cached copy when offline. 'no-cache' revalidates
+    // past the host's max-age (GitHub Pages: 10 min), or a reload after a deploy gets the old page,
+    // whose chunks are gone ("Importing a module script failed").
+    e.respondWith(fetch(req, { cache: 'no-cache' }).then((r) => { const c = r.clone(); caches.open(CACHE).then((k) => k.put(req, c)); return r; }).catch(() => caches.match(req).then((r) => r || caches.match(self.registration.scope))));
     return;
   }
   // Hashed assets never change: cache first.
