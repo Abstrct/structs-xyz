@@ -46,7 +46,15 @@ Tests: `scripts/droid.test.ts` covers every family combination (inside 1,800 tri
 | Menu | R | Y | Menu |
 | Face ahead | F | L or R | Walk: the camera swings in behind you |
 
-The lobby reads the pad itself while you walk (`capturePad` in `src/core/pad.ts`). Any window on top gives the pad back.
+The lobby reads the pad itself while you walk (`capturePad` in `src/core/pad.ts`). Any window on top gives the pad back, and so does focus anywhere else: the top bar, a guide card, a toast or the Comms dock. From the top bar, Escape (B) or a click on the 3D view goes back to walking.
+
+## Talking
+
+- **Joining decks:** the plaza shows one deck (channel) at a time; the deck lift or the deck plate switches. The lobby never joins a room on its own: if you aren't on that channel (you left it, or signed in with a pasted token), the chat note offers **Join**, so a leave sticks as it does in Comms.
+- **Sending:**
+  - Stamps are limited to one a second.
+  - Anything that looks like a recovery phrase asks first, and is sent only if you confirm.
+- **Mute and block:** both are local to this browser. They're on each droid's card, and the ring menu's **People** lists everyone you've muted or blocked, with the way back.
 
 ## Where people stand
 

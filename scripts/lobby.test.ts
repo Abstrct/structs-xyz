@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { applySync, emptyState } from '../src/chat/model';
 import { messageContent } from '../src/chat/format';
-import { STATIONS, COLLIDERS, WALK_R, SPAWN, homeSpot, clampWalk } from '../src/screens/lobby/layout';
+import { STATIONS, COLLIDERS, WALK_R, SPAWN, INSTRUCTOR, ACADEMY, homeSpot, clampWalk } from '../src/screens/lobby/layout';
 import { HUBS } from '../src/data/learn';
 
 let fails = 0;
@@ -33,6 +33,14 @@ ok(r.timeline.every((m) => m.kind !== 'system' || !String(m.body).includes('spot
 ok(r.byId.get('$a')?.stamp === 'hi', 'a stamp is read');
 ok(r.byId.get('$b')?.stamp === undefined, 'a malformed stamp is dropped');
 
+// A stripped state event with no type (invite state can carry one) must not wedge the sync.
+{
+  const st2 = emptyState(ME);
+  let threw = false;
+  try { applySync(st2, { rooms: { join: { '!x:matrix.test': { state: { events: [{ state_key: '', content: {} }] }, timeline: { events: [] } } } } } as never, true); } catch { threw = true; }
+  ok(!threw, 'a state event without a type is skipped, not thrown on');
+}
+
 // Outgoing: a stamp rides as a field; the body stays plain for other clients.
 const c = messageContent({ msgtype: 'm.emote', body: 'waves', stamp: 'hi' });
 ok(c['xyz.structs.stamp'] === 'hi' && c.body === 'waves' && c.msgtype === 'm.emote', 'stamps go out with a readable body');
@@ -60,10 +68,18 @@ for (let i = 0; i < 300; i++) {
 }
 
 // Walls: anything pushed out stays on the floor and outside every collider.
-for (let i = 0; i < 400; i++) {
-  const p = clampWalk(new THREE.Vector3((Math.random() - 0.5) * 60, 0, (Math.random() - 0.5) * 60));
-  ok(Math.hypot(p.x, p.z) <= WALK_R + 1e-6, 'inside the rim');
+let inside = 0, through = 0;
+for (let i = 0; i < 40000; i++) {
+  // Half anywhere, half crowded round the stations (where things sit close together).
+  const s = STATIONS[i % STATIONS.length].at;
+  const p = i % 2 ? new THREE.Vector3((Math.random() - 0.5) * 60, 0, (Math.random() - 0.5) * 60) : new THREE.Vector3(s.x + (Math.random() - 0.5) * 6, 0, s.z + (Math.random() - 0.5) * 6);
+  clampWalk(p);
+  if (Math.hypot(p.x, p.z) > 19.7 - 0.45 + 1e-6) through++;
+  if (COLLIDERS.some((k) => Math.hypot(k.x - p.x, k.z - p.z) < k.r - 1e-6)) inside++;
 }
+ok(!through, `never through the wall (${through})`);
+ok(!inside, `never inside anything (${inside} of 40000)`);
+ok(Math.hypot(INSTRUCTOR.x - ACADEMY.x, INSTRUCTOR.z - ACADEMY.z) > 0.6 + 0.75 + 0.9, 'a droid fits between the Instructor and the Academy podium');
 const inBeacon = clampWalk(new THREE.Vector3(0.2, 0, 0.1));
 ok(Math.hypot(inBeacon.x, inBeacon.z) >= COLLIDERS[0].r, 'pushed out of the beacon');
 

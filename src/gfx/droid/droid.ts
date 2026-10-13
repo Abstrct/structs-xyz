@@ -125,7 +125,7 @@ export function buildDroidGeometry(spec: DroidSpec, skin: DroidSkin = defaultSki
     case 'seam':
       for (const s of [-1, 1]) g.box(tb, add(t, [s * 0.13, 0.25, 0]), [0.24, 0.46, 0.34], P(Bd, s > 0 ? 'main' : 'second', s > 0 ? front : undefined), { chamfer: 0.05 });
       g.box(tb, add(t, [0, 0.25, 0.02]), [0.05, 0.44, 0.32], P(Bd, 'dark'));
-      g.box(tb, add(t, [0, 0.25, 0.172]), [0.02, 0.36, 0.01], glow(skin.swatch.glow));
+      g.box(tb, add(t, [0, 0.25, 0.188]), [0.03, 0.36, 0.012], glow(skin.swatch.glow));
       break;
   }
   // The Alpha core on every back.
@@ -218,7 +218,8 @@ export function buildDroidGeometry(spec: DroidSpec, skin: DroidSkin = defaultSki
       g.box(B[`thigh${side}`], add(th, [0, -L.thigh / 2, 0]), [L.width, L.thigh, L.width + 0.02], P(Bd, 'second'), { chamfer: 0.03, taperBottom: 0.85 });
       g.box(B[`shin${side}`], add(sn, [0, -L.shin / 2, 0]), [L.width + 0.01, L.shin, L.width + 0.03], P(Bd, 'main'), { chamfer: 0.035, taperTop: 1.1 });
       const ft = L.foot;
-      g.box(B[`shin${side}`], add(sn, [0, -L.shin - ft[1] / 2 + 0.01, 0.04]), ft, P(Bd, 'dark'), { chamfer: 0.025 });
+      // A reverse knee's shin leans back at rest: its foot is cut level for that lean.
+      g.box(B[`shin${side}`], add(sn, [0, -L.shin - ft[1] / 2 + 0.01, 0.04]), ft, P(Bd, 'dark'), { chamfer: 0.025, rot: spec.gait === 'reverse' ? [0.32, 0, 0] : undefined });
       if (spec.gait === 'reverse') g.box(B[`shin${side}`], add(sn, [0, -L.shin * 0.45, -0.1]), [0.06, 0.12, 0.06], P(Bd, 'second'), { chamfer: 0.015 });
     }
   } else if (spec.gait === 'hover') {
@@ -234,6 +235,8 @@ export function buildDroidGeometry(spec: DroidSpec, skin: DroidSkin = defaultSki
   }
 
   const geometry = g.build();
+  // The real top (an antenna, a crown) is where nameplates and balloons sit.
+  f.height = Math.max(f.height, geometry.boundingBox?.max.y ?? f.height);
   return { geometry, frame: f, triangles: g.triangles };
 }
 
@@ -255,7 +258,5 @@ export function skinnedDroid(dg: DroidGeometry, material: THREE.Material, gait: 
   for (const b of BONES) { const p = dg.frame.parent[b]; (p ? bones[p] : mesh).add(bones[b]); }
   mesh.updateMatrixWorld(true);
   mesh.bind(new THREE.Skeleton(BONES.map((b) => bones[b])));
-  // The bind-pose bounds don't follow a walk cycle; a little slack keeps culling honest.
-  mesh.geometry.boundingSphere?.set(new THREE.Vector3(0, dg.frame.height / 2, 0), dg.frame.height * 0.75);
   return { mesh, rig: { bones, rest, frame: dg.frame, gait } };
 }

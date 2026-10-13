@@ -28,6 +28,7 @@ import { latestAttacks, summarize, type CombatRecord } from '../chain/combat';
 import { commander } from '../chain/commander';
 import { enlisting } from '../game/enlist';
 import { startInLobby } from '../core/settings';
+import { redirectTo } from '../core/nav';
 import { icon, MARK } from '../ui/icons';
 import { touchScreen, touchWords } from '../core/touch';
 import '../styles/dc-watch.css';
@@ -277,7 +278,7 @@ export class GalaxyScreen implements Screen {
     let toMenu = false;
     try { toMenu = sessionStorage.getItem('structs.menu') === '1'; sessionStorage.removeItem('structs.menu'); } catch { /* storage blocked */ }
     // A commander's menu is the Concourse lobby now (unless Settings keeps the doors).
-    if (toMenu && wallet.active?.playerId && startInLobby()) { this.titleShown = true; this.navigate('/lobby'); return; }
+    if (toMenu && wallet.active?.playerId && startInLobby()) { this.titleShown = true; redirectTo('/lobby'); return; }
     if ((!this.titleShown || toMenu) && !this.titleUp) { this.titleShown = true; if (!params.focus) this.showTitle(); }
   }
 

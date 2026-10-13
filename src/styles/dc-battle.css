@@ -455,3 +455,6 @@ body:has(.screen.battle .battle-top) > .banner { background: rgba(7, 11, 44, 0.5
 .screen.battle .slot-editor .slot-cs { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 24px; height: 24px; border-radius: 50%; color: var(--dc-x); background: rgba(245, 197, 24, 0.14); box-shadow: inset 0 0 0 1.5px var(--dc-x); }
 /* The Move step's layer: its button glows until the move goes in. */
 .screen.battle .action-bar .drift .btn.mini.dc-go-layer { border-color: var(--dc-accent); box-shadow: 0 0 0 3px rgba(255, 106, 19, 0.45); }
+
+/* A fight's rewards play with its results (core/dom holdRewards): at the top, above the results card. */
+body:has(.debrief-back) > .toasts { top: calc(var(--sa-t, 0px) + 12px); bottom: auto; z-index: calc(var(--popup-z) + 1); }

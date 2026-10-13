@@ -6,7 +6,7 @@
 import { TRACKS, LESSONS, lessonById, trackOf, BADGE_XP, type Lesson, type LessonCheck } from '../data/learn';
 import { record } from './record';
 import { loadRecord } from '../screens/battle/record';
-import { toast, banner, whenNoticesShow } from '../core/dom';
+import { toast, banner, whenNoticesShow, whenRewardsShow } from '../core/dom';
 import { audio } from '../core/audio';
 import { safeEach } from '../core/util';
 import { goTo } from '../core/nav';
@@ -177,7 +177,7 @@ class Academy {
       const text = one ? `★ ${one.title}${xp ? ` · +${xp} XP` : ''}` : `★ ${say.length} lessons done${xp ? ` · +${xp} XP` : ''}`;
       const go = one ? `/academy/${trackOf(one.id)?.id || ''}/${one.id}` : '/academy';
       if (say.length < all.length) audio.play('confirm');
-      whenNoticesShow(() => { audio.play('confirm'); toast(text, 'player', 4200, { label: '▸', run: () => goTo(go) }); });
+      whenRewardsShow(() => whenNoticesShow(() => { audio.play('confirm'); toast(text, 'player', 4200, { label: '▸', run: () => goTo(go) }); }));
     }, 0);
   }
 

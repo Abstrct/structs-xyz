@@ -98,7 +98,8 @@ function poll() {
   const w = window as unknown as { __padPolls?: number };
   w.__padPolls = (w.__padPolls ?? 0) + 1;
   const pads = readPads();
-  if (!pads.length) { held.clear(); return; }
+  // The last pad left: a screen reading the sticks hears it (or its droid walks on forever).
+  if (!pads.length) { held.clear(); capture?.([]); return; }
   const now = new Set<string>();
   for (const p of pads) {
     p.buttons.forEach((b, i) => { if (b.pressed) now.add(i === 0 ? 'A' : i === 8 ? 'MENU' : MAP[i] ? `${MAP[i].key}${MAP[i].shift ? '+shift' : ''}#${i}` : ''); });
@@ -110,7 +111,9 @@ function poll() {
   const taken = !!capture && !document.querySelector('.modal-back') && capture(pads);
   if (taken && now.size) document.body.classList.add('pad');
   for (const name of now) {
-    if (taken && name !== 'MENU') { if (!held.has(name)) held.set(name, performance.now()); continue; }
+    // Kept fresh while the screen has it: a stick still pushed when the capture lets go mustn't
+    // count as long-held and auto-repeat into the window that just opened.
+    if (taken && name !== 'MENU') { held.set(name, performance.now()); continue; }
     down(name, () => {
       document.body.classList.add('pad');
       if (name === 'MENU') {

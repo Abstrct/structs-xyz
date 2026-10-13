@@ -59,8 +59,11 @@ export class Setup {
     this.step = step;
     this.stop.push(enlisting.onChange(() => { if (this.step === 'arrival') this.paint(); }));
     this.stop.push(wallet.onChange(() => {
-      if (this.step === 'locked' && wallet.unlocked) this.hooks.rise();
-      else if (this.step === 'arrival') this.paint();
+      if (this.step === 'locked' && wallet.unlocked) {
+        // Open: up the lift if there's a commander, else whatever step fits this account.
+        const next = Setup.stepFor();
+        if (next === null) this.hooks.rise(); else if (next !== 'locked') this.go(next);
+      } else if (this.step === 'arrival') this.paint();
     }));
     this.hooks.preview(this.draft.attrs);
     this.paint();

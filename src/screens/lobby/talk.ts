@@ -75,10 +75,11 @@ export class Talk {
   private note: HTMLElement;
   private seen = new WeakSet<Msg>();
   private roomRef: Room | null = null;
-  private since = Date.now() - 4000;
   private stop: (() => void)[] = [];
   deck: Deck = currentDeck();
   private joining = false;
+  private disposed = false;
+  private lastStamp = 0;
 
   constructor(private hooks: TalkHooks) {
     this.log = h('div', { class: 'cl-log', role: 'log', 'aria-live': 'polite', 'aria-label': 'Deck chat' });
@@ -95,15 +96,14 @@ export class Talk {
   }
 
   start() {
-    this.since = Date.now() - 4000;
     this.stop.push(comms.onChange(() => this.refresh()));
-    this.stop.push(comms.onState(() => { this.paintNote(); void this.ensureJoined(); this.refresh(); }));
+    this.stop.push(comms.onState(() => { this.paintNote(); this.refresh(); }));
     this.stop.push(wallet.onChange(() => this.paintNote()));
-    void this.ensureJoined();
     this.refresh();
   }
 
   dispose() {
+    this.disposed = true;
     for (const f of this.stop.splice(0)) f();
     comms.setViewing('lobby', undefined);
   }
@@ -113,24 +113,26 @@ export class Talk {
     return r && r.membership === 'join' ? r : null;
   }
 
-  async switchTo(d: Deck) {
-    if (d.alias === this.deck.alias) return;
+  switchTo(d: Deck) {
+    if (d.alias === this.deck.alias || this.disposed) return;
     this.deck = d;
     setDeck(d.alias);
     this.roomRef = null;
-    this.since = Date.now() - 4000;
-    await this.ensureJoined();
     this.refresh();
   }
 
-  private async ensureJoined() {
-    if (comms.state !== 'live' || this.room() || this.joining) return;
+  /** Joining a deck is the player's choice (a leave sticks, as in Comms): the note offers it. */
+  private async join() {
+    if (comms.state !== 'live' || this.room() || this.joining || this.disposed) return;
+    const alias = this.deck.alias;
     this.joining = true;
-    try { await comms.join(this.deck.alias); } catch { /* the note says why */ } finally { this.joining = false; }
-    this.refresh();
+    this.paintNote();
+    try { await comms.join(alias); } catch (e) { if (!this.disposed) toast('Could not join: ' + excerpt(String((e as Error).message || e), 60), 'warn'); } finally { this.joining = false; }
+    if (!this.disposed) this.refresh();
   }
 
   private refresh() {
+    if (this.disposed) return;
     const r = this.room();
     if (r !== this.roomRef) {
       // A new deck, or the chat reconnected (rooms are rebuilt): what's there is history.
@@ -138,11 +140,12 @@ export class Talk {
       if (r) for (const m of r.timeline) this.seen.add(m);
       comms.setViewing('lobby', r?.id);
     } else if (r) {
-      for (const m of r.timeline) {
-        if (this.seen.has(m)) continue;
-        this.seen.add(m);
-        if (m.ts >= this.since && showable(m)) this.hooks.onLine(m, r);
-      }
+      // Live lines arrive at the end; older pages are put in front. Reading back from the end to
+      // the first line already seen finds just the new ones (no clocks involved).
+      const tl = r.timeline, fresh: Msg[] = [];
+      for (let i = tl.length - 1; i >= 0 && !this.seen.has(tl[i]); i--) fresh.unshift(tl[i]);
+      for (const m of tl) this.seen.add(m);
+      for (const m of fresh) if (showable(m)) this.hooks.onLine(m, r);
       comms.markRead(r.id);
     }
     this.hooks.onRoom(r);
@@ -159,7 +162,7 @@ export class Talk {
   private deckLabel() {
     if (comms.state === 'connecting' || comms.signingIn) return '◆ Chat is connecting…';
     if (comms.state !== 'live') return '◆ Chat is offline';
-    return `◆ Joining ${this.deck.name}…`;
+    return this.joining ? `◆ Joining ${this.deck.name}…` : `◆ Not on ${this.deck.name} yet`;
   }
 
   private line(m: Msg, r: Room): HTMLElement {
@@ -180,6 +183,9 @@ export class Talk {
     if (wallet.state === 'locked') {
       this.input.placeholder = 'Open your vault to talk';
       this.note.append(h('button', { type: 'button', class: 'cl-note-btn', onclick: () => openVault() }, 'Open vault'));
+    } else if (comms.state === 'live' && !this.room()) {
+      this.input.placeholder = this.joining ? 'Joining…' : `Join ${this.deck.name} to talk`;
+      if (!this.joining) this.note.append(h('button', { type: 'button', class: 'cl-note-btn', onclick: () => void this.join() }, 'Join'));
     } else this.input.placeholder = comms.state === 'connecting' || comms.signingIn ? 'Connecting…' : 'Chat is offline';
   }
 
@@ -205,7 +211,7 @@ export class Talk {
     if (!(await this.safe(body, raw))) return;
     this.input.value = '';
     void comms.typing(r.id, false);
-    await this.send({ msgtype: p.kind === 'cmd' && p.name === 'me' ? 'm.emote' : p.kind === 'cmd' && p.name === 'notice' ? 'm.notice' : 'm.text', body });
+    await this.send({ msgtype: p.kind === 'cmd' && p.name === 'me' ? 'm.emote' : p.kind === 'cmd' && p.name === 'notice' ? 'm.notice' : 'm.text', body }, true);
   }
 
   /** The phrase guard: a recovery phrase asks before it goes. */
@@ -215,13 +221,21 @@ export class Talk {
     return go && this.input.value.trim() === raw;
   }
 
-  async send(o: { msgtype: 'm.text' | 'm.emote' | 'm.notice'; body: string; stamp?: string }) {
+  /** `checked`: the phrase guard already asked (and the player said send). */
+  async send(o: { msgtype: 'm.text' | 'm.emote' | 'm.notice'; body: string; stamp?: string }, checked = false) {
     const r = this.room();
-    if (!r) { toast('Chat is offline', 'warn'); return; }
-    if (looksLikePhrase(o.body)) return;
+    if (!r) { toast(comms.state === 'live' ? `Join ${this.deck.name} first` : 'Chat is offline', 'warn'); return; }
+    if (!checked && looksLikePhrase(o.body)) { toast('That looks like a recovery phrase: not sent', 'enemy'); return; }
     audio.play('select', 0.6);
     try { await comms.send(r.id, o); academy.mark('concourse'); } catch (e) { toast('Not sent: ' + excerpt(String((e as Error).message || e), 60), 'enemy'); }
   }
 
-  stamp(s: Stamp) { void this.send({ msgtype: 'm.emote', body: s.text, stamp: s.id }); }
+  /** A stamp: at most one a second, however fast the button goes. */
+  stamp(s: Stamp): boolean {
+    const now = Date.now();
+    if (now - this.lastStamp < 1000) return false;
+    this.lastStamp = now;
+    void this.send({ msgtype: 'm.emote', body: s.text, stamp: s.id });
+    return true;
+  }
 }

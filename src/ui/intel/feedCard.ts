@@ -258,7 +258,7 @@ function sentence(ctx: Pick<IntelCtx, 'navigate'>, parts: Part[]): Node[] {
 
 export interface Card { el: HTMLElement; key: string; count: number; at: number; players: string[]; lines: string[]; fam?: Fam; units?: Set<string>; weakOre?: boolean;
   /** A player's card: each kind of thing that happened, how often, and its latest number. */
-  acts?: Map<string, { act: Act; n: number }>; unit?: string }
+  acts?: Map<string, { act: Act; n: number; structs: Set<string> }>; unit?: string }
 /** A player's card collects what happened (newest first) and the structs it happened to. */
 const noteUnit = (c: Card, b: Body | null) => {
   if (!c.key.startsWith('p:') || !b) return;
@@ -266,7 +266,10 @@ const noteUnit = (c: Card, b: Body | null) => {
   const acts = (c.acts ??= new Map());
   const was = acts.get(b.act.word);
   acts.delete(b.act.word);
-  acts.set(b.act.word, { act: b.act, n: (was?.n || 0) + 1 });
+  const structs = was?.structs || new Set<string>();
+  if (b.units[0]) structs.add(b.units[0]);
+  // How many: structs it happened to (a build's three events are one build), else times it happened.
+  acts.set(b.act.word, { act: b.act, n: (was?.n || 0) + 1, structs });
 };
 
 const addFam = (c: Card, e: GrassEvent) => {
@@ -355,7 +358,7 @@ function paint(ctx: Pick<IntelCtx, 'navigate'>, card: Card, e: GrassEvent, d: De
   const pills = card.acts ? [...card.acts.values()].reverse().slice(0, 3) : [];
   const main: (Node | null)[] = card.key.startsWith('p:') && pills.length
     ? [who, others, card.unit ? unit(card.unit) : null, (card.units?.size || 0) > 1 ? h('span', { class: 'acard-more', title: `${card.units!.size} structs` }, `+${card.units!.size - 1}`) : null,
-      ...pills.map(({ act, n }) => h('span', { class: 'acard-act tone-' + act.tone }, h('span', { class: 'acard-act-ico', html: icon(act.ico, 14) }), act.word, n > 1 ? h('b', null, ` ×${n}`) : null, act.num ? h('b', null, ` ${act.num}`) : null)),
+      ...pills.map(({ act, n, structs }) => { const k = structs.size || n; return h('span', { class: 'acard-act tone-' + act.tone }, h('span', { class: 'acard-act-ico', html: icon(act.ico, 14) }), act.word, k > 1 ? h('b', null, ` ×${k}`) : null, act.num ? h('b', null, ` ${act.num}`) : null); }),
       ...(b?.place && store.homeOf.get(b.place) !== pid ? sentence(ctx, [{ text: b.place, id: b.place }]) : [])]
     : b
     ? [who, others, ...b.units.slice(0, 1).map((u) => unit(u)),

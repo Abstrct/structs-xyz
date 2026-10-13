@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import type { Engine, Screen } from '../../core/engine';
 import { moveFocus } from '../../core/pad';
-import { banner, confirmBox, copyText, dismissConfirms, h, hideTooltip, portrait, showTooltip, toast } from '../../core/dom';
+import { banner, confirmBox, copyText, dismissConfirms, h, hideTooltip, holdRewards, portrait, showTooltip, toast } from '../../core/dom';
 import { audio } from '../../core/audio';
 import { cap, clamp, damp, hash32 } from '../../core/util';
 import { BoardZoom, bindPinch, bindTap } from './zoom';
@@ -235,6 +235,7 @@ export class BattleScreen implements Screen {
   }
 
   exit() {
+    holdRewards(false);
     audio.setIntensity(0.3);
     this.clearCoach();
     // Leaving mid-countdown or mid-load: anything still awaiting sees a new phase and session.
@@ -331,6 +332,7 @@ export class BattleScreen implements Screen {
 
   /* ── Setup ────────────────────────────────────────────────────────────── */
   private toSetup(reroll = true) {
+    holdRewards(false);
     this.clearAim();
     if (this.gauntlet?.over) this.gauntlet = null;
     this.replay = null;
@@ -1043,6 +1045,8 @@ export class BattleScreen implements Screen {
     banner('ENGAGE', BATTLE_LINES.start[Math.floor(Math.random() * BATTLE_LINES.start.length)].toUpperCase(), 'player', 1500);
     audio.play('alert');
     this.phase = 'battle';
+    // Rewards earned mid-fight wait for the results screen (core/dom holdRewards).
+    holdRewards(true);
     audio.setIntensity(1);
     this.session.start();
     this.endgameKey = '';
@@ -1341,7 +1345,9 @@ export class BattleScreen implements Screen {
     // The fight would lock (only your Command Ship can shoot, or nothing can): it says so and hands over.
     if (!this.spectate && !this.targeting && !this.held && !this.session?.pending && !document.activeElement?.closest('.action-bar, .slot-editor, .modal-back')) {
       const sel0 = this.selectedStruct();
-      if (!sel0 || sel0.owner !== YOU.id || chain.isDestroyed(sel0) || !this.weaponsReady(sel0).some((w) => w.targets.length)) {
+      // (Also when the flagship on the bar has just come into reach, after a move: its step follows.)
+      const cmdOnly = !!sel0 && sel0.typeId === COMMAND_SHIP_ID && sel0.owner === YOU.id && this.reachKey() !== this.endgameKey;
+      if (cmdOnly || !sel0 || sel0.owner !== YOU.id || chain.isDestroyed(sel0) || !this.weaponsReady(sel0).some((w) => w.targets.length)) {
         // Once per lock: again only when who can reach changes, or the ship it handed over is lost. A ship
         // the player picked since then is theirs (guarding with it, say): never taken back.
         const key = this.reachKey();
@@ -2126,6 +2132,7 @@ export class BattleScreen implements Screen {
   private showDebrief(o: Outcome) {
     if (!this.session) return;
     this.phase = 'debrief';
+    holdRewards(false);
     this.clearCoach();
     audio.setIntensity(0.3);
     const s = this.session;
@@ -3028,7 +3035,13 @@ export class BattleScreen implements Screen {
     // The armed card's own Fire button (the only live control in a tooltip). Tapping the ship again fires too.
     // (pointerup, not click: the card is rebuilt each turn, and a press may straddle a rebuild.)
     const blockedAll = this.touchArmed?.target === unit.id && this.fullyBlocked(unit.id);
-    if (blockedAll) lines.push(h('button', { class: 'btn solid tip-fire tip-guard', type: 'button', onpointerup: (e: Event) => { e.stopPropagation(); this.aimAtGuard(unit.id, true); } },
+    // (One tap: the shot goes at the guard, as Fire would have gone at the ship it guards.)
+    if (blockedAll) lines.push(h('button', { class: 'btn solid tip-fire tip-guard', type: 'button', title: 'Every shot at it would be blocked: fire at its guard instead', onpointerup: (e: Event) => {
+      e.stopPropagation();
+      this.aimAtGuard(unit.id, true);
+      const a = this.touchArmed;
+      if (a && this.targeting?.kind === 'attack' && a.target !== unit.id) { const ws = this.targeting.ws; this.disarmTouch(); this.attack(ws, a.target); }
+    } },
       h('span', { html: icon('shield', 16) }), 'Hit its guard'));
     else if (this.touchArmed?.target === unit.id) lines.push(h('button', { class: 'btn solid tip-fire', type: 'button', onpointerup: (e: Event) => {
       e.stopPropagation();

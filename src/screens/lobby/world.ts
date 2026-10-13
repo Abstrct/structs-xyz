@@ -27,7 +27,8 @@ function canvasTex(c: HTMLCanvasElement, nearest = false) {
 
 /** An SVG icon as an image (drawn in one colour). */
 export function iconImage(name: string, color: string, size = 96): Promise<HTMLImageElement | null> {
-  const svg = icon(name, size).replace(/currentColor/g, color);
+  // As an image file an SVG needs its namespace (inline in the page it doesn't).
+  const svg = icon(name, size).replace(/currentColor/g, color).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => resolve(img);
@@ -380,7 +381,7 @@ export function buildWorld(scene: THREE.Scene, renderer: THREE.WebGLRenderer): W
       swirlTex.rotation = -t * 0.9;
       galaxy.rotation.z = 0.4 + t * 0.01;
       lring.material.opacity = 1;
-      if (!liftReady) hringMat.color.setHSL(0.06, 1, 0.45 + Math.sin(t * 4) * 0.1);
+      if (!liftReady) hringMat.color.setHSL(0.06, 1, 0.5 + Math.sin(t * 4) * 0.1, THREE.SRGBColorSpace);
     },
     dispose() {
       for (const d of disposables) d.dispose();

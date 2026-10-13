@@ -68,6 +68,23 @@ export function whenNoticesShow(f: () => void, big = false) {
   if (held.length > 12) { const i = held.findIndex((n) => !n.big); held.splice(i < 0 ? 0 : i, 1); }
 }
 
+/** Rewards (a lesson done, a mission paid) waiting for a fight's results screen. */
+let rewardsHeld: (() => void)[] | null = null;
+/** A fight keeps its rewards for the results (they printed over the fleets at the first shot); letting
+ * go plays the latest three, one by one. */
+export function holdRewards(on: boolean) {
+  if (on) { rewardsHeld ||= []; return; }
+  const q = rewardsHeld;
+  rewardsHeld = null;
+  q?.slice(-3).forEach((f, i) => setTimeout(f, 700 + i * 450));
+}
+/** Show a reward (its sound and toast) now, or with the fight's results. */
+export function whenRewardsShow(f: () => void) {
+  if (!rewardsHeld) { f(); return; }
+  rewardsHeld.push(f);
+  if (rewardsHeld.length > 8) rewardsHeld.shift();
+}
+
 export function toast(text: string, kind: '' | 'player' | 'enemy' | 'warn' = '', ms = 3200, action?: { label: string; run: () => void }) {
   if (held && kind !== 'enemy' && kind !== 'warn') { whenNoticesShow(() => toast(text, kind, ms, action)); return; }
   if (!toastBox || !toastBox.isConnected) { toastBox = h('div', { class: 'toasts', role: 'status', 'aria-live': 'polite' }); document.body.appendChild(toastBox); }

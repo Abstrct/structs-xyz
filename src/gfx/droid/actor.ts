@@ -1,7 +1,8 @@
-/* A droid in the world: built once per PFP (shared geometry and textures), posed every frame.
- * Walkers swing their legs in a gait their body family picks; hover bodies bob and bank. Talking
- * nods the head and pulses the lit parts; stamps play an emote. Until the layer images arrive (and
- * on software GL, or far away) the droid is its flat PFP bust on a sprite. */
+/* A droid in the world: built once per PFP (shared geometry and textures, freed when nobody has
+ * worn that PFP for a while), posed every frame. Walkers swing their legs in a gait their body
+ * family picks, and whichever foot is lower stays on the floor; hover bodies bob and bank. Talking
+ * nods the head and pulses the lit parts; stamps play an emote that blends in and out. On software
+ * GL, far away, or past a crowd's full-detail count, the droid is its flat PFP bust on a sprite. */
 import * as THREE from 'three';
 import { droidSpec, pfpAttrs, HOVERS, AURA_COLOR, type DroidSpec, type PfpAttrs } from '../../data/droidParts';
 import { buildDroidGeometry, skinnedDroid, type DroidRig, type BoneName } from './droid';
@@ -10,21 +11,52 @@ import { loadSkin, type LoadedSkin } from './skin';
 export type Emote = 'wave' | 'bow' | 'cheer' | 'shrug' | 'point' | 'sit' | 'yes' | 'no';
 export const EMOTES: Emote[] = ['wave', 'bow', 'cheer', 'shrug', 'point', 'sit', 'yes', 'no'];
 const EMOTE_TIME: Record<Emote, number> = { wave: 2.2, bow: 1.8, cheer: 2.2, shrug: 1.8, point: 2.2, sit: 6, yes: 1.6, no: 1.6 };
+const FADE_OUT = 0.35;
 
-interface Built { geometry: THREE.BufferGeometry; skin: LoadedSkin; frame: ReturnType<typeof buildDroidGeometry>['frame'] }
-const built = new Map<string, Promise<Built>>();
+/* ── The shared builds: one per PFP, counted, the unused ones freed oldest first ── */
 
-/** Shared per PFP: the same droid twice builds once. */
-export function buildFor(spec: DroidSpec): Promise<Built> {
-  let p = built.get(spec.key);
-  if (!p) {
-    p = loadSkin(spec).then((skin) => {
+interface Built { geometry: THREE.BufferGeometry; skin: LoadedSkin; frame: ReturnType<typeof buildDroidGeometry>['frame']; bustTex: THREE.CanvasTexture }
+interface Entry { p: Promise<Built>; refs: number }
+const cache = new Map<string, Entry>();
+const idle: string[] = [];
+/** Builds kept with nobody wearing them (a Mirror session or a deck switch comes back to them). */
+const KEEP_IDLE = 24;
+
+function acquire(spec: DroidSpec): Promise<Built> {
+  const key = spec.key;
+  let e = cache.get(key);
+  if (!e) {
+    const entry: Entry = { refs: 0, p: loadSkin(spec).then((skin) => {
       const dg = buildDroidGeometry(spec, skin.skin);
-      return { geometry: dg.geometry, skin, frame: dg.frame };
-    });
-    built.set(spec.key, p);
+      const bustTex = new THREE.CanvasTexture(skin.bust);
+      bustTex.magFilter = THREE.NearestFilter; bustTex.minFilter = THREE.NearestFilter; bustTex.generateMipmaps = false;
+      bustTex.colorSpace = THREE.SRGBColorSpace;
+      return { geometry: dg.geometry, skin, frame: dg.frame, bustTex };
+    }) };
+    // A failure isn't kept: the next droid in this PFP tries again.
+    entry.p.catch(() => { if (cache.get(key) === entry) cache.delete(key); });
+    cache.set(key, entry);
+    e = entry;
   }
-  return p;
+  e.refs++;
+  const i = idle.indexOf(key);
+  if (i >= 0) idle.splice(i, 1);
+  return e.p;
+}
+
+function release(key: string) {
+  const e = cache.get(key);
+  if (!e) return;
+  e.refs = Math.max(0, e.refs - 1);
+  if (e.refs) return;
+  idle.push(key);
+  while (idle.length > KEEP_IDLE) {
+    const k = idle.shift()!;
+    const old = cache.get(k);
+    if (!old || old.refs) continue;
+    cache.delete(k);
+    old.p.then((b) => { b.geometry.dispose(); b.skin.map.dispose(); b.skin.emissive.dispose(); b.bustTex.dispose(); }).catch(() => { /* never built */ });
+  }
 }
 
 const ringGeo = new THREE.RingGeometry(0.36, 0.46, 24);
@@ -37,6 +69,8 @@ export interface ActorOpts {
   lite?: boolean;
   seed?: string;
 }
+
+const mix = (a: number, b: number, k: number) => a + (b - a) * k;
 
 export class DroidActor {
   readonly group = new THREE.Group();
@@ -51,6 +85,8 @@ export class DroidActor {
   private discMat: THREE.MeshBasicMaterial;
   private disposed = false;
   private token = 0;
+  private held: string | null = null;
+  private faded = false;
 
   /** Ground speed this frame (m/s); the owner sets it. */
   speed = 0;
@@ -97,15 +133,19 @@ export class DroidActor {
 
   private async load() {
     const my = ++this.token;
-    const b = await buildFor(this.spec).catch(() => null);
-    if (this.disposed || my !== this.token || !b) return;
-    this.setSprite(b.skin.bust);
+    const key = this.spec.key;
+    let b: Built | null = null;
+    try { b = await acquire(this.spec); } catch { b = null; }
+    if (!b) return;
+    if (this.disposed || my !== this.token) { release(key); return; }
+    if (this.held) release(this.held);
+    this.held = key;
+    this.setSprite(b.bustTex);
     if (this.opts.lite) return;
-    this.mesh?.removeFromParent();
-    this.material?.dispose();
+    this.dropMesh();
     this.material = new THREE.MeshStandardMaterial({
       map: b.skin.map, emissiveMap: b.skin.emissive, emissive: 0xffffff, emissiveIntensity: 1.3,
-      vertexColors: true, roughness: 0.5, metalness: 0.28,
+      vertexColors: true, roughness: 0.5, metalness: 0.28, transparent: this.faded, opacity: this.faded ? 0.35 : 1,
     });
     const { mesh, rig } = skinnedDroid({ geometry: b.geometry, frame: b.frame, triangles: 0 }, this.material, this.spec.gait);
     this.mesh = mesh; this.rig = rig;
@@ -114,20 +154,20 @@ export class DroidActor {
     if (this.sprite) this.sprite.visible = false;
   }
 
-  private setSprite(bust: HTMLCanvasElement) {
+  /** The mesh, its material and its skeleton's bone texture go; the shared geometry stays. */
+  private dropMesh() {
+    if (this.mesh) { this.mesh.removeFromParent(); this.mesh.skeleton.dispose(); }
+    this.material?.dispose();
+    this.mesh = null; this.material = null;
+  }
+
+  private setSprite(tex: THREE.CanvasTexture) {
     if (!this.sprite) {
-      const tex = new THREE.CanvasTexture(bust);
-      tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
-      tex.colorSpace = THREE.SRGBColorSpace;
       this.sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
       this.sprite.scale.set(1.1, 1.1, 1);
       this.sprite.position.y = 1.15;
       this.group.add(this.sprite);
-    } else {
-      const m = this.sprite.material as THREE.SpriteMaterial;
-      (m.map as THREE.CanvasTexture).image = bust;
-      m.map!.needsUpdate = true;
-    }
+    } else (this.sprite.material as THREE.SpriteMaterial).map = tex;
     this.sprite.visible = !this.mesh;
   }
 
@@ -146,14 +186,14 @@ export class DroidActor {
     if (this.material) {
       this.material.emissiveIntensity = (1.1 + this.talk * 1.3 * (0.5 + 0.5 * Math.sin(t * 14))) * lit;
       this.material.opacity = lit;
-      this.material.transparent = lit < 1;
-    }
+      // Opaque and see-through compile differently: switch only when it changes.
+      if (this.faded !== lit < 1) { this.faded = lit < 1; this.material.transparent = this.faded; this.material.needsUpdate = true; }
+    } else this.faded = lit < 1;
     if (this.sprite?.visible) this.sprite.position.y = 1.15 + (this.hovers ? 0.25 + Math.sin(t * 2.2) * 0.05 : Math.abs(Math.sin(this.phase)) * 0.03);
     const r = this.rig;
     if (!r) { this.phase += dt * this.speed * 6; return; }
     const B = r.bones;
-    const reset = (b: BoneName) => { B[b].rotation.set(0, 0, 0); B[b].position.copy(r.rest[b]); };
-    for (const b of Object.keys(B) as BoneName[]) reset(b);
+    for (const b of Object.keys(B) as BoneName[]) { B[b].rotation.set(0, 0, 0); B[b].position.copy(r.rest[b]); }
 
     const w = Math.min(1, this.speed / 1.6);
     const g = r.gait;
@@ -170,15 +210,11 @@ export class DroidActor {
     } else {
       const amp = g === 'heavy' ? 0.42 : g === 'long' ? 0.62 : 0.52;
       const restT = g === 'reverse' ? 0.38 : 0, restS = g === 'reverse' ? -0.7 : 0;
+      const knee = g === 'reverse' ? -1 : 1;
       B.thighL.rotation.x = restT - s * amp * w;
       B.thighR.rotation.x = restT + s * amp * w;
-      B.shinL.rotation.x = restS + Math.max(0, Math.sin(this.phase - 1.3)) * 0.9 * w * (g === 'reverse' ? -1 : 1);
-      B.shinR.rotation.x = restS + Math.max(0, -Math.sin(this.phase - 1.3)) * 0.9 * w * (g === 'reverse' ? -1 : 1);
-      if (g === 'reverse') {
-        const f = r.frame.legs!;
-        B.root.position.y -= f.thigh * (1 - Math.cos(restT)) + f.shin * (1 - Math.cos(restT + restS));
-      }
-      B.root.position.y -= (1 - Math.abs(Math.cos(this.phase))) * (g === 'heavy' ? 0.05 : 0.035) * w;
+      B.shinL.rotation.x = restS + Math.max(0, Math.sin(this.phase - 1.3)) * 0.9 * w * knee;
+      B.shinR.rotation.x = restS + Math.max(0, -Math.sin(this.phase - 1.3)) * 0.9 * w * knee;
       B.torso.rotation.y = s * 0.08 * w;
       B.torso.rotation.x = Math.sin(t * 1.3 + this.seedT) * 0.015 + 0.05 * w;
       B.armL.rotation.x = s * 0.5 * w;
@@ -193,37 +229,49 @@ export class DroidActor {
     B.head.rotation.y = this.headYaw;
     B.head.rotation.x = Math.sin(t * 11 + this.seedT) * 0.07 * this.talk;
 
-    // Emotes ride on top.
+    // Emotes blend over the pose: in over 0.3 s, out over FADE_OUT (walking off cuts a sit short).
     const e = this.emote;
     if (e) {
       e.t += dt;
       const dur = EMOTE_TIME[e.name];
-      if (e.t >= dur || (w > 0.3 && e.name === 'sit')) this.emote = null;
+      if (e.name === 'sit' && w > 0.3) e.t = Math.max(e.t, dur - FADE_OUT);
+      if (e.t >= dur) this.emote = null;
       else {
-        const env = Math.min(1, e.t / 0.3, (dur - e.t) / 0.35);
-        const k = Math.sin(t * 10);
+        const k = Math.min(1, e.t / 0.3, (dur - e.t) / FADE_OUT);
+        const wob = Math.sin(t * 10);
+        const set = (b: BoneName, axis: 'x' | 'y' | 'z', v: number) => { B[b].rotation[axis] = mix(B[b].rotation[axis], v, k); };
         switch (e.name) {
-          case 'wave': B.armR.rotation.z = -2.5 * env; B.foreR.rotation.z = k * 0.45 * env; break;
-          case 'bow': B.torso.rotation.x = 0.55 * env; B.head.rotation.x = 0.35 * env; break;
-          case 'cheer': B.armL.rotation.z = 2.6 * env; B.armR.rotation.z = -2.6 * env; B.root.position.y += Math.abs(Math.sin(t * 8)) * 0.08 * env; break;
-          case 'shrug': B.armL.rotation.z = 0.5 * env; B.armR.rotation.z = -0.5 * env; B.foreL.rotation.x = B.foreR.rotation.x = -1.2 * env; B.head.rotation.z = 0.25 * env; break;
-          case 'point': B.armR.rotation.x = -1.5 * env; B.foreR.rotation.x = 0; break;
+          case 'wave': set('armR', 'z', -2.5); set('foreR', 'z', wob * 0.45); break;
+          case 'bow': set('torso', 'x', 0.55); set('head', 'x', 0.35); break;
+          case 'cheer': set('armL', 'z', 2.6); set('armR', 'z', -2.6); B.root.position.y += Math.abs(Math.sin(t * 8)) * 0.08 * k; break;
+          case 'shrug': set('armL', 'z', 0.5); set('armR', 'z', -0.5); set('foreL', 'x', -1.2); set('foreR', 'x', -1.2); set('head', 'z', 0.25); break;
+          case 'point': set('armR', 'x', -1.5); set('foreR', 'x', 0); break;
           case 'sit':
-            if (HOVERS(g)) B.root.position.y -= 0.22 * env;
-            else { B.root.position.y -= 0.32 * env; B.thighL.rotation.x = B.thighR.rotation.x = -1.4 * env; B.shinL.rotation.x = B.shinR.rotation.x = 1.4 * env; }
+            if (HOVERS(g)) B.root.position.y -= 0.22 * k;
+            else { set('thighL', 'x', -1.4); set('thighR', 'x', -1.4); set('shinL', 'x', 1.4); set('shinR', 'x', 1.4); }
             break;
-          case 'yes': B.head.rotation.x = Math.sin(t * 9) * 0.25 * env; break;
-          case 'no': B.head.rotation.y = Math.sin(t * 9) * 0.45 * env; break;
+          case 'yes': set('head', 'x', Math.sin(t * 9) * 0.25); break;
+          case 'no': B.head.rotation.y += Math.sin(t * 9) * 0.45 * k; break;
         }
       }
+    }
+
+    // Walkers: whichever foot reaches lower stands on the floor (this is the walk's bob, the
+    // reverse knee's crouch and the sit's drop, all from the leg angles).
+    const L = r.frame.legs;
+    if (!HOVERS(g) && L) {
+      const reach = (th: number, sh: number) => L.thigh * Math.cos(th) + L.shin * Math.cos(th + sh);
+      const low = Math.max(reach(B.thighL.rotation.x, B.shinL.rotation.x), reach(B.thighR.rotation.x, B.shinR.rotation.x));
+      B.root.position.y -= (L.thigh + L.shin) - low;
     }
   }
 
   dispose() {
     this.disposed = true;
-    this.material?.dispose();
+    this.dropMesh();
+    if (this.held) { release(this.held); this.held = null; }
     this.ringMat.dispose(); this.discMat.dispose();
-    if (this.sprite) { (this.sprite.material as THREE.SpriteMaterial).map?.dispose(); this.sprite.material.dispose(); }
+    this.sprite?.material.dispose();
     this.group.removeFromParent();
   }
 }

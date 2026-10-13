@@ -24,7 +24,8 @@ export function loadImage(url: string): Promise<HTMLImageElement | null> {
       const img = new Image();
       img.decoding = 'async';
       img.onload = () => resolve(img);
-      img.onerror = () => resolve(null);
+      // A failed image isn't kept: the next droid asks again.
+      img.onerror = () => { images.delete(url); resolve(null); };
       img.src = asset(url);
     });
     images.set(url, p);
@@ -129,6 +130,13 @@ export async function loadSkin(spec: DroidSpec): Promise<LoadedSkin> {
     const r = readLayer(data);
     reads[p] = r;
     skin[p] = r.palette;
+    // Behind the art, the part's own colour: a decal face shows it where the layer is clear,
+    // rather than black.
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-over';
+    ctx.fillStyle = '#' + r.palette.main.getHexString(THREE.SRGBColorSpace);
+    ctx.fillRect(SLOT[p], 0, 72, 72);
+    ctx.restore();
     // The emissive mask: only the glowing pixels of this layer.
     const out = gctx.createImageData(72, 72);
     for (let k = 0; k < data.data.length; k += 4) {

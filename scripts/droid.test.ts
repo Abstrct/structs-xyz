@@ -2,7 +2,7 @@
  * family, every family combination builds a clean skinned mesh inside the triangle budget, and the
  * portrait reading matches the 2D portrait's (same seed, same face). */
 import { PFP_PARTS, PFP_MAX, HEAD_FAMILIES, BODY_FAMILIES, ARMS_FAMILIES, NECK_FAMILIES, GAIT, pfpAttrs, droidSpec, rollAttrs, familyName } from '../src/data/droidParts';
-import { buildDroidGeometry, frameFor, BONES } from '../src/gfx/droid/droid';
+import { buildDroidGeometry, frameFor, BONES, defaultSkin } from '../src/gfx/droid/droid';
 
 let fails = 0;
 const ok = (cond: unknown, msg: string) => { if (!cond) { fails++; console.error('FAIL', msg); } };
@@ -61,6 +61,28 @@ for (const [, heads] of HEAD_FAMILIES) for (const [, bodies] of BODY_FAMILIES) f
   g.geometry.dispose();
 }
 ok(combos === 8 * 6 * 5 * 3, `built all ${combos} family combinations`);
+
+// Decals: every decal UV lands inside its rectangle (or on a plain/swatch texel), and the strips
+// that keep tapered faces straight stay inside the budget.
+{
+  const sk = defaultSkin();
+  sk.white = [0.95, 0.05];
+  sk.decal = { head: [0.0, 0.1, 0.2, 0.9], body: [0.25, 0.4, 0.45, 1.0], padL: [0.5, 0.2, 0.55, 0.8], padR: [0.6, 0.2, 0.65, 0.8] };
+  const rects = Object.values(sk.decal) as [number, number, number, number][];
+  for (const [heads, bodies] of [[64, 44], [32, 15], [1, 1], [80, 50]]) {
+    const g = buildDroidGeometry(droidSpec({ head: heads, body: bodies, arms: 3, neck: 1, background: 2 }), sk);
+    const uv = g.geometry.getAttribute('uv').array as Float32Array;
+    let bad = 0;
+    for (let i = 0; i < uv.length; i += 2) {
+      const u = uv[i], v = uv[i + 1];
+      const plain = Math.abs(u - 0.95) < 1e-6 && Math.abs(v - 0.05) < 1e-6 || Math.abs(u - 0.5) < 1e-6 && Math.abs(v - 0.5) < 1e-6;
+      if (!plain && !rects.some((r) => u >= r[0] - 1e-6 && u <= r[2] + 1e-6 && v >= r[1] - 1e-6 && v <= r[3] + 1e-6)) bad++;
+    }
+    ok(!bad, `head ${heads}/body ${bodies}: ${bad} UVs outside their decal`);
+    ok(g.triangles <= 1800, `head ${heads}/body ${bodies}: ${g.triangles} triangles with decals`);
+    g.geometry.dispose();
+  }
+}
 
 // Walkers' feet touch the floor; hover bodies float.
 for (const g of ['heavy', 'legs', 'reverse', 'long'] as const) {

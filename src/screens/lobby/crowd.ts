@@ -85,7 +85,8 @@ export class Crowd {
         const presAt = pres ? (pres.currentlyActive ? now : pres.at - (pres.lastActiveAgo ?? 0)) : 0;
         const online = pres?.presence === 'online' || pres?.currentlyActive;
         const spot = room.custom.get(SPOT_TYPE)?.get(userId);
-        const spotTs = Number(spot?.content?.t) || spot?.ts || 0;
+        // The server's time, not the sender's: a client can't stay "around" by writing the future.
+        const spotTs = spot?.ts || 0;
         const recent = Math.max(this.spoke.get(userId) ?? 0, online ? now : presAt, now - spotTs < SPOT_FRESH_MS ? spotTs : 0);
         if (now - recent < AROUND_MS || online) want.push({ userId, pid, recent });
       }
@@ -108,7 +109,7 @@ export class Crowd {
       // Phase 2: a fresh last stop wins over the seeded home.
       const spot = room?.custom.get(SPOT_TYPE)?.get(w.userId);
       const c = spot?.content;
-      const ts = Number(c?.t) || spot?.ts || 0;
+      const ts = spot?.ts || 0;
       if (c && ts > p.spotTs && Date.now() - ts < SPOT_FRESH_MS && Number.isFinite(c.x) && Number.isFinite(c.z)) {
         p.spotTs = ts;
         p.home = clampWalk(new THREE.Vector3(Number(c.x), 0, Number(c.z)));
@@ -192,15 +193,16 @@ export function turnToward(cur: number, want: number, k: number) { return cur + 
 /* ── Phase 2: telling the room where I stopped ─────────────────────────── */
 
 const refused = new Set<string>();
-let lastSent = { at: 0, x: NaN, z: NaN };
+const lastSent = new Map<string, { at: number; x: number; z: number }>();
 
 /** Write my last stop to the deck room (at most every 6 s, only when I moved). A room that refuses
  * (its power levels don't allow the event yet) isn't asked again this visit. */
 export async function sendSpot(roomId: string, x: number, z: number, yaw: number) {
   if (!comms.me || refused.has(roomId) || comms.state !== 'live') return;
   const now = Date.now();
-  if (now - lastSent.at < 6000 || Math.hypot(x - lastSent.x, z - lastSent.z) < 0.8) return;
-  lastSent = { at: now, x, z };
+  const last = lastSent.get(roomId);
+  if (last && (now - last.at < 6000 || Math.hypot(x - last.x, z - last.z) < 0.8)) return;
+  lastSent.set(roomId, { at: now, x, z });
   const body = { x: Math.round(x * 100) / 100, z: Math.round(z * 100) / 100, yaw: Math.round(yaw * 100) / 100, t: now };
   try {
     await comms.api('PUT', `/v3/rooms/${encodeURIComponent(roomId)}/state/${SPOT_TYPE}/${encodeURIComponent(comms.me)}`, { body });

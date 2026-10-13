@@ -422,7 +422,7 @@ export function applyState(r: Room, ev: RawEvent, membersOnly = false) {
     case 'm.room.tombstone': if (c.replacement_room) r.tombstone = { body: String(c.body ?? ''), replacement: c.replacement_room }; break;
     default:
       // The lobby's own state (where each droid last stood): kept per state key, never shown.
-      if (ev.type.startsWith('xyz.structs.') && typeof ev.state_key === 'string') {
+      if (typeof ev.type === 'string' && ev.type.startsWith('xyz.structs.') && typeof ev.state_key === 'string') {
         let m = r.custom.get(ev.type);
         if (!m) r.custom.set(ev.type, m = new Map());
         m.set(ev.state_key, { content: c, sender: ev.sender, ts: ev.origin_server_ts });

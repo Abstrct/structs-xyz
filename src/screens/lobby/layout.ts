@@ -29,7 +29,8 @@ export const polar = (deg: number, r: number, y = 0) => {
 export const KIOSK_R = 15.6;
 export const KIOSK_DEG: Record<HubId, number> = { explore: -55, battle: 55, team: -105, trade: 105, lab: -150, base: 150 };
 export const SPAWN = polar(180, 17.4);
-export const INSTRUCTOR = polar(171, 11.2);
+// Far enough from the Academy podium that a droid fits between them.
+export const INSTRUCTOR = polar(175, 10.4);
 export const ACADEMY = polar(162, 11.4);
 export const NOTICE = polar(0, 12.5);
 export const WARP = polar(0, 18.2);
@@ -67,15 +68,19 @@ export function homeSpot(userId: string): THREE.Vector3 {
 
 /** Keep a point on the walkable floor: inside the rim, outside every collider. */
 export function clampWalk(p: THREE.Vector3, radius = 0.45) {
-  const rim = () => { const d = Math.hypot(p.x, p.z); if (d > WALK_R - radius) { const k = (WALK_R - radius) / d; p.x *= k; p.z *= k; } };
-  // Twice round: a push out of something by the rim can land past it, and the rim wins last.
-  for (let pass = 0; pass < 2; pass++) {
-    rim();
+  const rim = (r: number) => { const d = Math.hypot(p.x, p.z); if (d > r) { const k = r / d; p.x *= k; p.z *= k; } };
+  // Round until nothing moves (two things close together push back and forth for a few passes).
+  for (let pass = 0; pass < 8; pass++) {
+    rim(WALK_R - radius);
+    let moved = false;
     for (const c of COLLIDERS) {
       const dx = p.x - c.x, dz = p.z - c.z, dd = Math.hypot(dx, dz), min = c.r + radius;
-      if (dd < min) { if (dd < 1e-4) { p.x += min; continue; } p.x = c.x + dx / dd * min; p.z = c.z + dz / dd * min; }
+      if (dd < min - 1e-6) { moved = true; if (dd < 1e-4) { p.x += min; continue; } p.x = c.x + dx / dd * min; p.z = c.z + dz / dd * min; }
     }
+    if (!moved) break;
   }
-  rim();
+  // The wall itself is last: a post by the rim may leave you a little past the walk line, never
+  // through the wall.
+  rim(PLAZA_R - 0.3 - radius);
   return p;
 }

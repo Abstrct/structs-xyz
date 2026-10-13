@@ -98,6 +98,16 @@ export class GeoBuilder {
       const r = (paint.front as { rect: [number, number, number, number] }).rect;
       return [r[0] + (r[2] - r[0]) * (x / fx * 0.5 + 0.5), r[1] + (r[3] - r[1]) * (y / fy * 0.5 + 0.5)];
     };
+    // A decal face in horizontal strips: on a tapered face each row then maps across its own
+    // width, so the pixel art doesn't bend along a diagonal.
+    const decalFace = (fx: number, fy: number, z: number) => {
+      const N = 4, white = new THREE.Color(1, 1, 1);
+      for (let k = 0; k < N; k++) {
+        const y0 = -fy + (2 * fy * k) / N, y1 = -fy + (2 * fy * (k + 1)) / N;
+        const loc: V3[] = [[-fx, y0, z], [fx, y0, z], [fx, y1, z], [-fx, y1, z]];
+        this.poly(loc.map((p) => place(...p)), white, bone, centre, loc.map((p) => decalUV(p[0], p[1], fx, fy)));
+      }
+    };
 
     if (c <= 1e-6) {
       const faces: [V3, V3, V3, V3, string][] = [];
@@ -108,9 +118,8 @@ export class GeoBuilder {
       }
       for (const [a, b, cc, d, tag] of faces) {
         const pts = [a, b, cc, d].map((p) => place(...p));
-        if (tag === 'pz' && paint.front?.kind === 'decal') {
-          this.poly(pts, new THREE.Color(1, 1, 1), bone, centre, [a, b, cc, d].map((p) => decalUV(p[0], p[1], hw, hh)));
-        } else this.poly(pts, paint.color, bone, centre, undefined, tag === 'pz' ? ink(paint.front) ?? allSw ?? undefined : allSw ?? undefined);
+        if (tag === 'pz' && paint.front?.kind === 'decal') decalFace(hw, hh, hd);
+        else this.poly(pts, paint.color, bone, centre, undefined, tag === 'pz' ? ink(paint.front) ?? allSw ?? undefined : allSw ?? undefined);
       }
       return;
     }
@@ -124,9 +133,8 @@ export class GeoBuilder {
       this.poly([vx(s, -1, -1), vx(s, 1, -1), vx(s, 1, 1), vx(s, -1, 1)].map(P), paint.color, bone, centre, undefined, allSw ?? undefined);
       this.poly([vy(-1, s, -1), vy(1, s, -1), vy(1, s, 1), vy(-1, s, 1)].map(P), paint.color, bone, centre, undefined, allSw ?? undefined);
       const zq: V3[] = [vz(-1, -1, s), vz(1, -1, s), vz(1, 1, s), vz(-1, 1, s)];
-      if (s > 0 && paint.front?.kind === 'decal') {
-        this.poly(zq.map(P), new THREE.Color(1, 1, 1), bone, centre, zq.map((p) => decalUV(p[0], p[1], hw - c, hh - c)));
-      } else this.poly(zq.map(P), paint.color, bone, centre, undefined, (s > 0 ? ink(paint.front) : null) ?? allSw ?? undefined);
+      if (s > 0 && paint.front?.kind === 'decal') decalFace(hw - c, hh - c, hd);
+      else this.poly(zq.map(P), paint.color, bone, centre, undefined, (s > 0 ? ink(paint.front) : null) ?? allSw ?? undefined);
     }
     for (const a of S) for (const b of S) {
       this.poly([vy(-1, a, b), vy(1, a, b), vz(1, a, b), vz(-1, a, b)].map(P), trim, bone, centre, undefined, allSw ?? undefined);

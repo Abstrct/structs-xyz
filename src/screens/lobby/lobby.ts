@@ -89,6 +89,14 @@ export class LobbyScreen implements Screen {
   /** Dev builds only: ?plaza skips setup, &crowd=N fills a pretend deck (src/screens/lobby/dev.ts). */
   private dev = import.meta.env.DEV ? new URLSearchParams(location.search) : null;
   private devRoom: Room | null = null;
+  /** Bumped every enter: async work from an older visit checks it and stands down. */
+  private visit = 0;
+  private risingUp = false;
+  private mirrorOpen = false;
+  /** A look just saved in the Mirror (or setup), shown until the chain has it. */
+  private pendingLook: PfpAttrs | null = null;
+  private padIdle = true;
+  private previewSoon = 0;
 
   constructor(private engine: Engine, private navigate: (path: string) => void) {
     this.world = buildWorld(this.scene, engine.renderer);
@@ -107,6 +115,7 @@ export class LobbyScreen implements Screen {
     this.root = h('div', { class: 'screen lobby' });
     document.getElementById('ui')!.appendChild(this.root);
     this.live = true;
+    this.visit++;
     this.bindInput();
     const step = this.dev?.has('plaza') ? null : Setup.stepFor();
     if (step) this.toHangar(step);
@@ -115,9 +124,11 @@ export class LobbyScreen implements Screen {
     this.cleanup.push(wallet.onChange(() => {
       if (!this.live) return;
       if (this.mode === 'plaza' && !wallet.active?.playerId && !this.dev?.has('plaza')) this.toHangar(Setup.stepFor() ?? 'droid');
-      else if (this.mode === 'plaza') this.me?.setAttrs(this.myAttrs());
+      else if (this.mode === 'plaza') this.refreshMe();
+      // In the hangar: a restored commander, or an account that has one, goes straight up.
+      else if (this.mode === 'hangar' && Setup.stepFor() === null) void this.rise();
     }));
-    this.cleanup.push(store.onChange((c) => { if (c.kind === 'player' && this.mode === 'plaza') { this.me?.setAttrs(this.myAttrs()); this.crowd.sync(this.room); } }));
+    this.cleanup.push(store.onChange((c) => { if (c.kind === 'player' && this.mode === 'plaza') { this.refreshMe(); this.crowd.sync(this.room); } }));
   }
 
   exit() {
@@ -148,8 +159,12 @@ export class LobbyScreen implements Screen {
           this.preview = new DroidActor(a, { seed: 'preview' });
           this.preview.group.position.set(0, HANGAR_Y + 0.14, 0);
           this.scene.add(this.preview.group);
-        } else this.preview.setAttrs(a);
-        this.preview.play('wave');
+          this.preview.play('wave');
+          return;
+        }
+        // Stepping fast through parts builds only where it stops.
+        clearTimeout(this.previewSoon);
+        this.previewSoon = window.setTimeout(() => { this.preview?.setAttrs(a); this.preview?.play('wave'); }, 120);
       },
       rise: () => void this.rise(),
       navigate: this.navigate,
@@ -167,24 +182,53 @@ export class LobbyScreen implements Screen {
 
   /** The commander landed: up the lift into the Concourse. */
   private async rise() {
-    if (!wallet.active?.playerId) return;
+    if (!wallet.active?.playerId || this.risingUp || !this.live || this.mode !== 'hangar') return;
+    this.risingUp = true;
+    const visit = this.visit;
+    const draft = this.setup?.attrs ?? null;
     audio.play('warp');
-    await fade(true);
-    this.leaveHangar();
-    this.toPlaza(true);
-    await fade(false);
+    try {
+      await fade(true);
+      if (!this.live || visit !== this.visit || this.mode !== 'hangar') return;
+      this.leaveHangar();
+      this.toPlaza(true);
+    } finally {
+      this.risingUp = false;
+      await fade(false);
+    }
+    if (draft) void this.keepDraft(draft, visit);
     if (!wallet.backedUp) toast('Save your recovery phrase: it is the only way back to this commander.', 'warn', 7000, { label: 'Save it', run: () => void import('../../ui/vault').then((m) => m.openVault()) });
+  }
+
+  /** The droid built in setup rides the signup; if the guild didn't pass it on, set it now. */
+  private async keepDraft(draft: PfpAttrs, visit: number) {
+    this.pendingLook = draft;
+    this.refreshMe();
+    for (let i = 0; i < 20 && !empire.commander; i++) await new Promise((r) => setTimeout(r, 1500));
+    const p = empire.commander;
+    if (!p || visit !== this.visit) return;
+    const onChain = pfpAttrs(p.pfp || store.players.get(p.playerId)?.pfpClientRenderAttributes, p.playerId);
+    if (droidSpec(onChain).key === droidSpec(draft).key) return;
+    if (p.pfp && p.pfp !== '{}') { this.pendingLook = null; this.refreshMe(); return; }   // they already have a portrait of their own
+    try { act.setPortrait(p, draft, 'lobby'); } catch { this.pendingLook = null; this.refreshMe(); }
   }
 
   /* ── The plaza ─────────────────────────────────────────────────────── */
 
   private myAttrs(): PfpAttrs {
     const pid = wallet.active?.playerId ?? '';
-    const raw = empire.commander?.pfp || store.players.get(pid)?.pfpClientRenderAttributes;
-    return pfpAttrs(raw, comms.userIdForPlayer(pid) ?? pid);
+    const chainRaw = store.players.get(pid)?.pfpClientRenderAttributes || empire.commander?.pfp;
+    const chain = pfpAttrs(chainRaw, comms.userIdForPlayer(pid) ?? pid);
+    // A saved look shows at once, and stays until the chain catches up.
+    if (this.pendingLook && droidSpec(chain).key === droidSpec(this.pendingLook).key) this.pendingLook = null;
+    return this.pendingLook ?? chain;
   }
 
+  /** My droid follows the chain (not while I'm trying things on in the Mirror). */
+  private refreshMe() { if (!this.mirrorOpen) this.me?.setAttrs(this.myAttrs()); }
+
   private toPlaza(arriving: boolean) {
+    this.leavePlaza();
     this.root.replaceChildren();
     this.mode = 'plaza';
     this.world.plaza.visible = true;
@@ -212,7 +256,9 @@ export class LobbyScreen implements Screen {
     audio.setIntensity(0.12);
     const unpad = capturePad((pads) => this.readPad(pads));
     this.cleanup.push(unpad);
-    if (import.meta.env.DEV && this.dev?.has('crowd')) void import('./dev').then(({ devRoom, devLine }) => {
+    const visit = this.visit;
+    if (import.meta.env.DEV && this.dev?.has('crowd') && !this.devRoom) void import('./dev').then(({ devRoom, devLine }) => {
+      if (!this.live || visit !== this.visit || this.mode !== 'plaza' || this.devRoom) return;
       const r = devRoom(Number(this.dev!.get('crowd')) || 12);
       this.devRoom = r; this.room = r; this.crowd.sync(r);
       let last: Msg | undefined;
@@ -235,6 +281,7 @@ export class LobbyScreen implements Screen {
   }
 
   private leavePlaza() {
+    this.near = null;
     vmuLobby(null);
     audio.setIntensity(0.3);
     this.talk?.dispose(); this.talk = null;
@@ -285,6 +332,7 @@ export class LobbyScreen implements Screen {
       h('button', { type: 'button', class: 'lh-act', title: 'Menu (R)', onclick: () => this.openRing() }, h('span', { class: 'dc-face y' }, 'Y'), h('span', { class: 'lh-act-ico', html: icon('more', 18) }), h('span', { class: 'lh-act-word' }, 'Menu')));
     this.root.append(h('div', { class: 'lh' }, deck, map, prompt, acts));
     this.hud = { prompt, deck, map, count };
+    this.near = null;
     this.paintDeck();
   }
 
@@ -347,12 +395,18 @@ export class LobbyScreen implements Screen {
       const r = comms.roomByAlias(d.alias);
       return r ? r.members.size ? [...r.members.values()].filter((m) => m.membership === 'join').length : null : null;
     }, (d: Deck) => {
-      void this.talk?.switchTo(d).then(() => { this.crowd.dispose(); this.crowd.sync(this.talk?.room() ?? null); this.paintDeck(); });
+      this.talk?.switchTo(d);
+      this.crowd.dispose();
+      this.room = this.talk?.room() ?? null;
+      this.crowd.sync(this.room);
+      this.paintDeck();
       audio.play('warp', 0.5);
     });
   }
 
-  private openStamps() { if (this.talk) stampWindow((s) => { this.talk?.stamp(s); this.me?.play(s.emote); }); }
+  private openStamps() { if (this.talk) stampWindow((s) => this.stamp(s)); }
+
+  private stamp(s: (typeof STAMPS)[number]) { if (this.talk?.stamp(s)) this.me?.play(s.emote); }
 
   private openRing() {
     ringWindow('Menu', [
@@ -363,8 +417,24 @@ export class LobbyScreen implements Screen {
       { label: 'Mirror', ico: 'eye', run: () => this.openMirror() },
       { label: 'Hubs', ico: 'grid', run: () => document.querySelector<HTMLElement>('.topbar .hub')?.focus({ focusVisible: true } as FocusOptions) },
       { label: 'Settings', ico: 'gear', run: () => window.dispatchEvent(new Event('structs:settings')) },
-      { label: 'Galaxy', ico: 'explore', run: () => this.navigate('/galaxy') },
+      { label: 'People', ico: 'team', run: () => this.openPeople() },
     ]);
+  }
+
+  /** Who you've muted or blocked, with the way back. */
+  private openPeople() {
+    const w = cwWindow('People', { place: 'center' });
+    const paint = () => {
+      const ids = [...new Set([...lists.blocked, ...lists.muted])];
+      w.body.replaceChildren(ids.length
+        ? h('div', { class: 'cw-list' }, ...ids.map((id) => h('div', { class: 'cw-row cw-person' },
+          h('span', { class: 'cw-label' }, comms.nameOf(id, this.room)),
+          lists.muted.has(id) ? h('button', { type: 'button', class: 'cw-btn ghost', onclick: () => { lists.toggle('muted', id); this.crowd.sync(this.room); paint(); } }, 'Unmute') : null,
+          lists.blocked.has(id) ? h('button', { type: 'button', class: 'cw-btn ghost', onclick: () => { lists.toggle('blocked', id); this.crowd.sync(this.room); paint(); } }, 'Unblock') : null)))
+        : h('p', { class: 'cw-sub' }, 'Nobody muted or blocked.'));
+    };
+    paint();
+    focusFirst(w);
   }
 
   /** The Mirror: restyle your droid, watch it change, sign to keep it. */
@@ -372,12 +442,15 @@ export class LobbyScreen implements Screen {
     const before = this.myAttrs();
     let now = { ...before };
     let saved = false;
-    const w = cwWindow('Mirror', { place: 'left', cls: 'cw-mirror', onClose: () => { if (!saved) this.me?.setAttrs(before); } });
-    const rows = partRows(before, (a) => { now = a; this.me?.setAttrs(a); });
+    this.mirrorOpen = true;
+    const w = cwWindow('Mirror', { place: 'left', cls: 'cw-mirror', onClose: () => { this.mirrorOpen = false; if (!saved) this.me?.setAttrs(before); this.refreshMe(); } });
+    // Stepping fast through parts builds only where it stops.
+    let soon = 0;
+    const rows = partRows(before, (a) => { now = a; clearTimeout(soon); soon = window.setTimeout(() => this.me?.setAttrs(a), 120); });
     const save = h('button', { type: 'button', class: 'cw-btn primary', onclick: () => {
       const p = empire.commander;
       if (!p) { toast('Your commander is still loading. Try again in a moment.', 'warn'); return; }
-      try { act.setPortrait(p, now, 'lobby'); saved = true; toast('New look sent. It lands in a block or two.', 'player', 3000); w.close(); } catch (e) { toast((e as Error).message, 'enemy'); }
+      try { act.setPortrait(p, now, 'lobby'); saved = true; this.pendingLook = { ...now }; toast('New look sent. It lands in a block or two.', 'player', 3000); w.close(); } catch (e) { toast((e as Error).message, 'enemy'); }
     } }, h('span', { class: 'dc-face a' }, 'A'), 'Keep it');
     w.body.append(rows.el, h('div', { class: 'cw-actions' }, h('button', { type: 'button', class: 'cw-btn', onclick: () => w.close() }, h('span', { class: 'dc-face b' }, 'B'), 'Cancel'), save));
     focusFirst(w);
@@ -400,8 +473,7 @@ export class LobbyScreen implements Screen {
   }
 
   /** Use whatever I'm standing at. */
-  private use() {
-    const st = this.near;
+  private use(st: Station | null = this.near) {
     if (!st || anyWindow()) return;
     audio.play('confirm', 0.7);
     this.vel.set(0, 0, 0);
@@ -416,26 +488,36 @@ export class LobbyScreen implements Screen {
 
   /* ── Input ─────────────────────────────────────────────────────────── */
 
-  private walking() { return this.live && this.mode === 'plaza' && !anyWindow() && !this.talk?.typing && !document.querySelector('.modal-back'); }
+  /** Walking keys and the pad are mine only while nothing else has the player's attention. */
+  private walking() {
+    if (!this.live || this.mode !== 'plaza' || anyWindow() || this.talk?.typing || document.querySelector('.modal-back')) return false;
+    const f = document.activeElement as HTMLElement | null;
+    return !f?.closest?.('.topbar, .hub-menu, .more-menu, .guide-card, .toasts, .cp-dock, .tabbar');
+  }
 
   private bindInput() {
     const ignore = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       return !!t?.closest?.('input, textarea, select, .topbar, .hub-menu, .more-menu, .modal-back') || e.metaKey || e.ctrlKey || e.altKey;
     };
+    // Back from the top bar: Escape (B) on a hub with no menu open hands the keys back to walking.
+    const awayFrom = '.topbar, .tabbar';
+    const backToWalk = () => { const f = document.activeElement as HTMLElement | null; if (f?.closest?.(awayFrom) && !document.querySelector('.hub-menu')) f.blur(); };
     const down = (e: KeyboardEvent) => {
-      if (!this.live || this.mode !== 'plaza' || ignore(e) || !this.walking()) return;
+      if (this.live && this.mode === 'plaza' && e.key === 'Escape' && (e.target as HTMLElement)?.closest?.(awayFrom) && !document.querySelector('.hub-menu, .modal-back')) { backToWalk(); return; }
+      if (!this.live || this.mode !== 'plaza' || typeof e.key !== 'string' || ignore(e) || !this.walking()) return;
       const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
       const move = ['w', 'a', 's', 'd', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Shift'];
       if (move.includes(k)) { this.keys.add(k); if (k.startsWith('Arrow')) e.preventDefault(); e.stopImmediatePropagation(); return; }
       if (k === 'e' || k === ' ') { e.preventDefault(); e.stopImmediatePropagation(); this.use(); return; }
       if (k === 'Enter') { e.preventDefault(); e.stopImmediatePropagation(); this.talk?.focus(); return; }
+      if (e.repeat) return;
       if (k === 'x') { e.stopImmediatePropagation(); this.openStamps(); return; }
       if (k === 'r') { e.stopImmediatePropagation(); this.openRing(); return; }
       if (k === 'f') { e.stopImmediatePropagation(); this.camYaw = this.yaw + Math.PI; return; }
-      if (/^[1-8]$/.test(k)) { e.stopImmediatePropagation(); const s = STAMPS[Number(k) - 1]; this.talk?.stamp(s); this.me?.play(s.emote); }
+      if (/^[1-8]$/.test(k)) { e.stopImmediatePropagation(); this.stamp(STAMPS[Number(k) - 1]); }
     };
-    const up = (e: KeyboardEvent) => { const k = e.key.length === 1 ? e.key.toLowerCase() : e.key; this.keys.delete(k); };
+    const up = (e: KeyboardEvent) => { if (typeof e.key !== 'string') return; const k = e.key.length === 1 ? e.key.toLowerCase() : e.key; this.keys.delete(k); };
     const blur = () => this.keys.clear();
     window.addEventListener('keydown', down, true);
     window.addEventListener('keyup', up, true);
@@ -446,6 +528,7 @@ export class LobbyScreen implements Screen {
     const pd = (e: PointerEvent) => {
       if (!this.live) return;
       if (this.mode === 'hangar') { this.drag = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0, turn: true }; return; }
+      backToWalk();
       if (!this.walking()) return;
       const touch = e.pointerType === 'touch';
       if (touch && e.clientX < innerWidth * 0.45 && !this.stick) {
@@ -477,7 +560,7 @@ export class LobbyScreen implements Screen {
     const pu = (e: PointerEvent) => {
       if (this.stick && e.pointerId === this.stick.id) { this.stick.el.remove(); this.stick = null; return; }
       if (this.drag && e.pointerId === this.drag.id) {
-        const tap = this.drag.moved < 8;
+        const tap = this.drag.moved < 8 && e.type === 'pointerup';
         this.drag = null;
         if (tap && this.mode === 'plaza' && this.walking()) this.tap(e.clientX, e.clientY);
       }
@@ -530,14 +613,25 @@ export class LobbyScreen implements Screen {
 
   /** The pad, while walking: sticks walk and look, buttons are the lobby's verbs. */
   private readPad(pads: Gamepad[]): boolean {
-    if (!this.walking()) { this.pad.lx = this.pad.ly = this.pad.rx = this.pad.ry = 0; return false; }
-    const p = pads[0];
+    const stop = () => { this.pad.lx = this.pad.ly = this.pad.rx = this.pad.ry = 0; this.pad.run = false; };
+    if (!pads.length) { stop(); this.padIdle = true; return false; }
+    // Every pad counts (a phantom device listed first mustn't mute the real one).
+    const btn: boolean[] = [];
+    let ax = [0, 0, 0, 0];
+    for (const p of pads) {
+      p.buttons.forEach((x, i) => { btn[i] = btn[i] || x.pressed; });
+      const a = [0, 1, 2, 3].map((i) => p.axes[i] ?? 0);
+      if (Math.hypot(a[0], a[1]) + Math.hypot(a[2], a[3]) > Math.hypot(ax[0], ax[1]) + Math.hypot(ax[2], ax[3])) ax = a;
+    }
+    if (!this.walking()) { stop(); this.padIdle = true; return false; }
+    // Back from a window (or the top bar): buttons still down then are the ones that closed it.
+    if (this.padIdle) { this.padIdle = false; this.pad.prev = btn.slice(); return true; }
     const dead = (v: number) => (Math.abs(v) < 0.18 ? 0 : v);
-    const b = (i: number) => !!p.buttons[i]?.pressed;
-    let lx = dead(p.axes[0] ?? 0), ly = dead(p.axes[1] ?? 0);
+    const b = (i: number) => !!btn[i];
+    let lx = dead(ax[0]), ly = dead(ax[1]);
     if (b(14)) lx = -1; if (b(15)) lx = 1; if (b(12)) ly = -1; if (b(13)) ly = 1;
     this.pad.lx = lx; this.pad.ly = ly;
-    this.pad.rx = dead(p.axes[2] ?? 0); this.pad.ry = dead(p.axes[3] ?? 0);
+    this.pad.rx = dead(ax[2]); this.pad.ry = dead(ax[3]);
     this.pad.run = Math.hypot(lx, ly) > 0.92 || b(10);
     const prev = this.pad.prev;
     const pressed = (i: number) => b(i) && !prev[i];
@@ -546,7 +640,7 @@ export class LobbyScreen implements Screen {
     if (pressed(3)) this.openRing();
     if (pressed(9)) this.talk?.focus();
     if (pressed(4) || pressed(5)) this.camYaw = this.yaw + Math.PI;
-    this.pad.prev = p.buttons.map((x) => x.pressed);
+    this.pad.prev = btn.slice();
     return true;
   }
 
@@ -586,7 +680,7 @@ export class LobbyScreen implements Screen {
       if (d.length() <= stop) {
         const st = this.goal.station;
         this.goal = null;
-        if (st) { this.near = st; this.use(); }
+        if (st) this.use(st);
       } else want.copy(d.normalize().multiplyScalar(WALK));
     }
     if (this.rising > 0) { this.rising = Math.max(0, this.rising - dt * 0.8); want.set(0, 0, 0); }
@@ -618,7 +712,7 @@ export class LobbyScreen implements Screen {
     // Phase 2: when I've stood still a moment, tell the room where.
     if (speed < 0.05) {
       if (!this.lastStill) this.lastStill = t;
-      if (t - this.lastStill > 1.5 && this.room) void sendSpot(this.room.id, this.pos.x, this.pos.z, this.yaw);
+      if (t - this.lastStill > 1.5 && this.room && !this.devRoom) void sendSpot(this.room.id, this.pos.x, this.pos.z, this.yaw);
     } else this.lastStill = 0;
 
     // The camera swings in behind me as I walk, unless someone's holding it.

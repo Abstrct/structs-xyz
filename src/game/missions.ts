@@ -6,7 +6,7 @@ import { empire, type PlayerState } from './empire';
 import { record } from './record';
 import { replicants } from './replicants';
 import { comms } from '../chat/matrix';
-import { toast } from '../core/dom';
+import { toast, whenRewardsShow } from '../core/dom';
 import { audio } from '../core/audio';
 import { live } from '../chain/live';
 
@@ -49,8 +49,7 @@ export function startMissions() {
   const check = () => {
     const p = wallet.primary?.playerId ? empire.players.get(wallet.primary.playerId) ?? null : null;
     for (const m of MISSIONS) if (m.done(p) && record.award('mission:' + m.id, m.xp)) {
-      audio.play('confirm');
-      toast(`Mission complete — ${m.title} · +${m.xp} XP`, 'player', 4200);
+      whenRewardsShow(() => { audio.play('confirm'); toast(`Mission complete — ${m.title} · +${m.xp} XP`, 'player', 4200); });
     }
   };
   wallet.onChange(check); empire.onChange(check); record.onChange(() => setTimeout(check, 0)); live.onBlock((b) => { if (b.height % 5 === 0) check(); });
