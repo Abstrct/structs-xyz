@@ -38,6 +38,8 @@ const TRACK_ICON: Record<Tab, string> = { strategy: 'battle', economics: 'trade'
 const PRACTICE_NAME: Record<Track['id'], string> = { strategy: 'Who can hit whom?', economics: 'What does it cost?', technology: 'Be the computer' };
 
 const CAREER_COLOR = '#43CDB6';
+/** mobile.css's upright phone (the hubs along the bottom): where the header folds when a lesson opens. */
+const PHONE_UPRIGHT = '(max-width: 760px) and (pointer: coarse) and (min-height: 561px)';
 const GLOSS_COLOR = '#94A4E4';
 
 /** What finishing a "do it" lesson takes, in words. */
@@ -76,6 +78,8 @@ export class AcademyScreen extends PanelScreen {
   /** The card whose wrong answer shakes, on the paint right after the click only (not on every repaint). */
   private shake = '';
   private timer = 0;
+  /** A lesson or a practice was opened: on an upright phone the header folds to one slim row so it has the room. */
+  private slim = false;
 
   constructor(engine: Engine, navigate: (hash: string) => void) { super(engine, navigate, 'academy', 5.2); }
 
@@ -89,6 +93,7 @@ export class AcademyScreen extends PanelScreen {
     // The screen instance lives on between visits: a search only carries over when the URL names it.
     this.filter = this.tab === 'glossary' && params.lesson ? params.lesson : '';
     this.sel = params.lesson && (lessonById.has(params.lesson) || params.lesson === PRACTICE) ? params.lesson : null;
+    this.slim = !!this.sel;
     this.side = h('div', { class: 'ac-side panel player scroll' });
     this.main = h('div', { class: 'ac-main panel scroll' });
     this.frame = h('div', { class: 'ac-frame' + (this.why ? ' dc-why' : '') }, this.side, this.main);
@@ -102,16 +107,17 @@ export class AcademyScreen extends PanelScreen {
     this.focusQuiz = true;
     this.paint();
     // A deep link to a lesson brings its card into view.
-    if (params.lesson) requestAnimationFrame(() => this.main.querySelector('.ac-lesson, .ac-practice')?.scrollIntoView({ block: 'nearest' }));
+    if (params.lesson) requestAnimationFrame(() => this.main.querySelector('.ac-lesson, .ac-practice')?.scrollIntoView({ block: matchMedia(PHONE_UPRIGHT).matches ? 'start' : 'nearest' }));
   }
   protected unmount() { clearTimeout(this.timer); this.timer = 0; academy.showing(null); }
 
   private schedule() { if (!this.timer) this.timer = window.setTimeout(() => { this.timer = 0; this.paint(); }, 60); }
 
   private go(tab: Tab, sel: Pick | null = null) {
-    if (tab === this.tab) { if (sel) this.pick(sel); return; }
+    if (tab === this.tab) { if (sel) this.pick(sel); else if (this.slim) { this.slim = false; this.paint(true); } return; }
     this.tab = tab;
     this.sel = sel;
+    this.slim = !!sel;
     this.filter = '';
     replaceRoute('/academy/' + tab + (sel ? '/' + sel : ''));
     audio.play('select');
@@ -126,9 +132,12 @@ export class AcademyScreen extends PanelScreen {
     replaceRoute(`/academy/${this.tab}/${id}`);
     audio.play('select');
     this.focusQuiz = true;
+    this.slim = true;
     this.paint(true);
-    // On a stacked (narrow) layout the card sits under the tiles: bring it up.
-    requestAnimationFrame(() => this.main.querySelector('.ac-lesson, .ac-practice')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+    // On a stacked (narrow) layout the card sits under the tiles: bring it up (on an upright phone,
+    // to the top, under the folded header).
+    const phone = matchMedia(PHONE_UPRIGHT).matches;
+    requestAnimationFrame(() => this.main.querySelector('.ac-lesson, .ac-practice')?.scrollIntoView({ block: phone ? 'start' : 'nearest', behavior: 'smooth' }));
   }
 
   /** `force`: a press of the player's own (a track, a tile) repaints even while the search box has focus. */
@@ -139,6 +148,7 @@ export class AcademyScreen extends PanelScreen {
     // A direct paint replaces a scheduled one (which would redraw without the shake).
     clearTimeout(this.timer); this.timer = 0;
     // The cursor (keyboard, pad) stays on the tile it was on.
+    this.frame.classList.toggle('picked', this.slim);
     keepFocus(this.frame, () => {
       this.paintSide();
       const top = this.main.scrollTop;
@@ -364,7 +374,12 @@ export class AcademyScreen extends PanelScreen {
       this.paint();
     };
     const next = () => { this.cq = codeQuestion(); this.cqPick = null; audio.play('select'); this.focusQuiz = true; this.reveal = true; this.paint(); };
-    const program = ['if (planet is used up)  return explore()', 'if (a machine is off and power allows)  return switchOn(machine)', 'if (a machine on its list is missing and nothing is being built)  return build(next one)', 'if (job == "raider")  return sail(meeting point, or "home")', 'if (job == "productive" and alpha > keep + 0.1)  return sendHome(alpha − keep)', 'return wait()'];
+    // The program, one short line per rule (in order). The snippet shows the four lines the answers
+    // name, in program order: every rule above the right one doesn't fit, so hiding some of them never
+    // changes which shown line runs first.
+    const program = ['if planet used up → explore()', 'if a machine is off → switchOn()', 'if one is missing, none building → build()', 'if job is "raider" → sail()', 'if productive, alpha > keep + 0.1 → sendHome()', 'else → wait()'];
+    const lineOf = (c: string) => ['explore', 'switchOn', 'build', 'sail', 'sendHome', 'wait'].indexOf(c.replace(/\(.*/, ''));
+    const shown = q.choices.map((c, i) => ({ i, line: lineOf(c) })).sort((a, b) => a.line - b.line);
     // The helper's situation as pictures: its job, its planet, its machines, its alpha and keep.
     const s = q.s;
     const fact = (ico: string, text: string, tone = '', title = text) => h('span', { class: 'ac-fact ' + tone, title }, h('span', { html: icon(ico, 16) }), text);
@@ -380,10 +395,14 @@ export class AcademyScreen extends PanelScreen {
     return h('div', { class: 'ac-practice' },
       ...this.practiceHead(PRACTICE_NAME.technology, this.cqStreak, Math.max(best, this.cqStreak), 'A simplified copy of your robot helpers’ program (keep = the “send alpha home above” setting). Read it top to bottom: the first rule that fits is the move.'),
       facts,
-      h('div', { class: 'robot-code ac-code' + (answered ? ' ran' : ''), title: 'keep = the “send alpha home above” setting. The first rule that fits is the move.' },
-        ...program.map((line, i) => h('div', { class: 'ac-code-line' + (answered ? (i < q.line ? ' skip' : i === q.line ? ' run' : ' after') : '') }, line))),
-      h('div', { class: 'ac-q', title: q.q }, 'Which line runs?'),
-      h('div', { class: 'ac-choices' }, ...q.choices.map((c, i) => h('button', { class: 'ac-choice mono' + (answered && i === q.answer ? ' right' : answered && i === this.cqPick ? (this.shake === 'cq' ? ' wrong shake' : ' wrong') : ''), disabled: answered, 'data-k': `cq:${i}`, onclick: () => choose(i) }, h('span', { class: 'ac-choice-n' }, String(i + 1)), c))),
+      h('div', { class: 'ac-q', title: q.q }, 'Tap the line that runs'),
+      // The lines are the answers: tap (or press 1–4) the one that runs. Once answered, the program
+      // shows its work: lines above the one that ran are crossed out, the one that ran lights up.
+      h('div', { class: 'robot-code ac-code ac-pick' + (answered ? ' ran' : ''), role: 'group', 'aria-label': 'The program', title: 'keep = the “send alpha home above” setting. Read top to bottom: the first rule that fits is the move.' },
+        ...shown.map(({ i, line }, k) => h('button', {
+          class: 'ac-choice ac-code-line' + (answered ? (line < q.line ? ' skip' : line === q.line ? ' run right' : ' after') : '') + (answered && i === this.cqPick && i !== q.answer ? (this.shake === 'cq' ? ' wrong shake' : ' wrong') : ''),
+          disabled: answered, 'data-k': `cq:${i}`, 'aria-label': `${k + 1}: ${program[line]}`, onclick: () => choose(i) },
+        h('span', { class: 'ac-choice-n' }, String(k + 1)), h('span', { class: 'mono' }, program[line])))),
       answered ? h('div', { class: 'ac-why ' + (right ? 'right' : 'wrong') }, right ? 'Right! ' : 'Not quite. ', q.why) : null,
       answered ? this.practiceNext(next, '/ops/orders', 'rules', 'Robot Rules') : null);
   }

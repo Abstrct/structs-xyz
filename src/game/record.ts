@@ -70,7 +70,7 @@ class ServiceRecord {
     this.r.xp += xp;
     this.save();
     // The fanfare and its banner together (at PRESS START both wait for the doors).
-    if (this.rank > before) { const rank = RANKS[this.rank]; whenNoticesShow(() => { audio.stinger('secure', 0.8); banner(rank.toUpperCase(), 'PROMOTED', 'player', 2800); }); }
+    if (this.rank > before) { const rank = RANKS[this.rank]; whenNoticesShow(() => { audio.stinger('secure', 0.8); banner(rank.toUpperCase(), 'PROMOTED', 'player', 2800); }, true); }
     safeEach(this.listeners, (f) => f(this.r));
   }
 
@@ -104,7 +104,7 @@ class ServiceRecord {
     this.r.xp += xp;
     this.save();
     const after = this.rank;
-    if (after > before) { audio.stinger('secure', 0.8); banner(RANKS[after].toUpperCase(), 'PROMOTED', 'player', 2800); }
+    if (after > before) { const rank = RANKS[after]; whenNoticesShow(() => { audio.stinger('secure', 0.8); banner(rank.toUpperCase(), 'PROMOTED', 'player', 2800); }, true); }
     safeEach(this.listeners, (f) => f(this.r));
   }
 }

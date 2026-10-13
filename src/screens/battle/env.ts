@@ -18,8 +18,9 @@ export const HALF_WIDTH = 23;
 export const FIELD = { compact: false };
 /** A tall narrow view: an upright phone, or a window like one. Not the 640×480 TV. */
 export const portraitField = () => window.innerWidth <= 760 && window.innerHeight > window.innerWidth * 1.2;
-/** The half-width the camera must show for the deck in use (the flagships whole, with a margin). */
-export const fieldHalfWidth = () => (FIELD.compact ? 16.4 : 22.5);
+/** The half-width the camera must show for the deck in use: the flagships whole, with room for the
+ * rings and target brackets around them (15.7 cut the brackets on the enemy flagship at a phone's edge). */
+export const fieldHalfWidth = () => (FIELD.compact ? 16.2 : 22.5);
 
 export function slotX(side: 'player' | 'enemy', slot: number, command: boolean): number {
   const x = FIELD.compact ? (command ? 13.25 : 2.4 + slot * 2.55) : command ? 19.4 : 4.4 + slot * 3.75;
@@ -29,9 +30,16 @@ export function slotX(side: 'player' | 'enemy', slot: number, command: boolean):
 /** The compact deck stands in a staggered line, the way a formation does: every other slot a step
  * back and a little higher, so neighbours can stand closer than their hulls are wide and still read
  * as two ships. (The regular deck stands in one line.) Returns [lift, depth]. */
-export function slotStagger(slot: number, command: boolean): [number, number] {
-  return FIELD.compact && !command && slot % 2 === 1 ? [0.45, -1.5] : [0, 0];
+export function slotStagger(slot: number, command: boolean, ambit?: Ambit): [number, number] {
+  if (!FIELD.compact || command || slot % 2 === 0) return [0, 0];
+  // Aloft (space, air) the back rank rides a full step higher, clear of the front one; on the ground
+  // and the sea it can only step back, so its hulls draw a touch smaller there (view.ts).
+  // (Air a little less than space: its back rank's health pips would otherwise reach the space deck.)
+  return [ambit === 'space' ? 1.25 : ambit === 'air' ? 0.95 : 0.3, -1.5];
 }
+/** The compact deck's hull size for a battleground: aloft a little bigger, ground and sea a little
+ * smaller, so a staggered line never merges into one wall of hulls. */
+export const compactBoost = (ambit: Ambit) => (ambit === 'space' || ambit === 'air' ? 1.3 : 1.18);
 
 /* Each battleground's picture on a 24×24 grid (the DC kit's icons): a star, a cloud, a mountain, waves. */
 const AMBIT_GLYPH: Record<Ambit, { d: string; fill: boolean }> = {

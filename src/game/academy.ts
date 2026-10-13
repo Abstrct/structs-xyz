@@ -6,7 +6,7 @@
 import { TRACKS, LESSONS, lessonById, trackOf, BADGE_XP, type Lesson, type LessonCheck } from '../data/learn';
 import { record } from './record';
 import { loadRecord } from '../screens/battle/record';
-import { toast, banner } from '../core/dom';
+import { toast, banner, whenNoticesShow } from '../core/dom';
 import { audio } from '../core/audio';
 import { safeEach } from '../core/util';
 import { goTo } from '../core/nav';
@@ -147,16 +147,38 @@ class Academy {
     this.save();
     // A lesson finished again after a fresh start pays nothing twice, and says so honestly.
     const paid = record.award('academy:' + id, l.xp);
-    audio.play('confirm');
     const shown = this.onScreen === id && typeof location !== 'undefined' && location.pathname.includes('/academy');
-    if (!shown) toast(`★ ${l.title}${paid ? ` · +${l.xp} XP` : ''}`, 'player', 4200, { label: '▸', run: () => goTo(`/academy/${trackOf(id)?.id || ''}/${id}`) });
+    this.announce(l, paid ? l.xp : 0, shown);
     const t = trackOf(id);
     if (t && t.lessons.every((x) => this.isDone(x.id)) && record.award('badge:' + t.id, BADGE_XP)) {
       // After any promotion banner the XP just raised has had its moment.
       const celebrate = () => { audio.stinger('secure', 0.7); banner(t.badge.toUpperCase(), `${t.label} badge earned · +${BADGE_XP} XP`, 'player', 3200); };
-      if (document.querySelector('.banner:not(.out)')) setTimeout(celebrate, 2900); else celebrate();
+      // A badge's fanfare and banner together: at PRESS START both wait for the doors.
+      whenNoticesShow(() => { if (document.querySelector('.banner:not(.out)')) setTimeout(celebrate, 2900); else celebrate(); }, true);
     }
     this.emit();
+  }
+
+  /* Lessons finished in the same moment (a returning player's check() can finish several at once)
+   * are said once: one sound and one toast ("2 lessons done · +60 XP"), through the same hold as
+   * every other piece of good news, so PRESS START and the board keep the screen to themselves. */
+  private told: { l: Lesson; xp: number; shown: boolean }[] = [];
+  private announce(l: Lesson, xp: number, shown: boolean) {
+    this.told.push({ l, xp, shown });
+    if (this.told.length > 1) return;
+    setTimeout(() => {
+      const all = this.told.splice(0);
+      const say = all.filter((x) => !x.shown);
+      // A lesson finished on its own page has its moment there: the chime now, no toast.
+      if (!say.length) { audio.play('confirm'); return; }
+      // The toast speaks only for the lessons it names (and their XP); its chime waits with it.
+      const xp = say.reduce((a, x) => a + x.xp, 0);
+      const one = say.length === 1 ? say[0].l : null;
+      const text = one ? `★ ${one.title}${xp ? ` · +${xp} XP` : ''}` : `★ ${say.length} lessons done${xp ? ` · +${xp} XP` : ''}`;
+      const go = one ? `/academy/${trackOf(one.id)?.id || ''}/${one.id}` : '/academy';
+      if (say.length < all.length) audio.play('confirm');
+      whenNoticesShow(() => { audio.play('confirm'); toast(text, 'player', 4200, { label: '▸', run: () => goTo(go) }); });
+    }, 0);
   }
 
   /** Start the Academy over (a shared computer, a new learner). The service record keeps its XP:

@@ -474,10 +474,21 @@
 .screen.forge .fg { grid-template-rows: minmax(0, 1fr); align-items: start; }
 .screen.forge .fg > :is(.fg-side, .fg-main) { max-height: 100%; min-height: 0; }
 .screen.forge .fg-list, .screen.forge .fg-form { flex: 0 1 auto; }
-/* A phone: the list on top (at most 38% of the screen), the form under it. */
+/* A phone: one scroll for the whole page (no box scrolling inside another), the message's form on
+ * top and the list of messages under it; Queue, Dry run and Example ride along the bottom edge while
+ * the form is on screen. */
 @media (max-width: 559px) {
-  .screen.forge .fg { grid-template-rows: auto minmax(0, 1fr); }
-  .screen.forge .fg > .fg-side { max-height: 38vh; }
+  .screen.forge .fg { display: flex; flex-direction: column; align-items: stretch; gap: 8px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+    /* A box scrolled into view (Tab, the pad) stops above the pinned Queue row, not under it. */
+    scroll-padding: 8px 0 84px; }
+  .screen.forge .fg-fields :is(input, select, textarea) { scroll-margin-bottom: 12px; }
+  .screen.forge .fg > :is(.fg-side, .fg-main) { flex: none; max-height: none; }
+  .screen.forge .fg > .fg-main { order: -1; }
+  .screen.forge :is(.fg-list, .fg-form) { overflow: visible; max-height: none; }
+  .screen.forge .fg-form > .fg-actions { position: sticky; bottom: 0; z-index: 2; margin: 0 -12px; padding: 10px 12px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+    background: linear-gradient(180deg, rgba(10, 52, 104, 0.9), rgb(10, 40, 90)); border-top: 2px solid rgba(41, 224, 255, 0.3); box-shadow: 0 -10px 20px -10px rgba(0, 0, 20, 0.8); }
+  .screen.forge .fg-form > .fg-actions::-webkit-scrollbar { display: none; }
+  .screen.forge .fg-form > .fg-actions .btn { flex: none; }
 }
 
 /* ── Unit Guide: the card ends on a whole row; the strip shows that it scrolls ───────────────
@@ -650,3 +661,53 @@
 .screen.codex .mx-mark { position: absolute; right: -3px; bottom: -3px; display: grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; font-size: 11px; line-height: 1; color: #fff; }
 .screen.codex .mx-t.hit .mx-mark { background: var(--dc-y); }
 .screen.codex .mx-t.miss .mx-mark { background: var(--accent-destructive); }
+/* The sheet's scrim: the guide beneath dims and a tap on it puts the sheet away (and goes no further). */
+.screen.codex .codex-scrim { position: absolute; inset: 0; z-index: 19; pointer-events: auto; background: rgba(4, 7, 30, 0.6); }
+.screen.codex .codex-matrix.compact { pointer-events: auto; }
+.screen.codex button.mx-t { appearance: none; padding: 0; font: inherit; color: inherit; background-clip: padding-box; }
+.screen.codex button.mx-t:focus-visible, .screen.codex .mx-who:focus-visible { outline: 3px solid var(--dc-accent); outline-offset: 2px; }
+.screen.codex button.mx-t.miss:focus-visible { opacity: 0.85; }
+
+/* ── Academy on an upright phone, a lesson or practice open: the header folds to one slim row ──
+ * Rank (a word and a star), today's challenge (its icon) and the five tracks (icons, the one on
+ * show lit), so the lesson or practice gets the screen. Tapping a track brings the header back. */
+@media (max-width: 760px) and (pointer: coarse) and (min-height: 561px) {
+  /* The rank (its XP is the hover), the ? Explain button, today's challenge, the five tracks. The
+   * Academy's title steps aside; its ? stays, since a finger has no hover to read the words by. */
+  .screen.academy .ac-frame.picked .ac-side { display: grid; grid-template-columns: auto auto auto minmax(0, 1fr); align-items: center; gap: 6px; padding: 6px 8px; }
+  .screen.academy .ac-frame.picked :is(.ac-hello, .ac-title) { display: contents; }
+  .screen.academy .ac-frame.picked .ac-title > span { display: none; }
+  .screen.academy .ac-frame.picked .ac-title .dc-why-btn { grid-column: 2; grid-row: 1; margin: 0; }
+  .screen.academy .ac-frame.picked .ac-hello > .dc-hint { grid-column: 1 / -1; grid-row: 2; }
+  .screen.academy .ac-frame.picked .ac-rank { grid-column: 1; grid-row: 1; padding: 4px 10px; gap: 0; min-height: 44px; justify-content: center; }
+  .screen.academy .ac-frame.picked .ac-rank :is(.ac-meter, .ac-rank-foot, .dc-num.dc-big) { display: none; }
+  .screen.academy .ac-frame.picked .ac-rank-name { font-size: 14px; gap: 5px; }
+  .screen.academy .ac-frame.picked .ac-daily { grid-column: 3; grid-row: 1; padding: 4px 8px; gap: 0; min-height: 44px; }
+  .screen.academy .ac-frame.picked .ac-daily :is(.col, .dc-num, .dc-face) { display: none; }
+  .screen.academy .ac-frame.picked .ac-tracks { grid-column: 4; grid-row: 1; display: flex; gap: 4px; min-width: 0; }
+  .screen.academy .ac-frame.picked .ac-tracks > .ac-track, .screen.academy .ac-frame.picked .ac-tracks > .ac-track:nth-child(n + 4) { flex: 1 1 0; min-width: 0; min-height: 44px; padding: 4px 2px; gap: 2px; }
+  .screen.academy .ac-frame.picked .ac-track :is(.ac-track-name, .ac-track-badge, .ac-track-n) { display: none; }
+  .screen.academy .ac-frame.picked .ac-track .lab-pips { display: none; }
+  .screen.academy .ac-frame.picked .ac-track-ico .ico { width: 22px; height: 22px; }
+}
+
+/* Technology practice: the snippet's lines are the answers. */
+:is(.screen.academy) .ac-code.ac-pick { display: flex; flex-direction: column; gap: 4px; padding: 6px; }
+:is(.screen.academy) .ac-code.ac-pick .ac-choice.ac-code-line { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 6px 10px 6px 6px; text-align: left; text-indent: 0;
+  font-family: var(--font-ticker, monospace); font-size: 13px; line-height: 17px; color: #CFE8D2; border-radius: 12px; }
+:is(.screen.academy) .ac-code.ac-pick .ac-choice .mono { white-space: normal; }
+:is(.screen.academy) .ac-code.ran .ac-choice.ac-code-line.run { opacity: 1; }
+:is(.screen.academy) .ac-code.ran .ac-choice.ac-code-line.run::before { content: none; }
+:is(.screen.academy) .ac-code.ran .ac-choice.ac-code-line.wrong { opacity: 0.9; text-decoration: none; }
+/* The code box's head: "As code" on the left, its copy buttons on the right. */
+.screen.forge .fg-code-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.screen.forge .fg-copies { display: inline-flex; gap: 6px; margin-left: auto; }
+.screen.forge .fg-copy { display: inline-flex; align-items: center; gap: 6px; }
+.screen.forge .fg-copy > span:first-child { display: inline-flex; }
+@media (max-width: 559px) {
+  /* The phone's pinned row holds the three verbs, wrapped if a very narrow screen needs it; the copy
+   * buttons are icons in the code box. */
+  .screen.forge .fg-form > .fg-actions { flex-wrap: wrap; overflow-x: visible; }
+  .screen.forge .fg-copy { width: 40px; min-width: 40px; padding: 0; justify-content: center; }
+  .screen.forge .fg-copy-word { display: none; }
+}

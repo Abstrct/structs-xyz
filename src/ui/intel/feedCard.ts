@@ -15,6 +15,8 @@ import { TYPES_BY_ID } from '../../data/catalogue';
 import { spriteDataUrl } from '../../gfx/pixelModel';
 import { amountText, describe, statusChange, hrefFor, type Described, type Names, type Part, type Tone } from '../../grass/describe';
 import type { GrassEvent } from '../../grass/grass';
+import type { FeedItem } from '../../chain/store';
+import type { CombatRecord } from '../../chain/combat';
 import { guildLabel } from '../../guild/directory';
 import { icon } from '../icons';
 import type { IntelCtx } from './common';
@@ -99,7 +101,7 @@ function statusAct(now: number, old: number): Act {
   if (/offline/.test(t)) return { ico: 'power', word: 'offline', tone: 'warn' };
   if (/into stealth/.test(t)) return { ico: 'eye', word: 'hidden', tone: 'hint' };
   if (/dropped stealth/.test(t)) return { ico: 'eye', word: 'revealed', tone: 'warn' };
-  if (/materialized/.test(t)) return { ico: 'build', word: 'appeared', tone: 'hint' };
+  if (/materialized/.test(t)) return { ico: 'build', word: 'building', tone: 'hint' };
   if (/stored/.test(t)) return { ico: 'build', word: 'stored', tone: 'hint' };
   if (/locked/.test(t)) return { ico: 'lock', word: 'locked', tone: 'warn' };
   return { ico: 'build', word: 'changed', tone: c.tone };
@@ -160,10 +162,61 @@ function bodyOf(e: GrassEvent): Body | null {
   return null;
 }
 
+/* ── Mining and refining: one card per player ─────────────────────────────
+ * A mining cycle is a burst of ticks (cycle started, ore mined, the player's store up, the planet's
+ * reserve down); refining likewise (ore used, alpha made). Each burst folds into one card per player:
+ * "mined 3 ore", "refined 2 ore → 2 g Alpha". */
+interface Fam { kind: 'mine' | 'refine'; ore: number; gain: number; alpha: number }
+/** `weak`: a change in an ore level. It says nothing about why (mining, refining, a raid taking ore,
+ * a raid's loot), so it only joins a card a real mining or refining event started, adds nothing
+ * to its total, and never starts a card of its own. */
+function famOf(e: GrassEvent): { kind: Fam['kind']; pid: string; ore?: number; alpha?: number; weak?: boolean } | null {
+  const pid = e.playerId || '';
+  if (!/^1-\d+$/.test(pid)) return null;
+  const data = e.data || {};
+  const n = (v: unknown) => Number(v ?? 0) || 0;
+  if (e.category === 'struct_block_ore_mine_start') return { kind: 'mine', pid };
+  if (e.category === 'struct_block_ore_refine_start') return { kind: 'refine', pid };
+  if (e.kind === 'inventory') {
+    const action = String(data.action || e.category), denom = String(data.denom || '');
+    const amt = n(data.amount_p ?? data.amount);
+    if (action === 'mined' && denom === 'ore') return { kind: 'mine', pid, ore: amt };
+    if (action === 'refined' && denom === 'ore') return { kind: 'refine', pid, ore: amt };
+    if (action === 'refined' && denom === 'ualpha') return { kind: 'refine', pid, alpha: amt };
+    return null;
+  }
+  if (e.kind === 'grid' && String(data.attribute_type || e.category) === 'ore') {
+    const v = n(data.value_p ?? data.value), o = n(data.value_old_p ?? data.value_old);
+    const obj = String(e.objectId || '');
+    if (obj.startsWith('1-')) return { kind: v >= o ? 'mine' : 'refine', pid, weak: true };
+    if (obj.startsWith('2-') && v < o) return { kind: 'mine', pid, weak: true };
+  }
+  return null;
+}
+function famBody(f: Fam): Body {
+  if (f.kind === 'mine') {
+    const ore = Math.max(f.ore, f.gain);
+    return { units: [], act: { ico: 'mine', word: ore ? 'mined' : 'mining', tone: 'neutral', num: ore ? `${formatInt(ore)} ore` : undefined }, key: 'mine' };
+  }
+  const ore = Math.max(f.ore, f.gain);
+  return { units: [], act: { ico: 'ore', word: ore || f.alpha ? 'refined' : 'refining', tone: 'player', num: ore ? `${formatInt(ore)} ore` : undefined },
+    key: 'refine', tail: f.alpha ? [{ text: `→ ${amountText(String(f.alpha), 'ualpha')}` }] : undefined };
+}
+
 /** A card's key: consecutive events with the same key fold into one card. Fights never fold. */
 export function keyOf(e: GrassEvent): string {
+  const f = famOf(e);
+  if (f) return `fam:${f.kind}:${f.pid}`;
+  return plainKey(e);
+}
+
+/** An event's own key, mining families aside (an ore level's change, standing alone). */
+function plainKey(e: GrassEvent): string {
   const b = bodyOf(e);
   if (b?.act.hot || HOT.has(e.category)) return e.category + ':' + e.n;
+  // A build starting is a burst of events about one struct (it appears, its build starts, its health
+  // rises from 0): one card.
+  if (b && b.act.word === 'building' && b.units[0]) return `build:${e.playerId || b.units[0]}`;
   if (b) return e.kind + ':' + e.category + ':' + b.key;
   return e.kind + ':' + e.category;
 }
@@ -203,7 +256,30 @@ function sentence(ctx: Pick<IntelCtx, 'navigate'>, parts: Part[]): Node[] {
   return out;
 }
 
-export interface Card { el: HTMLElement; key: string; count: number; at: number; players: string[]; lines: string[] }
+export interface Card { el: HTMLElement; key: string; count: number; at: number; players: string[]; lines: string[]; fam?: Fam; units?: Set<string> }
+/** A build card counts the structs being built, not the events about them. */
+const noteUnit = (c: Card, b: Body | null) => { if (c.key.startsWith('build:') && b?.units[0]) (c.units ??= new Set()).add(b.units[0]); };
+
+const addFam = (c: Card, e: GrassEvent) => {
+  const f = famOf(e);
+  if (!f || (f.weak && !c.fam)) return;
+  c.fam ??= { kind: f.kind, ore: 0, gain: 0, alpha: 0 };
+  if (f.weak) return;
+  c.fam.ore += f.ore || 0; c.fam.alpha += f.alpha || 0;
+};
+
+/** The key a new card for `e` gets: an ore level's change with no mining card to join stands alone
+ * under its own key (its old "gained / used N ore" card), never posing as mining or refining. */
+const startKey = (e: GrassEvent) => (famOf(e)?.weak ? plainKey(e) : keyOf(e));
+
+/** The card `e` folds into among `cards` (newest first): within the look-back for families and
+ * builds, else only the newest; an ore level's change with no family card falls back to its own key. */
+export function foldTarget(cards: Card[], e: GrassEvent): Card | undefined {
+  const key = keyOf(e);
+  const deep = key.startsWith('fam:') || key.startsWith('build:');
+  const near = (k: string, n: number) => cards.slice(0, n).find((c) => c.key === k && Math.abs(e.at - c.at) < FOLD_MS);
+  return near(key, deep ? LOOK_BACK : 1) || (famOf(e)?.weak ? near(plainKey(e), 1) : undefined);
+}
 
 const plain = (d: Described) => d.parts.map((p) => p.text).join('').replace(/\s+/g, ' ').trim();
 
@@ -215,8 +291,11 @@ export function newCard(ctx: Pick<IntelCtx, 'navigate'>, e: GrassEvent, names: N
   const hot = !!b?.act.hot || HOT.has(e.category) || (d.tone === 'enemy' && d.group === 'combat');
   const tone = b ? b.act.tone : d.tone;
   const el = h('div', { class: `acard tone-${tone} g-${d.group}${hot ? ' hot' : ''}${hist ? ' hist' : ''}` });
-  const card: Card = { el, key: keyOf(e), count: 1, at: e.at, players: pid ? [pid] : [], lines: [] };
-  paint(ctx, card, e, d, b);
+  const card: Card = { el, key: startKey(e), count: 1, at: e.at, players: pid ? [pid] : [], lines: [] };
+  addFam(card, e);
+  noteUnit(card, b);
+  if (card.fam) el.className = `acard tone-${card.fam.kind === 'mine' ? 'neutral' : 'player'} g-economy${hist ? ' hist' : ''}`;
+  paint(ctx, card, e, d, card.fam ? famBody(card.fam) : b);
   return card;
 }
 
@@ -226,7 +305,28 @@ export function fold(ctx: Pick<IntelCtx, 'navigate'>, card: Card, e: GrassEvent,
   card.count++;
   card.at = Math.max(card.at, e.at);
   if (pid) { card.players = [pid, ...card.players.filter((x) => x !== pid)]; }
-  paint(ctx, card, e, describe(e, names), bodyOf(e));
+  addFam(card, e);
+  const b = bodyOf(e);
+  noteUnit(card, b);
+  paint(ctx, card, e, describe(e, names), card.fam ? famBody(card.fam) : b);
+}
+
+/** How many cards back a mining or refining tick looks for its player's card (others fold only
+ * into the card on top). */
+const LOOK_BACK = 8;
+/** Fold `e` into a card near the top of `box` (the top one, or for mining/refining one of the top
+ * few, which then moves to the top); false when it starts a card of its own. */
+export function foldNear(ctx: Pick<IntelCtx, 'navigate'>, cards: WeakMap<HTMLElement, Card>, box: HTMLElement, e: GrassEvent, names: Names): boolean {
+  const top: Card[] = [];
+  for (let el = box.firstElementChild as HTMLElement | null; el && top.length < LOOK_BACK; el = el.nextElementSibling as HTMLElement | null) {
+    const c = cards.get(el);
+    if (c) top.push(c);
+  }
+  const c = foldTarget(top, e);
+  if (!c) return false;
+  fold(ctx, c, e, names);
+  if (c.el !== box.firstElementChild) box.prepend(c.el);
+  return true;
 }
 
 function paint(ctx: Pick<IntelCtx, 'navigate'>, card: Card, e: GrassEvent, d: Described, b: Body | null) {
@@ -255,7 +355,8 @@ function paint(ctx: Pick<IntelCtx, 'navigate'>, card: Card, e: GrassEvent, d: De
   card.el.replaceChildren(...[
     faces,
     h('span', { class: 'acard-main' }, ...main.filter((x): x is Node => !!x)),
-    card.count > 1 ? h('span', { class: 'acard-n', title: `${card.count} in a row` }, `×${card.count}`) : null,
+    card.key.startsWith('build:') ? ((card.units?.size || 0) > 1 ? h('span', { class: 'acard-n', title: `${card.units!.size} structs` }, `×${card.units!.size}`) : null)
+      : card.count > 1 ? h('span', { class: 'acard-n', title: `${card.count} in a row` }, `×${card.count}`) : null,
     h('span', { class: 'acard-when', 'data-at': String(card.at) }, when(Date.now() - card.at)),
   ].filter((x): x is HTMLElement => !!x));
   card.el.title = card.lines.join('\n') + (card.count > card.lines.length ? `\n…and ${card.count - card.lines.length} more` : '');
@@ -265,6 +366,7 @@ function paint(ctx: Pick<IntelCtx, 'navigate'>, card: Card, e: GrassEvent, d: De
 export function tickTimes(root: ParentNode) {
   const now = Date.now();
   for (const el of root.querySelectorAll<HTMLElement>('.acard-when')) el.textContent = when(now - Number(el.dataset.at || now));
+  for (const el of root.querySelectorAll<HTMLElement>('.adiv-age')) el.textContent = ago(now - Number(el.dataset.at || now));
 }
 
 /** Within this long, the same thing again folds into the card above it. */
@@ -278,7 +380,8 @@ export function cardFeed(ctx: Pick<IntelCtx, 'navigate' | 'cleanup'>, el: HTMLEl
   ctx.cleanup.push(() => clearInterval(t));
   return (e: GrassEvent, top = true) => {
     el.querySelector('.empty-live')?.remove();
-    const edge = (top ? el.firstElementChild : el.lastElementChild) as HTMLElement | null;
+    if (top && foldNear(ctx, cards, el, e, names)) return;
+    const edge = (top ? null : el.lastElementChild) as HTMLElement | null;
     const c = edge ? cards.get(edge) : undefined;
     if (c && c.key === keyOf(e) && Math.abs(e.at - c.at) < FOLD_MS) { fold(ctx, c, e, names); return; }
     const n = newCard(ctx, e, names);
@@ -286,4 +389,118 @@ export function cardFeed(ctx: Pick<IntelCtx, 'navigate' | 'cleanup'>, el: HTMLEl
     if (top) el.prepend(n.el); else el.appendChild(n.el);
     while (el.children.length > max) el.lastElementChild?.remove();
   };
+}
+
+
+/* ── Chain history (store.feed, read from the LCD): what happened before News opened ───────── */
+
+const FEED_ICO: Record<string, string> = { attack: 'battle', raid: 'flag', theft: 'ore', build: 'build', mine: 'mine', refine: 'ore', explore: 'planet', fleet: 'ship', player: 'team', infuse: 'fuel', guild: 'team', other: 'news' };
+const FEED_WORD: Record<string, string> = { attack: 'attacked', raid: 'raid', theft: 'stole', build: 'built', mine: 'mined', refine: 'refined', explore: 'found', fleet: 'fleet', player: 'joined', infuse: 'infused', guild: 'guild', other: 'news' };
+export const FEED_HOT = new Set(['attack', 'raid', 'theft']);
+/** Earlier cards at most (fights come on top of these). */
+const MAX_EARLIER = 30;
+
+/** One card for a run of chain-history items (one item, or a player's mining in a row). */
+export function feedCard(ctx: Pick<IntelCtx, 'navigate'>, items: FeedItem[], lead = false): HTMLElement {
+  const it = items[0];
+  const pid = it.playerId && /^1-\d+$/.test(it.playerId) ? it.playerId : '';
+  const p = pid ? store.players.get(pid) : undefined;
+  const name = pid ? p?.name || store.playerName(pid) : '';
+  const hot = FEED_HOT.has(it.kind);
+  // The sentence without its leading name (the card's name is already there) and without raw ids.
+  const rest = (t: string) => (name && t.startsWith(name) ? t.slice(name.length) : t).replace(/^['’]s\b/, '’s').replace(/\b(planet )?2-\d+\b/g, '').replace(/\s{2,}/g, ' ').trim();
+  const mined = it.kind === 'mine' ? items.reduce((a, x) => a + (Number(/mined (\d+)/.exec(x.text)?.[1]) || 1), 0) : 0;
+  // "began building a Tank (land)" → building · Tank; "completed a Tank" → built · Tank.
+  const building = it.kind === 'build' && /began building/.test(it.text);
+  const spent = /is spent/.test(it.text);
+  const nameOf = (x: FeedItem) => rest(x.text).replace(/^(completed|began building)\s+(an?\s+)?/, '').replace(/\s*\((space|air|land|water)\)$/, '');
+  // A player's builds in the stretch: their names, the first two and how many more.
+  const names = [...new Set(items.map(nameOf))];
+  const what = it.kind === 'build' ? names.slice(0, 2).join(', ') + (names.length > 2 ? ` +${names.length - 2}` : '') : rest(it.text);
+  const body: Node[] = it.kind === 'mine' || it.kind === 'refine'
+    ? [h('span', { class: 'acard-act' }, h('span', { class: 'acard-act-ico', html: icon(FEED_ICO[it.kind], 14) }), FEED_WORD[it.kind]), ...(it.kind === 'mine' ? [h('b', { class: 'acard-num' }, `${formatInt(mined)} ore`)] : [])]
+    // A world mined out: the planet and two words, no sentence.
+    : spent ? [h('span', { class: 'acard-act' }, h('span', { class: 'acard-act-ico', html: icon('planet', 14) }), 'world used up')]
+    : [h('span', { class: 'acard-act' }, h('span', { class: 'acard-act-ico', html: icon(FEED_ICO[it.kind] || 'news', 14) }), building ? 'building' : FEED_WORD[it.kind] || 'news'), h('span', { class: 'acard-text' }, what)];
+  const go = (href: string) => (ev: Event) => { ev.preventDefault(); audio.play('select'); ctx.navigate(href); };
+  const place = it.planetId && /^2-\d+$/.test(it.planetId) && store.homeOf.get(it.planetId) !== pid
+    ? h('a', { class: 'acard-place', href: '/planet/' + it.planetId, title: `Planet ${it.planetId}`, 'aria-label': `planet ${it.planetId}`, onclick: go('/planet/' + it.planetId), html: icon('planet', 14) }) : null;
+  const watch = it.kind === 'attack' && it.hash ? h('a', { class: 'acard-place', href: '/combat/' + it.hash, title: 'Watch this fight', 'aria-label': 'Watch this fight', onclick: go('/combat/' + it.hash), html: icon('play', 14) }) : null;
+  const at = Math.max(...items.map((x) => x.at));
+  return h('div', { class: `acard hist chain tone-${it.tone}${hot ? ' hot' : ''}${lead ? ' lead' : ''}`, title: items.map((x) => x.text).slice(0, 6).join('\n') + '\n(read from the chain: before you opened News)' },
+    h('span', { class: 'acard-faces', 'aria-hidden': 'true' }, pid ? portrait(p?.pfpClientRenderAttributes, 'xs', pid) : h('span', { class: 'acard-glyph', html: icon(FEED_ICO[it.kind] || 'news', 16) })),
+    h('span', { class: 'acard-main' }, ...[pid ? h('a', { class: 'id-link who acard-who', href: '/player/' + pid, title: pid, onclick: go('/player/' + pid) }, name) : null, ...body, place, watch].filter((x): x is HTMLElement => !!x)),
+    items.length > 1 ? h('span', { class: 'acard-n', title: `${items.length} in a row` }, `×${items.length}`) : null,
+    h('span', { class: 'acard-when', 'data-at': String(at) }, when(Date.now() - at)));
+}
+
+/** All the mining and refining in a stretch of history, as one card: how many miners and how much
+ * ore, how many refined. The names are its hover. */
+function workCard(items: FeedItem[]): HTMLElement {
+  const mine = items.filter((x) => x.kind === 'mine'), refine = items.filter((x) => x.kind === 'refine');
+  const miners = [...new Set(mine.map((x) => x.playerId).filter((x): x is string => !!x))];
+  const refiners = [...new Set(refine.map((x) => x.playerId).filter((x): x is string => !!x))];
+  const ore = mine.reduce((a, x) => a + (Number(/mined (\d+)/.exec(x.text)?.[1]) || 1), 0);
+  const who = [...new Set([...miners, ...refiners])];
+  const at = Math.max(...items.map((x) => x.at));
+  const names = (ids: string[]) => ids.slice(0, 12).map((id) => store.playerName(id)).join(', ') + (ids.length > 12 ? ` and ${ids.length - 12} more` : '');
+  return h('div', { class: 'acard hist chain tone-neutral summary', title: [miners.length ? `Mining: ${names(miners)}` : '', refiners.length ? `Refining: ${names(refiners)}` : '', '(read from the chain: before you opened News)'].filter(Boolean).join('\n') },
+    h('span', { class: 'acard-faces' + (who.length > 1 ? ' many' : ''), 'aria-hidden': 'true' }, ...who.slice(0, 3).map((id) => portrait(store.players.get(id)?.pfpClientRenderAttributes, 'xs', id))),
+    h('span', { class: 'acard-main' }, ...[
+      miners.length ? h('span', { class: 'acard-act' }, h('span', { class: 'acard-act-ico', html: icon('mine', 14) }), `${miners.length} ${miners.length === 1 ? 'miner' : 'miners'}`) : null,
+      miners.length ? h('b', { class: 'acard-num' }, `${formatInt(ore)} ore`) : null,
+      refiners.length ? h('span', { class: 'acard-act refine' }, h('span', { class: 'acard-act-ico', html: icon('ore', 14) }), `${refiners.length} refining`) : null,
+    ].filter((x): x is HTMLElement => !!x)),
+    h('span', { class: 'acard-when', 'data-at': String(at) }, when(Date.now() - at)));
+}
+
+/** Chain history as cards, newest first: the newest fight, raid or finished build leads as the
+ * headline; then the other fights; then all the mining and refining as one summary card; then the rest. */
+export function feedCards(ctx: Pick<IntelCtx, 'navigate'>, items: FeedItem[]): { lead: HTMLElement | null; fights: HTMLElement[]; work: HTMLElement | null; rest: HTMLElement[] } {
+  const newest = [...items].sort((a, b) => b.at - a.at);
+  const hot = newest.filter((x) => FEED_HOT.has(x.kind));
+  const top = hot[0] || newest.find((x) => x.kind === 'build' && !/began building/.test(x.text)) || null;
+  const work = newest.filter((x) => x.kind === 'mine' || x.kind === 'refine');
+  // A player's builds (started, or finished) over the stretch: one card each, where they last built.
+  const runs: FeedItem[][] = [];
+  const byKey = new Map<string, FeedItem[]>();
+  for (const x of newest.filter((y) => y !== top && !FEED_HOT.has(y.kind) && y.kind !== 'mine' && y.kind !== 'refine')) {
+    const k = x.kind === 'build' && x.playerId ? `${/began building/.test(x.text) ? 'b' : 'c'}:${x.playerId}` : '';
+    const run = k ? byKey.get(k) : undefined;
+    if (run) { run.push(x); continue; }
+    const r = [x];
+    runs.push(r);
+    if (k) byKey.set(k, r);
+  }
+  return {
+    lead: top ? feedCard(ctx, [top], true) : null,
+    fights: hot.filter((x) => x !== top).map((x) => feedCard(ctx, [x])),
+    work: work.length ? workCard(work) : null,
+    rest: runs.slice(0, MAX_EARLIER).map((r) => feedCard(ctx, r)),
+  };
+}
+
+
+/** The newest real attack on the testnet (the combat archive), pinned at the top of News when the
+ * chain's last half hour has no fight of its own: who fired, at whom, where, and a Watch button. */
+export function attackCard(ctx: Pick<IntelCtx, 'navigate'>, r: CombatRecord): HTMLElement {
+  const a = r.attack;
+  const pid = /^1-\d+$/.test(a.attackerPlayerId || '') ? a.attackerPlayerId : '';
+  const shots = a.eventAttackShotDetail || [];
+  const target = shots.find((x) => /^1-\d+$/.test(x.targetPlayerId || ''))?.targetPlayerId || '';
+  const kills = shots.filter((x) => (x as { targetDestroyed?: boolean }).targetDestroyed).length;
+  const go = (href: string) => (ev: Event) => { ev.preventDefault(); audio.play('select'); ctx.navigate(href); };
+  const at = Date.parse(r.time) || Date.now();
+  const place = /^2-\d+$/.test(a.attackerStructLocationId || '') ? a.attackerStructLocationId : '';
+  return h('div', { class: 'acard hist chain hot lead pinned tone-enemy', title: `The newest real attack on the testnet, read from the chain (not live).\n${a.attackerStructType || 'A struct'} fired ${shots.length} shot${shots.length === 1 ? '' : 's'}${kills ? `, ${kills} destroyed` : ''}.` },
+    h('span', { class: 'acard-faces', 'aria-hidden': 'true' }, pid ? portrait(store.players.get(pid)?.pfpClientRenderAttributes, 'xs', pid) : h('span', { class: 'acard-glyph', html: icon('battle', 16) })),
+    h('span', { class: 'acard-main' }, ...[
+      pid ? h('a', { class: 'id-link who acard-who', href: '/player/' + pid, title: pid, onclick: go('/player/' + pid) }, store.playerName(pid)) : null,
+      h('span', { class: 'acard-act' }, h('span', { class: 'acard-act-ico', html: icon('battle', 14) }), 'attacked'),
+      target ? h('a', { class: 'id-link who', href: '/player/' + target, title: target, onclick: go('/player/' + target) }, store.playerName(target)) : null,
+      kills ? h('b', { class: 'acard-num' }, `${kills} destroyed`) : null,
+      place ? h('a', { class: 'acard-place', href: '/planet/' + place, title: `Planet ${place}`, 'aria-label': `planet ${place}`, onclick: go('/planet/' + place), html: icon('planet', 14) }) : null,
+      h('a', { class: 'acard-place', href: '/combat/' + r.hash, title: 'Watch this fight', 'aria-label': 'Watch this fight', onclick: go('/combat/' + r.hash), html: icon('play', 14) }),
+    ].filter((x): x is HTMLElement => !!x)),
+    h('span', { class: 'acard-when', 'data-at': String(at) }, when(Date.now() - at)));
 }

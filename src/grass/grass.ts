@@ -41,6 +41,8 @@ export type GrassState = 'idle' | 'connecting' | 'live' | 'down';
 const dec = new TextDecoder();
 let counter = 0;
 const str = (v: unknown) => (typeof v === 'string' && v ? v : typeof v === 'number' ? String(v) : undefined);
+/** A player id, never the guild stack's "noPlayer" stand-in (mints, the galaxy's own moves). */
+const who = (v: unknown) => { const s = str(v); return s && s !== 'noPlayer' ? s : undefined; };
 
 /** One NATS message → a GrassEvent; null for anything that isn't a GRASS payload. */
 export function parseGrass(subject: string, payload: Uint8Array | string, at = Date.now()): GrassEvent | null {
@@ -66,28 +68,28 @@ export function parseGrass(subject: string, payload: Uint8Array | string, at = D
     case 'block': e.height = Number(data.height) || undefined; break;
     case 'grid': // structs.grid.{object_type}.{object_id}.{owner|noPlayer}
       e.objectId = str(data.object_id) || parts[3];
-      e.playerId = str(data.player_id) || (parts[4] && parts[4] !== 'noPlayer' ? parts[4] : undefined);
+      e.playerId = who(data.player_id) || (parts[4] && parts[4] !== 'noPlayer' ? parts[4] : undefined);
       if (e.objectId?.startsWith('2-')) e.planetId = e.objectId;
       break;
     case 'planet': // structs.planet.{planet_id}.{owner|noPlayer}
       e.planetId = str(data.planet_id) || parts[2];
-      e.playerId = str(data.player_id) || (parts[3] && parts[3] !== 'noPlayer' ? parts[3] : undefined);
+      e.playerId = who(data.player_id) || (parts[3] && parts[3] !== 'noPlayer' ? parts[3] : undefined);
       e.seq = Number(data.seq) || undefined;
       e.height = Number(data.block_height) || undefined;
       e.objectId = str(detail.struct_id) || str(detail.fleet_id);
       break;
     case 'player': // structs.player.{guild_id}.{player_id}
       e.guildId = str(data.guild_id) || parts[2];
-      e.playerId = str(data.player_id) || (category === 'player_consensus' ? str(data.id) : undefined) || parts[3];
+      e.playerId = who(data.player_id) || (category === 'player_consensus' ? str(data.id) : undefined) || parts[3];
       e.planetId = str(data.planet_id);
       break;
-    case 'guild': e.guildId = str(data.guild_id) || (category === 'guild_consensus' || category === 'guild_meta' ? str(data.id) : undefined) || parts[2]; e.playerId = str(data.player_id); break;
+    case 'guild': e.guildId = str(data.guild_id) || (category === 'guild_consensus' || category === 'guild_meta' ? str(data.id) : undefined) || parts[2]; e.playerId = who(data.player_id); break;
     case 'inventory': // structs.inventory.{denom}.{guild|noGuild}.{player|noPlayer}.{address}
-      e.playerId = str(data.player_id) || (parts[4] && parts[4] !== 'noPlayer' ? parts[4] : undefined);
+      e.playerId = who(data.player_id) || (parts[4] && parts[4] !== 'noPlayer' ? parts[4] : undefined);
       e.guildId = str(data.guild_id) || (parts[3] && parts[3] !== 'noGuild' ? parts[3] : undefined);
       e.height = Number(data.block_height) || undefined;
       break;
-    default: e.playerId = str(data.player_id); break;
+    default: e.playerId = who(data.player_id); break;
   }
   return e;
 }

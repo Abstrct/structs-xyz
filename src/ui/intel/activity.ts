@@ -11,7 +11,12 @@ import { grass, parseGrass, type GrassEvent, type GrassState } from '../../grass
 import { GROUPS, groupOf, type Group } from '../../grass/describe';
 import { guildLabel } from '../../guild/directory';
 import { errorBox, receiving, type IntelCtx } from './common';
-import { FOLD_MS, fold, keyOf, newCard, tickTimes, type Card } from './feedCard';
+import { FEED_HOT, attackCard, feedCards, fold, foldNear, foldTarget, newCard, tickTimes, type Card } from './feedCard';
+import { latestAttacks, type CombatRecord } from '../../chain/combat';
+import { cache } from '../../cache/idb';
+import { ago } from '../../core/util';
+import { loading } from './common';
+import type { FeedItem } from '../../chain/store';
 import { sparkline, SERIES } from './chart';
 import { icon } from '../icons';
 
@@ -33,6 +38,8 @@ export function mountActivity(ctx: IntelCtx) {
   let pending: GrassEvent[] = [];
   let frame = 0;
   const counts = new Map<Group, number>();
+  /** The chain history's events per group: they count toward the chips too. */
+  const chainCounts = new Map<Group, number>();
 
   const list = h('div', { class: 'alist', role: 'log', 'aria-live': 'off' });
   // A hand-typed route can carry a stray '%': take it as typed rather than fail the tab.
@@ -41,10 +48,18 @@ export function mountActivity(ctx: IntelCtx) {
   const query = h('input', { class: 'input afilter', placeholder: 'Filter by player name or id…', value: arg, spellcheck: false, autocomplete: 'off', 'aria-label': 'Filter activity', title: 'Filter by player name or id' }) as HTMLInputElement;
   // Pause and Clear are face-button glyphs; their names are the hover.
   const pauseBtn = h('button', { class: 'btn dct-iconbtn apause', title: 'Pause', 'aria-label': 'Pause', html: icon('pause', 16), onclick: () => setPaused(!paused) }) as HTMLButtonElement;
-  // Clear empties the live rows only: the empty line and the history boxes come back with it.
+  // Narrow screens: the filter box hides behind a search button, so the first card starts high.
+  const searchBtn = h('button', { class: 'btn ghost dct-iconbtn asearch', title: 'Filter by player name or id', 'aria-label': 'Filter', 'aria-expanded': arg ? 'true' : 'false', html: icon('find', 16), onclick: () => {
+    const open = !bar.classList.contains('searching');
+    bar.classList.toggle('searching', open);
+    searchBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) query.focus(); else if (query.value) { query.value = ''; rebuild(); }
+  } }) as HTMLButtonElement;
+  // Clear empties the live rows only: the history boxes come back with it, then the empty line.
   const clearBtn = h('button', { class: 'btn ghost dct-iconbtn', title: 'Clear the list', 'aria-label': 'Clear', onclick: () => {
     clear(list); held = [];
-    list.append(emptyRow(), histBox, earlierBox);
+    appendHistory();
+    settleEmpty();
     setPaused(paused);
   } }, '✕');
   const chips = h('div', { class: 'row wrap achips' });
@@ -70,9 +85,7 @@ export function mountActivity(ctx: IntelCtx) {
   const cards = new WeakMap<HTMLElement, Card>();
   /** Put one event on top of the live list (oldest first, so the newest ends on top). */
   const add = (e: GrassEvent) => {
-    const top = list.firstElementChild as HTMLElement | null;
-    const c = top ? cards.get(top) : undefined;
-    if (c && c.key === keyOf(e) && Math.abs(e.at - c.at) < FOLD_MS) { fold(ctx, c, e, names); return; }
+    if (foldNear(ctx, cards, list, e, names)) return;
     const n = newCard(ctx, e, names);
     cards.set(n.el, n);
     list.prepend(n.el);
@@ -81,8 +94,8 @@ export function mountActivity(ctx: IntelCtx) {
   const histCards = (events: GrassEvent[]) => {
     const out: Card[] = [];
     for (const e of events) {
-      const last = out[out.length - 1];
-      if (last && last.key === keyOf(e) && Math.abs(last.at - e.at) < FOLD_MS) fold(ctx, last, e, names);
+      const near = foldTarget([...out].reverse(), e);
+      if (near) fold(ctx, near, e, names);
       else out.push(newCard(ctx, e, names, true));
     }
     return out.map((c) => c.el);
@@ -93,11 +106,12 @@ export function mountActivity(ctx: IntelCtx) {
     frame = 0;
     if (!ctx.alive() || !pending.length) return;
     const batch = pending; pending = [];
-    list.querySelector('.aempty')?.remove();
     for (const e of batch) add(e);
     const live = liveCards();
     for (let i = MAX_ROWS; i < live.length; i++) live[i].remove();
     if (earlierBox.childElementCount && live.length + earlierBox.childElementCount > MAX_ROWS + 1) paintEarlier();
+    // The empty line goes only once a card is really there (a batch can fold into cards below the fold, or add none).
+    settleEmpty();
     paintStatus();
   };
 
@@ -121,28 +135,106 @@ export function mountActivity(ctx: IntelCtx) {
     histBox.replaceChildren(...(shown.length ? [h('div', { class: 'adivider t-label', title: `Older news from ${guildLabel(ctx.guildId).name}’s indexer (${formatInt(shown.length)})` }, h('span', { html: icon('clock', 14) }), 'Older')] : []),
       ...histCards(shown));
   };
+  /* The chain's last half hour, as read this visit (store.feed's replayed items), or until that
+   * lands, as it was read at the last visit (IndexedDB): shown at once, marked as the last visit's. */
+  let snap: { at: number; items: FeedItem[] } | null = null;
+  let savedAt = 0;
+  /** This visit's read of the chain didn't come (the last visit's cards then say so). */
+  let chainFailed = false;
+  const chainItems = (): { items: FeedItem[]; old: boolean } => {
+    const fresh = store.feed.filter((x) => x.replay);
+    return fresh.length || !snap ? { items: fresh, old: false } : { items: snap.items, old: true };
+  };
+  /** The newest real attack on the testnet: pinned on top when the stretch has no fight of its own. */
+  let pinned: CombatRecord | null = null;
+
   const paintEarlier = () => {
     const room = MAX_ROWS - liveCards().length;
-    const shown = room > 0 ? earlier.filter(visible).slice(-Math.min(room, 120)) : [];
+    // The chain's own history covers its stretch better (and live): the last visit keeps only what is older.
+    const replays = chainItems().items;
+    const cut = replays.length ? Math.min(...replays.map((x) => x.at)) : Infinity;
+    const shown = room > 0 ? earlier.filter((e) => e.at < cut && visible(e)).slice(-Math.min(room, 120)) : [];
     earlierBox.replaceChildren(...(shown.length ? [h('div', { class: 'adivider t-label', title: `Kept from your last visit (${shown.length}): not live` }, h('span', { html: icon('clock', 14) }), 'Last visit')] : []),
       ...histCards(shown.reverse()));
   };
+  /* What happened on the chain before News opened (the LCD's recent blocks, read once for the whole
+   * app): on screen at once, under the live cards and plainly marked as earlier, fights first. */
+  const chainBox = h('div', { class: 'achain' });
+  const feedGroup = (it: FeedItem): Group => it.kind === 'attack' || it.kind === 'raid' || it.kind === 'theft' ? 'combat' : it.kind === 'fleet' || it.kind === 'explore' ? 'fleet'
+    : it.kind === 'build' ? 'struct' : it.kind === 'mine' || it.kind === 'refine' || it.kind === 'infuse' ? 'economy' : it.kind === 'player' || it.kind === 'guild' ? 'people' : 'other';
+  const feedVisible = (it: FeedItem) => {
+    if (!it.replay || prefs.off.includes(feedGroup(it))) return false;
+    const q = query.value.trim().toLowerCase();
+    return !q || it.text.toLowerCase().includes(q) || it.playerId === q || it.planetId === q;
+  };
+  /** The last visit's divider: its age keeps ticking (tickTimes), and a read that never came says so. */
+  const lastVisit = (at: number) => h('div', { class: 'adivider t-label', title: chainFailed ? 'What the chain showed at your last visit: not live. This visit’s read didn’t come; the live feed above still works.' : 'What the chain showed at your last visit: not live. This visit’s read is on its way.' },
+    h('span', { html: icon('clock', 14) }), 'Last visit · ', chainFailed ? h('span', null, 'couldn’t refresh') : h('span', { class: 'adiv-age', 'data-at': String(at) }, ago(Date.now() - at)));
+  const paintChain = () => {
+    const room = MAX_ROWS - liveCards().length;
+    const { items: source, old } = chainItems();
+    const items = room > 0 ? source.filter(feedVisible).slice(-Math.min(room, 80)) : [];
+    const { lead, fights, work, rest } = feedCards(ctx, items);
+    const cards = [lead, ...fights, work, ...rest].filter((x): x is HTMLElement => !!x);
+    // No fight in the stretch: the newest real one is pinned on top, under its own divider.
+    const pin = pinned && !items.some((x) => FEED_HOT.has(x.kind) || x.hash === pinned!.hash) && !prefs.off.includes('combat') && !query.value.trim() ? attackCard(ctx, pinned) : null;
+    const divider = (ico: string, word: string, title: string) => h('div', { class: 'adivider t-label', title }, h('span', { html: icon(ico, 14) }), word);
+    // One divider says it all: everything below is from before News opened, read from the chain (or
+    // the last visit's read of it, with its age).
+    chainBox.replaceChildren(
+      ...(pin ? [divider('battle', 'Latest fight', 'The newest real attack on the testnet, read from the chain: not live'), pin] : []),
+      ...(cards.length ? [old && snap ? lastVisit(snap.at) : divider('clock', 'Earlier', 'The last half hour or so, read from the chain: not live')] : []), ...cards);
+    // The chips count what this visit read (the last visit's cards are not today's news).
+    chainCounts.clear();
+    if (!old) for (const it of source) { const g = feedGroup(it); chainCounts.set(g, (chainCounts.get(g) || 0) + 1); }
+    // This visit's read, kept for the next visit's first paint (at most every 30 s).
+    if (!old && source.length && Date.now() - savedAt > 30_000) { savedAt = Date.now(); void cache.set('chain', { at: Date.now(), items: source.slice(-80) }, 7 * 86_400_000, 'news').catch(() => { /* memory only */ }); }
+    paintChips();
+    // The last visit's events from inside the chain's stretch would repeat it.
+    paintEarlier();
+    settleEmpty();
+  };
+  /** The history boxes, newest stretch first: the chain's last half hour, the last visit, the indexer's pages. */
+  const appendHistory = () => list.append(chainBox, earlierBox, histBox);
+  /** History actually in the list (cards, not just a divider). */
+  const hasHistory = () => [chainBox, earlierBox, histBox].some((b) => list.contains(b) && !!b.querySelector('.acard'));
+  /** The empty live list's line, chosen from what the list really holds: none with live cards, a slim
+   * "listening" line over history, the big well over nothing. */
+  const settleEmpty = () => {
+    const empty = list.querySelector<HTMLElement>(':scope > .aempty');
+    if (liveCards().length) { empty?.remove(); return; }
+    const want = hasHistory() ? 'slim' : 'big';
+    if (empty && empty.classList.contains('slim') === (want === 'slim')) return;
+    const row = emptyRow();
+    if (empty) empty.replaceWith(row); else list.prepend(row);
+  };
+  let chainTimer = 0;
+  const chainSoon = (it: FeedItem) => { if (it.replay && !chainTimer) chainTimer = window.setTimeout(() => { chainTimer = 0; if (ctx.alive()) paintChain(); }, 250); };
+
   const rebuild = () => {
     clear(list);
     pending = [];
     const recent = grass.recent().filter(visible).slice(-MAX_ROWS);
     for (const e of recent) add(e);
-    if (!list.children.length) list.appendChild(emptyRow());
-    paintEarlier();
+    // The boxes first, then the empty line chosen from what they hold.
+    appendHistory();
     paintHist();
-    list.append(histBox, earlierBox);
+    paintChain();
+    settleEmpty();
     paintStatus();
   };
   // The empty list: a dish under a scan line and a word or two; the sentence is the hover. Tuning
   // in, the line sweeps; connected and only waiting, the dish's rings go on alone.
   const emptyText = () => (grass.state === 'live' ? 'Connected. Waiting for something to happen: builds, battles, raids and mining show up here the moment they do.' : 'Connecting to the live news…');
   const emptyWords = () => (grass.state === 'live' ? 'Waiting for news' : 'Tuning in');
-  const emptyRow = () => { const el = receiving(emptyWords(), emptyText(), 'news', grass.state === 'live'); el.classList.add('aempty'); return el; };
+  const emptyRow = () => {
+    const slim = hasHistory();
+    // Earlier news below: one slim line that says the live feed is listening. Nothing yet: the big well.
+    const el = slim ? loading(emptyText(), 'news', grass.state === 'live' ? 'Listening' : 'Tuning in') : receiving(emptyWords(), emptyText(), 'news', grass.state === 'live');
+    el.classList.add('aempty');
+    if (slim) el.classList.add('slim');
+    return el;
+  };
 
   function setPaused(p: boolean) {
     paused = p;
@@ -177,7 +269,7 @@ export function mountActivity(ctx: IntelCtx) {
       const c = chipEls.get(g.id)!, on = !prefs.off.includes(g.id);
       c.el.classList.toggle('on', on);
       c.el.setAttribute('aria-pressed', on ? 'true' : 'false');
-      c.num.textContent = formatInt(counts.get(g.id) || 0);
+      c.num.textContent = formatInt((counts.get(g.id) || 0) + (chainCounts.get(g.id) || 0));
     }
     ticksChip.classList.toggle('on', prefs.ticks);
     ticksBox.checked = prefs.ticks;
@@ -191,6 +283,7 @@ export function mountActivity(ctx: IntelCtx) {
     // dish says the same thing bigger; trouble shows for everyone.
     status.className = 'astatus t-tiny ' + (st === 'live' ? 'c-player x-only' : st === 'down' ? 'c-enemy' : 'c-warn' + (empty ? ' x-only' : ''));
     if (empty) { (empty as HTMLElement).title = emptyText(); empty.classList.toggle('calm', st === 'live'); const w = empty.querySelector('.dcp-word'); if (w) w.textContent = emptyWords(); }
+    if (empty?.classList.contains('slim')) { const pill = empty.querySelector('.dcp-rx'); if (pill?.lastChild) pill.lastChild.textContent = st === 'live' ? 'Listening' : 'Tuning in'; }
     status.replaceChildren(h('span', { class: 'dot' + (st === 'live' && !paused ? ' pulse' : '') }), ` ${paused ? 'Paused' : label} · ${guildLabel(grass.guildId || ctx.guildId).name} GRASS${grass.height ? ` · block ${formatInt(grass.height)}` : ''}`);
   };
   const paintRate = () => {
@@ -199,9 +292,12 @@ export function mountActivity(ctx: IntelCtx) {
   };
 
   query.addEventListener('input', () => rebuild());
-  ctx.body.replaceChildren(
-    h('div', { class: 'atoolbar' }, h('div', { class: 'row wrap', style: 'gap:8px' }, status, rate), h('div', { class: 'row', style: 'gap:6px' }, query, pauseBtn, clearBtn)),
-    chips, list, history);
+  // The toolbar and the filter chips: one bar (on a narrow screen, one row: the buttons, then the
+  // chips scrolling sideways; the filter box opens above them).
+  const bar = h('div', { class: 'abar' + (arg ? ' searching' : '') },
+    h('div', { class: 'atoolbar' }, h('div', { class: 'row wrap', style: 'gap:8px' }, status, rate), h('div', { class: 'row atools', style: 'gap:6px' }, query, searchBtn, pauseBtn, clearBtn)),
+    chips);
+  ctx.body.replaceChildren(bar, list, history);
   for (const e of grass.recent()) { const g = groupOf(e); counts.set(g, (counts.get(g) || 0) + 1); }
   paintChips(); paintStatus(); paintRate(); rebuild();
   void grass.earlier().then((v) => {
@@ -210,6 +306,7 @@ export function mountActivity(ctx: IntelCtx) {
     const seen = new Set(grass.recent().map((e) => e.subject + '|' + (e.seq ?? '') + '|' + e.category + '|' + JSON.stringify(e.detail)));
     earlier = v.filter((e) => !seen.has(e.subject + '|' + (e.seq ?? '') + '|' + e.category + '|' + JSON.stringify(e.detail)));
     paintEarlier();
+    settleEmpty();
   });
 
   // Older history from the indexer, for members.
@@ -229,6 +326,7 @@ export function mountActivity(ctx: IntelCtx) {
         if (e) hist.push(e);
       }
       paintHist();
+      settleEmpty();
       histBtn.removeAttribute('disabled');
       histBtn.replaceChildren(h('span', { html: icon('clock', 16) }), rows.length ? 'More' : 'No more');
       histBtn.title = rows.length ? 'Load more history' : 'No more history';
@@ -246,5 +344,20 @@ export function mountActivity(ctx: IntelCtx) {
     grass.onBlock(paintStatus),
     () => { clearInterval(timer); if (frame) cancelAnimationFrame(frame); },
     store.onCore(() => rebuild()),
+    store.onFeed(chainSoon),
+    () => clearTimeout(chainTimer),
   );
+  // The chain's recent blocks (read once for the whole app; the galaxy may have read them already).
+  void store.backfill();
+  // Until they land, the last visit's read of them; and the newest real fight, for the top.
+  void cache.entry<{ at: number; items: FeedItem[] }>('chain', 'news').then((e) => {
+    if (!ctx.alive() || !e?.v || !Array.isArray(e.v.items) || !e.v.items.length) return;
+    snap = e.v;
+    if (!store.feed.some((x) => x.replay)) paintChain();
+  }, () => { /* no cache */ });
+  // (The app's shared read of the newest attacks, cached for two minutes: no search per visit.)
+  void latestAttacks().then((r) => { if (!ctx.alive()) return; pinned = r[0] || null; if (pinned) paintChain(); }, () => { /* no pin */ });
+  // This visit's read of the chain hasn't landed in 15 s: the last visit's cards say they couldn't be refreshed.
+  const staleTimer = setTimeout(() => { if (!ctx.alive() || store.feed.some((x) => x.replay)) return; chainFailed = true; if (snap) paintChain(); }, 15_000);
+  ctx.cleanup.push(() => clearTimeout(staleTimer));
 }

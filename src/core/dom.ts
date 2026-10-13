@@ -49,19 +49,23 @@ export const ui = () => document.getElementById('ui') as HTMLDivElement;
 let toastBox: HTMLDivElement | null = null;
 /** Good news waiting for the screen to be ready for it (PRESS START shows the logo alone). Trouble
  * (an enemy or warning toast, an enemy banner: a raid) never waits: it shows, with its sound, at once. */
-let held: (() => void)[] | null = null;
-/** Hold good-news toasts and banners while `on`; letting go plays the latest four, one by one. */
+let held: { run: () => void; big: boolean }[] | null = null;
+/** Hold good-news toasts and banners while `on`; letting go plays every banner (a promotion, a badge)
+ * and the latest toasts, four in all at most, one by one. */
 export function holdNotices(on: boolean) {
   if (on) { held ||= []; return; }
   const q = held;
   held = null;
-  q?.slice(-4).forEach((f, i) => setTimeout(f, 300 + i * 450));
+  if (!q) return;
+  const big = q.filter((n) => n.big), small = q.filter((n) => !n.big).slice(-Math.max(1, 4 - big.length));
+  [...big, ...small].forEach((n, i) => setTimeout(n.run, 300 + i * 450));
 }
-/** Run `f` (a sound and the banner it belongs to) now, or with the held notices when they play. */
-export function whenNoticesShow(f: () => void) {
+/** Run `f` (a sound and the banner it belongs to) now, or with the held notices when they play.
+ * `big`: a banner's moment (a promotion, a badge); those are never trimmed away. */
+export function whenNoticesShow(f: () => void, big = false) {
   if (!held) { f(); return; }
-  held.push(f);
-  if (held.length > 12) held.shift();
+  held.push({ run: f, big });
+  if (held.length > 12) { const i = held.findIndex((n) => !n.big); held.splice(i < 0 ? 0 : i, 1); }
 }
 
 export function toast(text: string, kind: '' | 'player' | 'enemy' | 'warn' = '', ms = 3200, action?: { label: string; run: () => void }) {
@@ -96,10 +100,11 @@ export function copyText(text: string, ok: string, ms = 1600) {
 export function banner(big: string, small: string, kind: 'player' | 'enemy' | 'neutral', ms = 2200) {
   const b = h('div', { class: 'banner ' + kind, role: 'status', 'aria-live': 'assertive' }, h('div', { class: 'small' }, small), h('div', { class: 'big' }, big));
   // Held (see holdNotices): it shows later, as a new banner; this one is never shown.
-  if (held && kind !== 'enemy') { whenNoticesShow(() => banner(big, small, kind, ms)); return b; }
+  if (held && kind !== 'enemy') { whenNoticesShow(() => banner(big, small, kind, ms), true); return b; }
   // Two at once (a victory and a promotion) stack rather than print over each other.
   const live = document.querySelectorAll('.banner:not(.out)').length;
-  if (live) b.style.top = `calc(38% + ${live * 124}px)`;
+  // (--stack too: the title places its banners in its own band, stacked by the same step.)
+  if (live) { b.style.top = `calc(38% + ${live * 124}px)`; b.style.setProperty('--stack', `${live * 96}px`); }
   document.body.appendChild(b);
   if (ms > 0) setTimeout(() => { b.classList.add('out'); setTimeout(() => b.remove(), 520); }, ms);
   return b;

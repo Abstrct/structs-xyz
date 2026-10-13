@@ -446,7 +446,7 @@
  * the same band, and the toasts wait behind it. */
 body:has(.dc-title:not(.out)) > .toasts { top: calc(var(--sa-t, 0px) + 54px); bottom: auto; margin-bottom: 0; }
 body:has(.dc-title:not(.out)) > .toasts > .toast:not(:last-child) { display: none; }
-body:has(.dc-title:not(.out)) > .banner { top: calc(var(--sa-t, 0px) + 50px) !important; gap: 2px; }
+body:has(.dc-title:not(.out)) > .banner { top: calc(var(--sa-t, 0px) + 50px + var(--stack, 0px)) !important; gap: 2px; }
 body:has(.dc-title:not(.out)) > .banner .big { font-size: clamp(26px, 5vw, 40px); }
 body:has(.dc-title:not(.out)):has(> .banner:not(.out)) > .toasts { visibility: hidden; }
 /* The grid's tiles carry their word too, where nothing hovers (as the galaxy's do). */

@@ -58,8 +58,11 @@ export class CodexScreen implements Screen {
   private damaged = false;
   private drag: { x: number; rot: number } | null = null;
   private spin = 0;
-  private spinVel = 0.35;
   private targetRot = 0;
+  /** The heading the hull sways about (a multiple of a full turn: facing you), and the sway's clock.
+   * Units are flat pixel sprites: a full spin showed them edge-on, a sliver, half the time. */
+  private rest = 0;
+  private swayT = 0;
   private loadToken = 0;
   private cleanup: (() => void)[] = [];
   /** Re-fits the card when its words change size (Expert, Larger text, a font arriving, the record). */
@@ -141,7 +144,7 @@ export class CodexScreen implements Screen {
   }
 
   exit() {
-    this.mxDismiss();
+    this.closeMatrix();
     this.fitObs?.disconnect(); this.fitObs = null;
     cancelAnimationFrame(this.fitRaf); this.fitRaf = 0;
     this.cleanup.forEach((f) => f());
@@ -304,9 +307,21 @@ export class CodexScreen implements Screen {
   };
 
   /* ── Matrix: expected damage per attack, attacker rows × target columns ─ */
+  /** Put the Matchups away: the sheet, its scrim and its keys; the screen beneath comes back to life,
+   * and (`back`) the cursor returns to the Matchups button. */
+  private mxKeys: ((e: KeyboardEvent) => void) | null = null;
+  private closeMatrix(back = false) {
+    this.mxDismiss();
+    hideTooltip();
+    this.root.querySelector('.codex-matrix')?.remove();
+    this.root.querySelector('.codex-scrim')?.remove();
+    for (const el of this.root.querySelectorAll('.codex-list, .codex-detail')) el.removeAttribute('inert');
+    if (this.mxKeys) { window.removeEventListener('keydown', this.mxKeys, true); this.mxKeys = null; }
+    if (back) this.root.querySelector<HTMLElement>('.cx-mx-btn')?.focus({ focusVisible: document.body.classList.contains('pad') } as FocusOptions);
+  }
+
   private toggleMatrix() {
-    const existing = this.root.querySelector('.codex-matrix');
-    if (existing) { this.mxDismiss(); existing.remove(); return; }
+    if (this.root.querySelector('.codex-matrix')) { this.closeMatrix(true); return; }
     const fleet = STRUCT_TYPES.filter((t) => t.category === 'fleet');
     const expected = (a: StructType, b: StructType) => {
       let best = 0, how = '';
@@ -340,25 +355,37 @@ export class CodexScreen implements Screen {
     };
     const whyOf = (a: StructType, b: StructType, r: { e: number; how: string }) => r.e ? `${a.type} → ${b.type}\n${r.how}\nExpected ${r.e.toFixed(2)} HP per attack (of ${b.maxHealth})` : `${a.type} cannot reach ${b.type}`;
     const sprite = (t: StructType, cls: string) => { const img = h('img', { alt: '' }); void spriteDataUrl(t.id).then((u) => { img.src = u; }); return h('span', { class: 'mx-sprite ' + cls }, img); };
-    const close = h('button', { class: 'btn ghost icon', 'aria-label': 'Close', title: 'Close', onclick: () => { this.mxDismiss(); this.root.querySelector('.codex-matrix')?.remove(); } }, '✕');
+    const close = h('button', { class: 'btn ghost icon mx-close', 'aria-label': 'Close', title: 'Close (Esc / B)', onclick: () => this.closeMatrix(true) }, '✕');
     const headEl = h('div', { class: 'panel-head', title: 'Best weapon that can reach, after accuracy, the target’s evasion (jamming vs smart, maneuvers vs ballistic) and armour. Guards, counters and stealth come on top. Hover or tap a cell for the breakdown.' },
       h('span', { class: 'cx-title' }, h('span', { html: icon('battle', 16) }), h('span', { class: 't-label' }, 'Matchups')), h('span', { class: 't-tiny c-hint mx-sub' }, 'damage per attack'), close);
     // Narrow screens (a phone, the TV): no grid of numbers. One row per attacker: its picture and name,
     // then every target as a picture with a tick (in reach, greener the harder it hits) or a cross.
     if (this.layoutMode() !== 'wide') {
+      // A target under the cursor (keys, pad) shows its breakdown beside it, as a tap does.
+      const peek = (el: HTMLElement, why: string) => { if (!el.matches(':focus-visible')) return; const rc = el.getBoundingClientRect(); showTooltip(rc.right, rc.bottom, h('div', { style: 'white-space:pre-line' }, why)); };
       const rowsEl = fleet.map((a) => h('div', { class: 'mx-line' },
-        h('button', { class: 'mx-who', title: `Show ${a.type}`, 'aria-label': a.type, onclick: () => { void this.show(a.id, true); } }, sprite(a, 'att'), h('span', { class: 'mx-name' }, a.type)),
+        // The attacker: the sheet steps aside and the guide shows it.
+        h('button', { class: 'mx-who', title: `Show ${a.type}`, 'aria-label': `Show ${a.type}`, onclick: () => { this.closeMatrix(); void this.show(a.id, true); } }, sprite(a, 'att'), h('span', { class: 'mx-name' }, a.type)),
         h('div', { class: 'mx-targets' }, ...fleet.map((b) => {
           const r = expected(a, b);
           const k = Math.min(1, r.e / 2);
           const why = whyOf(a, b, r);
-          return h('span', { class: 'mx-t' + (r.e ? ' hit' : ' miss'), title: why, role: 'img', 'aria-label': why.split('\n')[0], style: r.e ? `--k:${(0.25 + k * 0.75).toFixed(2)}` : '', onclick: (e: Event) => pin(e, why) },
-            sprite(b, 'tgt'), h('b', { class: 'mx-mark' }, r.e ? '✓' : '✕'));
+          const t: HTMLElement = h('button', { class: 'mx-t' + (r.e ? ' hit' : ' miss'), title: why, 'aria-label': why.split('\n')[0], style: r.e ? `--k:${(0.25 + k * 0.75).toFixed(2)}` : '',
+            onclick: (e: Event) => pin(e, why), onfocus: () => peek(t, why), onblur: () => hideTooltip() },
+          sprite(b, 'tgt'), h('b', { class: 'mx-mark', 'aria-hidden': 'true' }, r.e ? '✓' : '✕'));
+          return t;
         }))));
-      const box = h('div', { class: 'codex-matrix panel compact', onclick: (e: Event) => { if (!(e.target as HTMLElement).closest('.mx-t')) hideTooltip(); } },
+      const box = h('div', { class: 'codex-matrix panel compact', role: 'dialog', 'aria-label': 'Matchups', onclick: (e: Event) => { if (!(e.target as HTMLElement).closest('.mx-t')) hideTooltip(); } },
         headEl,
         h('div', { class: 'panel-body col mx-list scroll', onscroll: () => hideTooltip() }, ...rowsEl));
-      this.root.appendChild(box);
+      // A tap outside the sheet puts it away, and goes no further (the scrim takes it).
+      const scrim = h('div', { class: 'codex-scrim', 'aria-hidden': 'true', onpointerdown: (e: Event) => { e.preventDefault(); e.stopPropagation(); }, onclick: (e: Event) => { e.preventDefault(); e.stopPropagation(); this.closeMatrix(true); } });
+      this.root.append(scrim, box);
+      // What it covers sleeps: no cursor, no taps, no arrow keys reach it.
+      for (const el of this.root.querySelectorAll('.codex-list, .codex-detail')) el.setAttribute('inert', '');
+      this.mxKeys = (e: KeyboardEvent) => this.matrixKey(e, box);
+      window.addEventListener('keydown', this.mxKeys, true);
+      requestAnimationFrame(() => box.querySelector<HTMLElement>('.mx-who')?.focus({ focusVisible: document.body.classList.contains('pad') } as FocusOptions));
       return;
     }
     const head = h('tr', null, h('th', { class: 't-label c-hint' }, 'Attacker ▸ target'), fleet.map((t) => h('th', { class: 'mx-col', title: t.type }, h('span', null, t.classAbbreviation || t.type))));
@@ -377,6 +404,36 @@ export class CodexScreen implements Screen {
       h('div', { class: 'panel-body col' },
         h('div', { class: 'scroll', style: 'overflow:auto', onscroll: () => hideTooltip() }, h('table', { class: 'matrix' }, h('thead', null, head), h('tbody', null, rows)))));
     this.root.appendChild(box);
+  }
+
+  /** Keys while the compact Matchups sheet is up (captured first, so nothing beneath hears them):
+   * Escape (the pad's B) puts it away; the arrows (the d-pad) walk its attackers and targets, even
+   * the ones scrolled out of sight, and a cursor outside it is brought in. A window on top of it
+   * (a hub menu, More, a dialog) keeps its own keys. */
+  private matrixKey(e: KeyboardEvent, box: HTMLElement) {
+    if (!box.isConnected || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (document.querySelector('.modal-back, .hub-menu, .more-menu, .guide-card')) return;
+    const a = document.activeElement as HTMLElement | null;
+    if (a?.closest('.topbar')) return;
+    if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); this.closeMatrix(true); return; }
+    const dir = ({ ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] } as Record<string, [number, number]>)[e.key];
+    if (!dir) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    const all = [...box.querySelectorAll<HTMLElement>('button')];
+    const go = (el: HTMLElement | undefined) => { if (!el) return; el.focus({ preventScroll: true, focusVisible: true } as FocusOptions); el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); audio.play('hover', 0.6); };
+    if (!a || !box.contains(a)) { go(box.querySelector<HTMLElement>('.mx-who') || all[0]); return; }
+    const from = a.getBoundingClientRect(), cx = from.left + from.width / 2, cy = from.top + from.height / 2;
+    let best: HTMLElement | undefined, score = Infinity;
+    for (const el of all) {
+      if (el === a) continue;
+      const r = el.getBoundingClientRect();
+      const x = r.left + r.width / 2 - cx, y = r.top + r.height / 2 - cy;
+      const along = x * dir[0] + y * dir[1];
+      if (along <= 4) continue;
+      const sc = along + 2 * Math.abs(x * dir[1] - y * dir[0]);
+      if (sc < score) { score = sc; best = el; }
+    }
+    go(best);
   }
 
   /* ── Showcase ─────────────────────────────────────────────────────────── */
@@ -618,9 +675,8 @@ export class CodexScreen implements Screen {
     const systems = (['primaryWeapon', 'secondaryWeapon'] as WeaponSystem[]).filter((ws) => hasWeapon(t, ws));
     if (!systems.length || !this.mesh || this.firing) return;
     this.firing = true;
-    // Face front (pixel models face +x at rest), then fire.
-    this.targetRot = Math.round(this.spin / (Math.PI * 2)) * Math.PI * 2;
-    this.spinVel = 0;
+    // Face front (pixel models face +x at rest), then fire (the sway holds still while it does).
+    this.rest = Math.round(this.rest / (Math.PI * 2)) * Math.PI * 2;
     if (!this.dummy) {
       // A holographic target drone: a lattice over a glowing shell, two gimbal rings round it.
       const hot = new THREE.Color(0xee7d69).multiplyScalar(1.6);
@@ -672,7 +728,7 @@ export class CodexScreen implements Screen {
       }
     });
     systems.forEach((ws, i) => fire(ws, 450 + i * 1300));
-    this.later(450 + systems.length * 1300 + 900, () => { this.firing = false; this.spinVel = 0.35; if (this.dummy) this.dummy.visible = false; });
+    this.later(450 + systems.length * 1300 + 900, () => { this.firing = false; if (this.dummy) this.dummy.visible = false; });
   }
 
   /* ── Input: drag to turn the model ───────────────────────────────────── */
@@ -683,12 +739,15 @@ export class CodexScreen implements Screen {
       if (!this.drag) { c.style.cursor = 'grab'; return; }
       this.targetRot = this.drag.rot + (e.clientX - this.drag.x) * 0.01;
     };
-    const up = () => { this.drag = null; c.style.cursor = 'grab'; };
+    // Let go: the sway picks up from where the drag left it, then eases back to face you.
+    const up = () => { if (this.drag) { this.rest = this.targetRot; this.swayT = 0; } this.drag = null; c.style.cursor = 'grab'; };
     /* Arrows step through the units, but only from the stage itself or the unit list: on a button in
      * the detail panel they are the pad's to move between controls, and a window on top (Settings,
      * a confirm) keeps them. The cursor follows the unit to its tile. */
     const key = (e: KeyboardEvent) => {
       if (!/^Arrow(Up|Down|Left|Right)$/.test(e.key) || e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
+      // Matchups is up: the arrows are its own (and the units beneath stay put).
+      if (this.root.querySelector('.codex-matrix')) return;
       const a = document.activeElement as HTMLElement | null;
       if (!(!a || a === document.body || a === c || a.classList.contains('cx-item'))) return;
       if (document.querySelector('.modal-back')) return;
@@ -727,7 +786,15 @@ export class CodexScreen implements Screen {
     this.u.uTime.value = t;
     this.u.uShow.value += dt;
     if (this.holoIn) this.holoIn.value = 1 - THREE.MathUtils.smoothstep(this.u.uShow.value, 0.15, 1.1);
-    if (!this.drag) this.targetRot += dt * this.spinVel;
+    if (!this.drag) {
+      // A gentle sway, ±30° about facing you (never edge-on); a drag turns it any way, and once let
+      // go it turns back to the front. Held still while it test-fires, and with reduced motion.
+      const front = Math.round(this.rest / (Math.PI * 2)) * Math.PI * 2;
+      this.rest = damp(this.rest, front, 1.2, dt);
+      const still = this.firing || this.engine.reduceMotion;
+      if (!still) this.swayT += dt;
+      this.targetRot = this.rest + (still ? 0 : Math.sin(this.swayT * 0.55) * 0.52);
+    }
     this.spin = damp(this.spin, this.targetRot, 6, dt);
     this.u.uRot.value = this.spin;
     this.holder.rotation.y = this.spin;

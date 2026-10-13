@@ -282,6 +282,43 @@
   .intel .acard { gap: 8px; padding: 6px 10px 6px 6px; }
   .intel .acard-main { font-size: 13px; gap: 2px 6px; }
 }
-@media (pointer: coarse) { .intel .acard-who, .intel .acard-place { padding: 8px 0; } }
 @media (prefers-reduced-motion: reduce) { .intel .acard { animation: none; } }
 @media (max-width: 560px) { .intel .acard-faces.many .pfp.xs + .pfp.xs { margin-left: -26px; } }
+/* History under the live cards: dimmer, with a divider; the slim "listening" line above it. */
+.intel .achain { display: flex; flex-direction: column; gap: 6px; }
+.intel .achain:empty { display: none; }
+.intel .alist > .aempty.slim { padding: 2px 2px 4px; }
+.intel .acard.chain.hot { opacity: 0.95; }
+/* The filter chips: one row that scrolls sideways on narrow screens (phone and TV), edges faded. */
+@media (max-width: 720px) {
+  .intel .achips { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; padding: 2px 2px 4px; margin: 0 -2px;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
+  .intel .achips::-webkit-scrollbar { display: none; }
+  .intel .achips > .achip { flex: none; }
+}
+/* Every link in a card is a full-size target: 26 px for a mouse, 42 px for a finger. */
+.intel .acard a { display: inline-flex; align-items: center; justify-content: center; min-height: 26px; min-width: 26px; }
+.intel .acard .acard-who { justify-content: flex-start; }
+@media (pointer: coarse) { .intel .acard a { min-height: 42px; min-width: 42px; padding: 0; } .intel .acard .acard-who { padding: 0; } }
+/* The headline (the newest fight, raid or finished build) and the mining summary. */
+.intel .acard.lead { min-height: 60px; border-width: 3px; }
+.intel .acard.lead .acard-who { font-size: 16px; }
+.intel .acard.lead .acard-text { font-weight: 800; color: #fff; }
+.intel .acard.lead:not(.hot) { border-color: rgba(41, 224, 255, 0.55); background: linear-gradient(90deg, rgba(41, 224, 255, 0.14), rgba(41, 224, 255, 0.03) 70%); }
+.intel .acard.summary .acard-act.refine { color: var(--accent-primary); background: rgba(41, 224, 255, 0.14); }
+/* The search button only on narrow screens; wide screens keep the box. */
+.intel .atools > .asearch { display: none; }
+.intel .abar { display: flex; flex-direction: column; gap: 12px; }
+@media (max-width: 720px) {
+  .intel .abar { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .intel .abar > .atoolbar { order: 0; flex: none; gap: 6px; }
+  .intel .abar > .atoolbar > .row:first-child { display: none; }
+  .intel .abar .atoolbar > .atools.row { width: auto; flex-wrap: nowrap; }
+  .intel .abar .atools > .asearch { display: inline-flex; }
+  .intel .abar:not(.searching) .afilter { display: none; }
+  .intel .abar.searching > .atoolbar { flex: 1 1 100%; }
+  .intel .abar.searching .atoolbar > .atools.row { width: 100%; }
+  .intel .abar.searching .afilter { display: block; flex: 1; min-width: 0; }
+  .intel .abar > .achips { order: 1; flex: 1 1 0; min-width: 0; }
+  .intel .abar.searching .asearch { color: var(--dc-void); background: #fff; border-color: var(--dc-accent); }
+}

@@ -10,7 +10,7 @@ import { easeInOutCubic, easeOutBack, easeOutCubic } from '../../core/util';
 import { type Ambit, AMBIT_COLOR, COMMAND_SHIP_ID, TYPES_BY_ID } from '../../data/catalogue';
 import { Effects } from '../../gfx/fx';
 import { getPixelModel, pixelMaterial, type PixelModel, type PixelUniforms } from '../../gfx/pixelModel';
-import { BattleSet, FIELD, type SetOptions, TIER_Y, slotStagger, slotX } from './env';
+import { BattleSet, compactBoost, FIELD, type SetOptions, TIER_Y, slotStagger, slotX } from './env';
 import type { AttackDetail, Block, Chain, ChainEvent, ShotRow, SimStruct } from '../../sim/chain';
 
 export type SideV = 'player' | 'enemy';
@@ -398,7 +398,7 @@ export class BattleView {
     if (ambit === 'land') y = TIER_Y.land - 1.85 + halfHeight;
     if (ambit === 'water') y = TIER_Y.water - 1.75 + halfHeight * 0.55;
     // The compact deck's staggered line (env.ts): every other slot a step back and up.
-    const [lift, depth] = this.xFor === fieldX ? slotStagger(slot, command) : [0, 0];
+    const [lift, depth] = this.xFor === fieldX ? slotStagger(slot, command, ambit) : [0, 0];
     // Command Ships sit a little back so they read as the flagship.
     return new THREE.Vector3(x, y + lift, (command ? -0.6 : 0) + depth);
   }
@@ -411,8 +411,8 @@ export class BattleView {
     this.clear();
     const list = Object.values(chain.structs);
     // The compact deck (an upright phone) draws its hulls a little bigger too: its slots have the room.
-    UnitView.boost = this.xFor === fieldX && FIELD.compact ? 1.3 : 1;
-    const views = list.map((s) => new UnitView(s.id, this.sideOf(s.owner, you), s));
+    const compact = this.xFor === fieldX && FIELD.compact;
+    const views = list.map((s) => { UnitView.boost = compact ? compactBoost(s.ambit) : 1; return new UnitView(s.id, this.sideOf(s.owner, you), s); });
     UnitView.boost = 1;
     await Promise.all(views.map((v) => v.load()));
     if (g !== this.buildGen) { views.forEach((v) => v.dispose()); return false; }
@@ -808,6 +808,9 @@ export class BattleView {
       if (blocker && blocker !== T) {
         blockerHome = blocker.root.position.clone();
         const guardPos = T.root.position.clone().add(new THREE.Vector3(-T.facing * -1 * (T.halfWidth + 0.6), 0.15, 1.6));
+        // In front of the whole line, not just of its ward: on the staggered compact deck a ward in the
+        // back row would otherwise put its guard in the front row's plane, on top of a neighbour.
+        guardPos.z = Math.max(T.root.position.z, 0) + 1.6;
         void this.tween(0.35, (k) => { blocker.root.position.lerpVectors(blockerHome!, guardPos, k); }, easeOutCubic);
         this.floater(this.above(T), 'BLOCK', 'info ' + blocker.side);
       }

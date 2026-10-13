@@ -12,6 +12,7 @@ import { audio } from '../core/audio';
 import { formatInt, sleep } from '../core/util';
 import { PanelScreen } from './panelScreen';
 import { grass, type GrassState } from '../grass/grass';
+import { store } from '../chain/store';
 import { DEFAULT_GUILD, guildLabel, guilds, onGuilds, type GuildEntry } from '../guild/directory';
 import { guildApi } from '../guild/api';
 import { receiving, type IntelCtx } from '../ui/intel/common';
@@ -112,11 +113,20 @@ export class IntelScreen extends PanelScreen {
     this.cleanup.push(grass.onState(paintUplink), grass.onBlock(paintUplink), () => clearInterval(uplinkTimer), grass.onState(sayState));
     sayState();
 
+    // The chain's recent history (fights, builds, mining) and the roster's names start loading now,
+    // while the live feed dials, so the Activity tab has news to show the moment it mounts.
+    if (tab === 'activity') { void store.loadCore().catch(() => { /* names fall back to ids */ }); void store.backfill(); }
     // Which guild Intel reads from: GRASS's guild (the commander's by default). Dialling it can take
     // a few seconds: the tab's place shows a dish tuning in meanwhile, never an empty frame.
     let alive = true;
     this.cleanup.push(() => { alive = false; });
-    if (grass.state !== 'live') body.replaceChildren(receiving('Tuning in', 'Dialling the guild’s live news feed…', TABS.find((t) => t.id === tab)!.icon));
+    // Activity draws at once (the chain's history and the last visit need no feed); it is drawn again
+    // only if the feed turns out to be another guild's. The other tabs wait for the feed's guild.
+    const early = tab === 'activity';
+    let earlyGuild = '';
+    this.cleanup.push(() => this.unmountTab());
+    if (early) { this.mountTab(tab, arg, body, ctaHost); earlyGuild = this.mounted; }
+    else if (grass.state !== 'live') body.replaceChildren(receiving('Tuning in', 'Dialling the guild’s live news feed…', TABS.find((t) => t.id === tab)!.icon));
     await Promise.race([grass.start(), sleep(4000)]);
     // Left while GRASS was dialling: cleanup has already run, so add nothing it would miss.
     if (!alive) return;
@@ -139,9 +149,10 @@ export class IntelScreen extends PanelScreen {
       paintUplink();
     });
 
-    this.mountTab(tab, arg, body, ctaHost);
-    this.cleanup.push(() => this.unmountTab());
+    if (!early || (grass.guildId || grass.preferred() || DEFAULT_GUILD) !== earlyGuild) this.mountTab(tab, arg, body, ctaHost);
   }
+  /** The guild the tab on screen was drawn for. */
+  private mounted = '';
 
   private unmountTab() {
     this.generation++;
@@ -152,6 +163,7 @@ export class IntelScreen extends PanelScreen {
     this.unmountTab();
     const gen = this.generation;
     const guildId = grass.guildId || grass.preferred() || DEFAULT_GUILD;
+    this.mounted = guildId;
     const api = guildApi(guildId);
     body.replaceChildren();
     ctaHost.replaceChildren();

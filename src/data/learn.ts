@@ -3,6 +3,8 @@
  * thirteen-year-olds meeting strategy, economics and programming for the first time — but every
  * line stays true to the chain's rules. Browser-free: tests import it under node. */
 
+import { touchScreen } from '../core/touch';
+
 /* ── Hubs: the top bar groups every screen into six places ─────────────────── */
 
 export type HubId = 'base' | 'battle' | 'explore' | 'trade' | 'team' | 'lab';
@@ -160,22 +162,84 @@ export const termByKey = new Map(GLOSSARY.map((t) => [t.key, t]));
 
 export interface Guide { title: string; what: string; tries: string[]; lesson?: string }
 
+/* A card's words depend on how the player is playing: a pad, keys and a mouse, or a finger (the
+ * battle screen speaks the same way). {hubs} is where the six hub buttons are: along the bottom on
+ * an upright phone (mobile.css), at the top everywhere else. Each card is 25 words or fewer. */
+type Mode = 'pad' | 'keys' | 'touch';
+type Say = string | ({ keys: string } & Partial<Record<Mode, string>>);
+/** Browser-free: under node (tests) it reads as keys and a mouse, hubs at the top. */
+function inputMode(): Mode {
+  if (typeof document === 'undefined') return 'keys';
+  if (document.body?.classList.contains('pad')) return 'pad';
+  return touchScreen() ? 'touch' : 'keys';
+}
+const hubsAt = () => (typeof matchMedia === 'function' && matchMedia('(max-width: 760px) and (pointer: coarse) and (min-height: 561px)').matches ? 'bottom' : 'top');
+const said = (x: Say) => (typeof x === 'string' ? x : x[inputMode()] ?? x.keys).replace('{hubs}', hubsAt());
+/** A guide whose words are chosen when the card opens. */
+function guide(title: string, what: Say, tries: [Say, Say, Say], lesson?: string): Guide {
+  return { title, ...(lesson ? { lesson } : {}), get what() { return said(what); }, get tries() { return tries.map(said); } };
+}
+/** The common verbs: click / tap / A ("Click a reactor to see its fuel." · "A on a reactor shows its fuel."). */
+const press = (thing: string, toDo: string, shows: string): Say => ({ keys: `Click ${thing} ${toDo}`, touch: `Tap ${thing} ${toDo}`, pad: `A on ${thing} ${shows}` });
+
 /** Keyed by router screen name. */
 export const GUIDES: Record<string, Guide> = {
-  galaxy: { title: 'Galaxy Map', what: 'Every planet anyone has ever found, live. Lit dots are players’ home worlds; red arcs are fleets out raiding.', tries: ['Every screen lives in the six glowing buttons at the top. New? Open Battle and pick Training Battles.', 'Drag to spin the galaxy, scroll to zoom, click any planet.', 'Click a red target ring to watch the latest battle there.'] },
-  planet: { title: 'Planet Map', what: 'One world up close: its defences, its fleet and its owner’s stats. Real attacks play out here as they happen.', tries: ['Point at any ship or building to see its health and job.', 'Press the A button at the bottom (Fight a copy, or Practice defence / raid) to fight these real fleets in a training battle. Nothing can be lost.', 'Tap the planet bar at the top (on a big screen, the left panel) for its stats: point at any icon to see what it counts, or Pin its commander to the top bar.'], lesson: 'units' },
-  combat: { title: 'Battle Replays', what: 'Every real attack in the galaxy, replayed shot by shot from the blockchain’s own records.', tries: ['Pick any fight from the list.', 'Press ▶ Fight (or E) to see a full raid from start to end.', 'Press Refight to see if you could have done better.'], lesson: 'replay' },
-  grid: { title: 'Power Grid', what: 'Where the galaxy’s energy comes from: reactors at the top feed substations, and substations feed players.', tries: ['Hover a glowing beam to see who powers whom.', 'Click a substation to see how its power is shared.', 'Click a reactor to see its fuel.'], lesson: 'grid' },
-  sim: { title: 'Training Battles', what: 'Your fleet against the computer, using the real game’s combat rules. Nothing here can be lost.', tries: ['Pick how big the enemy is, then press Start.', 'Click one of your ships, choose a weapon, then click a red-ringed enemy.', 'Destroy the enemy Command Ship to win.'], lesson: 'firstwin' },
-  codex: { title: 'Unit Guide', what: 'Every unit in the game, with what it can hit and what can hit it. Know your units, win your battles.', tries: ['Click any unit in the list.', 'Drag the 3D model to turn it.', 'Press Matchups to see who beats whom.'], lesson: 'units' },
-  command: { title: 'My Base', what: 'Your commander’s home: planet slots to build in, your fleet, and an advisor with your best next moves.', tries: ['No commander yet? Press Enlist: it’s free and takes seconds. Every move is signed right here in your browser.', 'Click an empty + slot to build, or a machine to give it orders. Point at any icon (⚡ charge, ◆ alpha, ore, shield, power) to see what it means.', 'The big card is your best next move: press its A button. +N shows the other moves.'] },
-  economy: { title: 'Trade', what: 'The money side of the galaxy: energy, fuel, the market, guild banks and sending alpha.', tries: ['Power: is your supply bigger than your use?', 'Market: compare prices before you buy.', 'Banks: see how guild tokens are backed by alpha.'], lesson: 'power' },
-  intel: { title: 'News & Rankings', what: 'What is happening right now: live events, who is raiding whom, leaderboards and charts.', tries: ['Activity shows events the moment they happen.', 'Leaderboards rank the galaxy’s top commanders.', 'Click a guild to see its members.'] },
-  comms: { title: 'Chat', what: 'Talk with your guild. Every planet and fleet has its own channel too.', tries: ['Already chat in another Matrix app? Paste its token to join here.', 'Be kind, and never share your recovery phrase.', 'Type @ to mention someone.'], lesson: 'keys' },
-  guild: { title: 'Guild Hall', what: 'Your team: who is in it, their ranks, and who is allowed to act for you.', tries: ['See every member and their rank.', 'Request to join another guild.', 'Permissions decide who can play for you.'] },
-  forge: { title: 'Code Lab', what: 'Every move in the game is a message with named fields, like a function call in code. Here you can see and build any of them.', tries: ['Pick a message from the list.', 'Fill in a box and watch the “As code” line change.', 'Press “Dry run” to test it without sending.'], lesson: 'message' },
-  ops: { title: 'Engine Room', what: 'The machinery behind your base: your moves, the puzzle solver, robot helpers, robot rules and your rank.', tries: ['Proof Engine: watch your computer solve puzzles.', 'Robot Helpers: make players that work for you.', 'Robot Rules: read your robots’ program, then change it.'], lesson: 'hash' },
-  academy: { title: 'Academy', what: 'Learn strategy, economics and technology by playing. Every lesson earns XP toward your rank.', tries: ['Pick a track: Strategy, Economics or Technology.', 'Press “Try it” to jump to the right screen.', 'Answer quizzes to finish lessons.'] },
+  galaxy: guide('Galaxy Map', 'Every planet, live. Red arcs: raids.', [
+    { keys: 'Six buttons at the top open every screen.', touch: 'Six buttons at the {hubs} open every screen.', pad: 'Press Back: six hubs open every screen.' },
+    { keys: 'Drag to spin, scroll to zoom.', touch: 'Drag to spin, pinch to zoom.', pad: 'D-pad moves, A presses.' },
+    'New? Battle › Training is safe.']),
+  planet: guide('Planet Map', 'One world up close, live.', [
+    { keys: 'Point at a ship to see its job.', touch: 'Tap a ship to see its job.', pad: 'The panel lists its ships.' },
+    { keys: 'Fight a copy: no risk.', pad: 'A fights a copy: no risk.' },
+    { keys: 'Click the planet bar for its stats.', touch: 'Tap the planet bar for its stats.', pad: 'The d-pad moves between buttons.' }], 'units'),
+  combat: guide('Battle Replays', 'Real attacks, replayed shot by shot.', [
+    'Pick any fight from the list.',
+    { keys: 'Press ▶ Fight (or E) for the whole raid.', touch: 'Tap ▶ Fight for the whole raid.', pad: 'A on ▶ Fight plays the whole raid.' },
+    'Refight: can you do better?'], 'replay'),
+  grid: guide('Power Grid', 'Where power comes from.', [
+    { keys: 'Point at a beam: who powers whom.', touch: 'Tap a beam: who powers whom.', pad: 'Beams: who powers whom.' },
+    { keys: 'Click a substation to see its share.', touch: 'Tap a substation to see its share.', pad: 'Substations share power out.' },
+    { keys: 'Click a reactor to see its fuel.', touch: 'Tap a reactor to see its fuel.', pad: 'Reactors turn fuel into power.' }], 'grid'),
+  sim: guide('Training Battles', 'Practice fights. Nothing can be lost.', [
+    'Pick the enemy’s size, then Start.',
+    { keys: 'Click a ship, a weapon, then red brackets.', touch: 'Tap a ship, a weapon, then red brackets.', pad: 'D-pad picks, A fires at red brackets.' },
+    'Sink their Command Ship.'], 'firstwin'),
+  codex: guide('Unit Guide', 'Every unit: what it hits, what hits it.', [
+    { keys: 'Click any unit in the list.', touch: 'Tap any unit along the bottom.', pad: 'D-pad through the units.' },
+    { keys: 'Drag the model to turn it.', touch: 'Drag the model to turn it.', pad: 'A on Fly tries it in battle.' },
+    'Matchups: who beats whom.'], 'units'),
+  command: guide('My Base', 'Your base and fleet.', [
+    'No commander? Enlist: free, in seconds.',
+    press('an empty + slot', 'to build.', 'builds there.'),
+    'The big card is your best next move.']),
+  economy: guide('Trade', 'Energy, fuel, the market, banks and sending alpha.', [
+    'Power: is supply bigger than use?',
+    'Market: compare prices before you buy.',
+    'Banks: tokens backed by alpha.'], 'power'),
+  intel: guide('News & Rankings', 'What is happening in the galaxy right now.', [
+    'Activity: events as they happen.',
+    'Boards rank the top commanders.',
+    press('a guild', 'to see its members.', 'shows its members.')]),
+  comms: guide('Chat', 'Talk with your guild.', [
+    'Use Matrix already? Paste its token here.',
+    'Be kind. Never share your recovery phrase.',
+    'Type @ to mention someone.'], 'keys'),
+  guild: guide('Guild Hall', 'Your team and its ranks.', [
+    'See every member and their rank.',
+    'Ask to join another guild.',
+    'Permissions: who can play for you.']),
+  forge: guide('Code Lab', 'Every move as code.', [
+    'Pick a message from the list.',
+    { keys: 'Press Example, then read it as code.', touch: 'Tap Example, then read it as code.', pad: 'A on Example, then read the code.' },
+    'Dry run tests it (needs a commander).'], 'message'),
+  ops: guide('Engine Room', 'The machinery behind your base.', [
+    'Proof Engine: puzzles your computer solves.',
+    'Robot Helpers: players that work for you.',
+    'Robot Rules: read their program, change it.'], 'hash'),
+  academy: guide('Academy', 'Learn by playing. Lessons earn XP.', [
+    'Pick a track: Strategy, Economics or Technology.',
+    { keys: 'Press “Try it” to jump there.', touch: 'Tap “Try it” to jump there.', pad: 'A on Try it jumps there.' },
+    'Answer quizzes to finish lessons.']),
 };
 
 /* ── The Academy ───────────────────────────────────────────────────────────── */
