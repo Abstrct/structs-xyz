@@ -188,6 +188,18 @@ for (const p of ['easy', 'hard', 'random'] as Preset[]) {
     const o = outcome as Outcome | null;
     check(o?.stalemate === 'quiet' && o.winner === 'you' && !!o.hull, `a quiet standoff is decided on hull: ${JSON.stringify(o)}`);
   }
+  // Overtime is the cap: once it has begun, no standoff cuts it short (and none is warned of).
+  {
+    const chain = new Chain(chainSetup(layout('difficult', seed), seed, { player: 9, computer: 9 }).setup);
+    const session = new BattleSession(chain, 'difficult', seed, 2000);
+    let outcome: Outcome | null = null;
+    session.onFinish = (o) => { outcome = o; };
+    (session as unknown as { startHeight: number }).startHeight = chain.height - (OVERTIME_AT + 3);
+    (session as unknown as { lastHurt: number }).lastHurt = chain.height - (QUIET_BLOCKS + 5);
+    session.running = true;
+    session.update(2000);
+    check(!outcome && session.overtimeLeft() !== null && session.standoffLeft() === null, `no standoff in overtime: ${JSON.stringify(outcome)} ${session.overtimeLeft()} ${JSON.stringify(session.standoffLeft())}`);
+  }
   // Replay links keep how a fight ended (older links, without it, still decode).
   const rc = { units: layout('difficult', seed), seed, start: 1000, txs: [], title: 't', winner: 'you', end: 1120, stalemate: 'time' as const };
   const back = decodeReplay(encodeReplay(rc));

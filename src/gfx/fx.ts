@@ -567,7 +567,9 @@ export class Debris {
     let hiWritten = this.mesh.count, wrapped = false;
     for (let k = 0; k < model.pixels.length; k += step) {
       const px = model.pixels[k];
-      for (const z of [px.z - PX / 2, px.z - inner]) {
+      // About one chunk for every two pixels, from the surface or a little inside it (a blast in the
+      // air then stays near 10k triangles, beside the board's hulls and their keylines).
+      for (const z of [px.z - PX / 2 - Math.random() * inner]) {
         if (Math.random() < 0.45) continue;
         const i = this.next;
         this.next = (this.next + 1) % this.max;

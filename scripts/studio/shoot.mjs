@@ -1,13 +1,13 @@
 /* Shoot: quick screenshots for art review. Each argument is route[@view][+seconds].
  *   STUDIO_URL=http://localhost:5173 node scripts/studio/shoot.mjs /@desktop /sim@tv+12 /academy@phone
- * Views: tv (640×480), desktop (1440×900), phone (390×844). Pictures land in studio/reports/shots/.
+ * Views: tv (640×480), desktop (1440×900), phone (390×844), small (360×640, a small phone). Pictures land in studio/reports/shots/.
  * STUDIO_EVAL runs a page expression after the wait and before the picture (e.g. to open a menu);
  * (STUDIO_AFTER ms later; default 800); STUDIO_MOTION=1 keeps animations (reduced motion is emulated by default). */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { openBrowser, pool, serveSite, sleep } from './cdp.mjs';
 
-const VIEWS = { tv: { w: 640, h: 480 }, desktop: { w: 1440, h: 900 }, phone: { w: 390, h: 844, mobile: true } };
+const VIEWS = { tv: { w: 640, h: 480 }, desktop: { w: 1440, h: 900 }, phone: { w: 390, h: 844, mobile: true }, small: { w: 360, h: 640, mobile: true } };
 const OUT = join(new URL('../../', import.meta.url).pathname, 'studio/reports/shots');
 mkdirSync(OUT, { recursive: true });
 const shots = process.argv.slice(2).map((a) => {

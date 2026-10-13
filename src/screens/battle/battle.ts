@@ -207,7 +207,7 @@ export class BattleScreen implements Screen {
     if (params.code === 'daily') {
       // A link to today's daily: open it in setup, ready to engage. A run in progress is
       // shown first, and the daily asks before abandoning it.
-      if (this.gauntlet?.over) this.gauntlet = null;
+      if (this.gauntlet?.over) { this.gauntlet = null; this.restorePreRun(); }
       this.keepDraft = false;
       if (this.gauntlet) this.resumeGauntlet();
       this.startDaily();
@@ -215,7 +215,7 @@ export class BattleScreen implements Screen {
     }
     // A replay link plays and then returns you to whatever you were doing. A battle code
     // replaces a run in progress, but only once it decodes, and only after you confirm.
-    if (this.gauntlet?.over) this.gauntlet = null;
+    if (this.gauntlet?.over) { this.gauntlet = null; this.restorePreRun(); }
     if (params.code?.startsWith('R')) {
       const r = decodeReplay(params.code);
       if (r) { void this.startReplay(r); return; }
@@ -237,6 +237,8 @@ export class BattleScreen implements Screen {
   }
 
   exit() {
+    // (A finished run is put down on the way out: the settings from before it come back.)
+    if (this.gauntlet?.over) { this.gauntlet = null; this.restorePreRun(); }
     holdRewards(false);
     this.rewardsOwed = false;
     audio.setIntensity(0.3);
@@ -349,7 +351,7 @@ export class BattleScreen implements Screen {
     holdRewards(false);
     this.rewardsOwed = false;
     this.clearAim();
-    if (this.gauntlet?.over) this.gauntlet = null;
+    if (this.gauntlet?.over) { this.gauntlet = null; this.restorePreRun(); }
     this.replay = null;
     this.root.querySelector('.replay-bar')?.remove();
     this.phase = 'setup';
@@ -725,6 +727,14 @@ export class BattleScreen implements Screen {
     const reaches = (u: Unit) => (['primaryWeapon', 'secondaryWeapon'] as WeaponSystem[]).some((ws) => hasWeapon(TYPES_BY_ID[u.type], ws) && canTargetAmbit(TYPES_BY_ID[u.type], ws, u.ambit, cs.ambit));
     if (this.draft.some((u) => u.side === 'player' && reaches(u))) return null;
     const L = AMBIT_NAME[cs.ambit];
+    if (this.gauntlet || this.daily) {
+      // (Swaps are refused here: only your flagship's drift can close the distance, if it can.)
+      const mine = this.draft.find((u) => u.side === 'player' && u.type === COMMAND_SHIP_ID);
+      const t = mine && TYPES_BY_ID[mine.type];
+      const from = t && t.movable ? AMBITS.find((a) => (t.possibleAmbit & AMBIT_FLAG[a]) !== 0 && reaches({ ...mine!, ambit: a })) : null;
+      return from ? h('div', { class: 'dc-reach-cue', title: `Their Command Ship flies in ${L}, out of your fleet's reach. In the fight, your flagship can drift to ${AMBIT_NAME[from]} to hit it.` },
+        h('span', { class: 'ambit-' + cs.ambit, html: icon(cs.ambit, 16) }), `Their flagship flies in ${L}: drift yours to ${AMBIT_NAME[from]}`) : null;
+    }
     return h('div', { class: 'dc-reach-cue', title: `Their Command Ship flies in ${L} and none of your ships can hit it there. Swap in a ship whose weapons reach ${L}.` },
       h('span', { class: 'ambit-' + cs.ambit, html: icon(cs.ambit, 16) }), `Their flagship flies in ${L}: bring a ship that reaches it`);
   }
@@ -764,6 +774,8 @@ export class BattleScreen implements Screen {
       h('span', { html: icon('record', 16) }), h('span', { class: 'c-player' }, `${r.wins}`), h('span', { class: 'c-hint' }, '–'), h('span', { class: 'c-enemy' }, `${r.losses}`));
   }
 
+  /** Fights whose gauntlet win has been recorded (once each). */
+  private wonRuns = new WeakSet<object>();
   /** Gauntlets won in this browser, and the fastest won run's fighting time (ms; 0: none yet). */
   private gauntletWins(): number { try { return Number(localStorage.getItem('structs.gauntlet.won') || 0); } catch { return 0; } }
   private gauntletBestMs(): number { try { return Number(localStorage.getItem('structs.gauntlet.bestMs') || 0); } catch { return 0; } }
@@ -771,12 +783,14 @@ export class BattleScreen implements Screen {
   private saveGauntletBest(n: number) { try { if (n > this.gauntletBest()) localStorage.setItem('structs.gauntlet.best', String(n)); } catch { /* ignore */ } window.dispatchEvent(new Event('structs:progress')); }
 
   private startGauntlet() {
+    // What was set before the first run (kept through Play again): put back whenever the runs end.
+    if (!this.preRun) this.preRun = { preset: this.preset, difficulty: this.difficulty, blockMs: this.blockMs, spectate: this.spectate, scenario: this.scenario, daily: this.daily };
     // Back on the intro card puts everything as it was (a daily, a shared battle, the pace, Auto).
-    const before = { scenario: this.scenario, daily: this.daily, spectate: this.spectate, blockMs: this.blockMs, difficulty: this.difficulty, draft: this.gauntlet ? null : this.draft.map((u) => ({ ...u })) };
+    const draft = this.gauntlet ? null : this.draft.map((u) => ({ ...u }));
     this.gauntletUndo = () => {
-      Object.assign(this, { scenario: before.scenario, daily: before.daily, spectate: before.spectate, blockMs: before.blockMs, difficulty: before.difficulty });
-      if (before.draft) this.draft = before.draft;
-      return !!before.draft;
+      this.restorePreRun();
+      if (draft) this.draft = draft;
+      return !!draft;
     };
     const seed = Math.random().toString(36).slice(2, 8);
     const fleet = layout('difficult', seed).filter((u) => u.side === 'player');
@@ -790,6 +804,14 @@ export class BattleScreen implements Screen {
     this.showGauntletIntro();
   }
 
+  /** The settings before the gauntlet runs began (a run sets its own difficulty, a 2 s pace, no Auto). */
+  private preRun: { preset: Preset; difficulty: Difficulty; blockMs: number; spectate: boolean; scenario: string | null; daily: Daily | null } | null = null;
+  /** The runs are over: the settings from before them come back (once). */
+  private restorePreRun() {
+    const r = this.preRun;
+    this.preRun = null;
+    if (r) Object.assign(this, r);
+  }
   /** Undoes a run's start while its intro card is up (Back, or leaving the screen): true if the setup
    * before it came back whole. */
   private gauntletUndo: (() => boolean) | null = null;
@@ -866,15 +888,17 @@ export class BattleScreen implements Screen {
     g.engaged = false;
     this.saveGauntletBest(g.round - 1);
     this.gauntlet = null;
+    this.restorePreRun();
     toast(`Gauntlet run ended in round ${g.round}`, 'warn', 3000);
   }
 
   /** Run `then` after confirming that a live gauntlet run may be abandoned. */
   private leaveGauntlet(then: () => void) {
-    if (!this.gauntlet || this.gauntlet.over) { this.gauntlet = null; then(); return; }
+    if (!this.gauntlet || this.gauntlet.over) { if (this.gauntlet) this.restorePreRun(); this.gauntlet = null; then(); return; }
     void confirmBox('Abandon run', `Abandon the gauntlet at round ${this.gauntlet.round}? Your best stays ${this.gauntletBest()}/5.`, 'Abandon').then((yes) => {
       if (!yes) return;
       this.gauntlet = null;
+      this.restorePreRun();
       document.querySelectorAll('.gauntlet-back').forEach((n) => n.remove());
       then();
     });
@@ -1259,9 +1283,10 @@ export class BattleScreen implements Screen {
       // (Your card, which selects your flagship, and its Move pulse while the line shows.)
       this.movePulseUntil = performance.now() + 6000;
       const fc = this.root.querySelector<HTMLElement>('.battle-top .fleet-card.player');
-      fc?.classList.add('dc-pulse'); setTimeout(() => fc?.classList.remove('dc-pulse'), 6000);
+      fc?.classList.add('dc-pulse'); setTimeout(() => { if (performance.now() >= this.movePulseUntil) fc?.classList.remove('dc-pulse'); }, 6050);
       this.renderActionBar();
-    } else if (cmd && (cmd.health <= 2 || (adv?.here ?? 0) > 0)) text = `Their flagship's in ${L}: guard yours first`;
+    } else if (cmd && (cmd.health <= 2 || (adv?.here ?? 0) > 0) && this.guardCandidate()) text = `Their flagship's in ${L}: guard yours first`;
+    else if (cmd && (cmd.health <= 2 || (adv?.here ?? 0) > 0) && this.riskyLayer(c, cmd)) text = `Their flagship's in ${L}: move to ${AMBIT_NAME[this.riskyLayer(c, cmd)!]} (risky)`;
     else {
       const types = FLEET_TYPES.map((x) => TYPES_BY_ID[x.id]).filter((t) => t && t.id !== COMMAND_SHIP_ID && AMBITS.some((a) => (t.possibleAmbit & AMBIT_FLAG[a]) !== 0 && reachFrom(t, a)));
       const t = types.sort((p0, p1) => p0.type.length - p1.type.length)[0];
@@ -1647,8 +1672,8 @@ export class BattleScreen implements Screen {
         const hl = this.session?.hullNow();
         const ahead = !!hl && (hl.you > hl.cpu + 1e-9 || (Math.abs(hl.you - hl.cpu) <= 1e-9 && hl.fleetYou > hl.fleetCpu + 1e-9));
         // (Hold only out of their guns: none reach its layer and no order of theirs is aimed at your ships.)
-        const mineIds = new Set(Object.values(c.structs).filter((x) => x.owner === YOU.id).map((x) => x.id));
-        const aimed = c.mempool.some((tx) => tx.signer !== YOU.id && Array.isArray((tx.msg as unknown as { targetStructId?: string[] }).targetStructId) && (tx.msg as unknown as { targetStructId: string[] }).targetStructId.some((id) => mineIds.has(id)));
+        const myShips = Object.values(c.structs).filter((x) => x.owner === YOU.id && !c.isDestroyed(x));
+        const aimed = Object.values(c.structs).some((f) => f.owner !== YOU.id && !c.isDestroyed(f) && (['primaryWeapon', 'secondaryWeapon'] as WeaponSystem[]).some((ws) => hasWeapon(TYPES_BY_ID[f.typeId], ws) && myShips.some((m) => canTargetAmbit(TYPES_BY_ID[f.typeId], ws, f.ambit, m.ambit))));
         const risky = this.riskyLayer(c, cmd);
         if (ahead && here === 0 && !aimed) this.coach('stuck', 'Hold', 'Ahead on hull: hold, the standoff goes to you', false, true);
         else if (risky) { const R = AMBIT_NAME[risky]; this.coach('stuck', 'Move', { pad: `Y: move to ${R} to finish it (risky)`, keys: `D: move to ${R} to finish it (risky)`, touch: `Move to ${R} to finish it (risky)` }, false, true); }
@@ -1928,7 +1953,7 @@ export class BattleScreen implements Screen {
         // (Nor on the turn the Drift tip is due: it shows first, uncovered.)
         const driftDue = !this.coachSeen('drift') && (this.coachSeen('guard') || !this.guardCandidate());
         const calm = !this.chipDue && !this.guardOfferDue && !lessonDue && !driftDue && !(this.coachStay && this.coachEl?.isConnected);
-        if (n && !(calm && n.typeId !== COMMAND_SHIP_ID && this.aimGoalWith(n)) && n.id !== this.selected) this.select(n.id);
+        if (n && !(calm && n.typeId !== COMMAND_SHIP_ID && (this.aimGoalWith(n) || this.handOffToGoal(n.id))) && n.id !== this.selected) this.select(n.id);
       }
     }
     // Your Command Ship took a hit (its health went down since the last turn).
@@ -2027,6 +2052,17 @@ export class BattleScreen implements Screen {
       g.ms = (g.ms || 0) + (session?.elapsedMs || 0);
       this.saveGauntletBest(won ? g.round : g.round - 1);
       if (!won || g.round >= 5) g.over = true;
+      // All five won: the trophy, the best run and the first-time bonus are kept now (leaving early loses nothing).
+      if (won && g.round >= GAUNTLET_ROUNDS.length && session && !this.spectate && !this.wonRuns.has(session)) {
+        this.wonRuns.add(session);
+        const first = !this.gauntletWins();
+        try {
+          localStorage.setItem('structs.gauntlet.won', String(this.gauntletWins() + 1));
+          const best = this.gauntletBestMs(), ms = g.ms || 0;
+          if (ms > 0 && (!best || ms < best)) localStorage.setItem('structs.gauntlet.bestMs', String(Math.round(ms)));
+        } catch { /* this visit */ }
+        if (first) record.gain(200);
+      }
       else { this.carryOver(); g.round++; g.reinforce = true; }
     }
     // Service record and daily results: only battles you commanded.
@@ -2131,7 +2167,7 @@ export class BattleScreen implements Screen {
     // A shot armed: the Drift step's tap (it points here) lets go of the shot and takes the flagship;
     // otherwise the shot stays armed, and the tap says so.
     if (this.targeting?.kind === 'attack') {
-      if (!(this.coachKey === 'drift' && this.coachEl?.isConnected)) { audio.play('deny'); toast('Aiming: fire, or cancel first', 'warn', 1400); return; }
+      if (!(this.coachKey === 'drift' && this.coachEl?.isConnected) && performance.now() >= this.movePulseUntil) { audio.play('deny'); toast('Aiming: fire, or cancel first', 'warn', 1400); return; }
       this.targeting = null; this.clearAim(); this.disarmTouch();
     }
     audio.play('select');
@@ -2331,7 +2367,7 @@ export class BattleScreen implements Screen {
       }
     } else {
       // (A standoff that someone broke: the card is the turn card again.)
-      if (card && card.classList.contains('dc-so')) { card.classList.remove('dc-ot', 'dc-so'); card.title = 'Turn: one block of the chain'; }
+      if (card && card.classList.contains('dc-so')) { card.classList.remove('dc-ot', 'dc-so'); card.title = 'Turn: one block of the chain'; card.querySelectorAll('.dc-ot-nudge:not(.gold)').forEach((n) => n.remove()); }
       this.els.blockNum.textContent = document.body.classList.contains('expert') ? c.height.toLocaleString('en-US') : String(c.height - s.startHeight);
     }
     (this.els.blockBar.firstChild as HTMLElement).style.width = (100 * s.blockClock / s.blockMs).toFixed(1) + '%';
@@ -2856,6 +2892,8 @@ export class BattleScreen implements Screen {
       : pickShip ? { pad: 'Pick a ship: A', keys: 'Pick a ship: Enter', touch: 'Pick a ship below' } : this.coachSay;
     if (line && words) { const t = say(words); if (line.textContent !== t) line.textContent = t; }
     this.root.querySelectorAll('.dc-pulse').forEach((n) => n.classList.remove('dc-pulse'));
+    // ("Move yours there" is up: your card, which selects the flagship, and its Move pulse with it.)
+    if (performance.now() < this.movePulseUntil) for (const sel of ['.battle-top .fleet-card.player', '.action-bar .drift']) this.root.querySelector(sel)?.classList.add('dc-pulse');
     if (!this.coachEl?.isConnected) return;
     const want = this.coachKey === 'arm' || this.coachKey === 'guard' || this.coachKey === 'drift' || this.coachKey === 'stuck' ? this.coachAnchor(this.coachKey) : null;
     want?.classList.add('dc-pulse');
@@ -3109,7 +3147,7 @@ export class BattleScreen implements Screen {
     const runMs = conquered ? this.gauntlet!.ms || 0 : 0;
     if (conquered) {
       const short = window.innerHeight <= 560;
-      const bn = banner('GAUNTLET WON', 'ALL FIVE ROUNDS · BOSS DOWN', 'player', short ? 1800 : 3600);
+      const bn = banner('GAUNTLET WON', o.hull ? 'ALL FIVE ROUNDS · BOSS OUTLASTED' : 'ALL FIVE ROUNDS · BOSS DOWN', 'player', short ? 1800 : 3600);
       if (!short) bn.classList.add('reward');
       audio.stinger('secure', 1); setTimeout(() => audio.play('confirm'), 450); setTimeout(() => audio.play('charge'), 900);
     }
@@ -3140,16 +3178,6 @@ export class BattleScreen implements Screen {
       this.paid.add(s); record.gain(won ? 25 + 5 * stars : effort); this.noteRung(won);
       // The ladder cleared: remembered (a crown on the setup panel from now on), and a bonus the first time.
       if (cleared) { const first = !this.ladderCleared(); try { localStorage.setItem('structs.ladder.cleared', String(Number(localStorage.getItem('structs.ladder.cleared') || 0) + 1)); } catch { /* this visit */ } if (first) record.gain(150); }
-      // The gauntlet won: remembered (a flag beside the crown on the setup panel), its best time kept, and a bonus the first time.
-      if (conquered) {
-        const first = !this.gauntletWins();
-        try {
-          localStorage.setItem('structs.gauntlet.won', String(this.gauntletWins() + 1));
-          const best = this.gauntletBestMs();
-          if (runMs > 0 && (!best || runMs < best)) localStorage.setItem('structs.gauntlet.bestMs', String(Math.round(runMs)));
-        } catch { /* this visit */ }
-        if (first) record.gain(200);
-      }
     }
     // The fight's rewards play now, its own XP (and any promotion it brings) in the same queue, so
     // banners go first and toasts after them, never over them (core/dom holdRewards).
@@ -3214,7 +3242,7 @@ export class BattleScreen implements Screen {
             ? h('button', { class: 'btn solid big grow db-go', 'data-primary': '', onclick: () => { back.remove(); this.resumeGauntlet(); } }, face('a', '⏎'), `Round ${this.gauntlet.round} ▸`)
             : h('button', { class: 'btn solid big grow db-go' + (conquered ? ' db-cleared' : ''), 'data-primary': '', onclick: () => { back.remove(); this.startGauntlet(); } }, face('a', '⏎'), conquered ? 'Play again' : 'New gauntlet'),
           // (A run over: back to the battles, the fleet sizes and the ladder.)
-          this.gauntlet.over ? h('button', { class: 'btn secondary', 'data-back': '', title: 'Back to the battles', onclick: () => { back.remove(); this.gauntlet = null; this.toSetup(true); } }, face('b', 'Esc'), 'Battles') : null)
+          this.gauntlet.over ? h('button', { class: 'btn secondary', 'data-back': '', title: 'Back to the battles', onclick: () => { back.remove(); this.gauntlet = null; this.restorePreRun(); this.toSetup(true); } }, face('b', 'Esc'), 'Battles') : null)
           : (() => {
             const next = this.nextSize(won);
             const again = () => { const owed = this.rewardsOwed; back.remove(); this.toSetup(false); this.fightOrFill(owed); };
@@ -3262,7 +3290,7 @@ export class BattleScreen implements Screen {
         // (Leave first, at the left: the card opens over the enemy's side, and a hand still clicking at their
         // ships must not land on Leave.)
         h('div', { class: 'debrief-row db-minor' },
-          h('button', { class: 'btn ghost', title: 'Back to the menu', onclick: () => { back.remove(); if (this.gauntlet?.over) this.gauntlet = null; this.leaveToMenu(); } }, h('span', { html: icon('back', 16) }), 'Leave'),
+          h('button', { class: 'btn ghost', title: 'Back to the menu', onclick: () => { back.remove(); if (this.gauntlet?.over) { this.gauntlet = null; this.restorePreRun(); } this.leaveToMenu(); } }, h('span', { html: icon('back', 16) }), 'Leave'),
           h('button', { class: 'btn secondary', title: 'Watch this battle again', onclick: () => { back.remove(); const r = this.replayCode(o); if (r) void this.startReplay(r); } }, h('span', { html: icon('replay', 16) }), 'Replay'),
           h('button', { class: 'btn ghost db-ico-btn', title: 'Share: copy a link that replays this exact battle', 'aria-label': 'Share the replay', onclick: () => { const r = this.replayCode(o); if (!r) return; copyText(routeUrl('/sim/' + encodeReplay(r)), 'Replay link copied — anyone can watch this exact battle', 2600); } }, h('span', { html: icon('send', 18) })),
           h('button', { class: 'btn ghost db-ico-btn', title: 'Challenge your guild: post these fleets to chat (you press send)', 'aria-label': 'Challenge your guild', onclick: () => {

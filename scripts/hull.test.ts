@@ -4,6 +4,8 @@
 import { STRUCT_TYPES, STRUCT_SLUG, typeBySlug } from '../src/data/catalogue';
 import { RECIPES, FOOTPRINT, hullGeometry } from '../src/gfx/hull/recipes';
 import { STRUCT_ART } from '../src/chat/format';
+import type { HullModel } from '../src/gfx/hull/model';
+import * as THREE from 'three';
 
 let fails = 0;
 const ok = (cond: unknown, msg: string) => { if (!cond) { fails++; console.error('FAIL', msg); } };
@@ -45,6 +47,32 @@ ok(hullGeometry(999) === null, 'an unknown type has no hull');
 // Chat reactions: every :struct/<slug>: still names a type with a hull.
 for (const slug of STRUCT_ART) ok(typeBySlug(slug) && RECIPES[typeBySlug(slug)], `:struct/${slug}: names a struct type`);
 ok(Object.values(STRUCT_SLUG).length === new Set(Object.values(STRUCT_SLUG)).size, 'slugs are unique');
+
+// Shatter draws only the cubes in flight (12 triangles each; the boards' ring of 7000 is 84k, which
+// once blew the cert's triangle budget whenever a blast was in the air).
+{
+  // fx.ts sits on the engine, which reads the window at load: a bare stand-in is enough here.
+  const g = globalThis as Record<string, unknown>;
+  const noop = () => {};
+  g.window ??= { addEventListener: noop, removeEventListener: noop, devicePixelRatio: 1, innerWidth: 1280, innerHeight: 720, matchMedia: () => ({ matches: false, addEventListener: noop }) };
+  const { Debris } = await import('../src/gfx/fx');
+  const d = new Debris(7000);
+  const pixels = Array.from({ length: 1500 }, (_, i) => ({ x: (i % 50) / 16, y: Math.floor(i / 50) / 16, z: 0, r: 200, g: 200, b: 200 }));
+  const model = { pixels, depth: 1 } as unknown as HullModel;
+  const blast = () => d.shatter(model, new THREE.Matrix4(), new THREE.Vector3(), 6, -10);
+  const run = (s: number) => { for (let t = 0; t < s * 20; t++) d.update(0.05); };
+  blast();
+  ok(d.mesh.count > 500 && d.mesh.count < 1200, `one blast draws its own cubes, about one for two pixels (${d.mesh.count})`);
+  run(1.5);
+  ok(d.mesh.count <= 1200, `mid-flight it never grows (${d.mesh.count})`);
+  run(4);
+  ok(d.mesh.count === 0, `nothing flying, nothing drawn (${d.mesh.count})`);
+  for (let k = 0; k < 10; k++) blast();
+  ok(d.mesh.count === 7000, `blasts that wrap the ring draw it all while they fly (${d.mesh.count})`);
+  run(5);
+  blast();
+  ok(d.mesh.count < 1200, `after the ring empties, the next blast starts short again (${d.mesh.count})`);
+}
 
 if (fails) { console.error(`hull: ${fails} failure(s)`); process.exit(1); }
 console.log(`hull: all checks passed (${STRUCT_TYPES.length} types, worst ${worst} triangles: type ${worstId})`);

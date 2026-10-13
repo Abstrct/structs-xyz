@@ -281,8 +281,9 @@ export class Hull {
 export type Variant = 'base' | 'dmg';
 //                plain      trim  glow  cyan       amber      violet     magenta    glass      white      red        green      orange     trimDark
 const SWATCHES = ['#FFFFFF', '', '', '#7AF0FF', '#FFB54A', '#A65CFF', '#FF4D9A', '#1B2A40', '#FFFFFF', '#FF4D4D', '#7DFF8A', '#FF8A2A', ''];
-/** How much each swatch glows (0 = paint only). Glass glows faintly, as lit cockpits do. */
-const LIT = [0, 0, 1, 1, 1, 0.85, 1, 0.3, 1, 1, 1, 1, 0];
+/** How much each swatch glows (0 = paint only). Glass glows faintly, as lit cockpits do; the faction
+ * band glows a little too, so whose a hull is reads at a glance on a small, busy board. */
+const LIT = [0, 0.4, 1, 1, 1, 0.85, 1, 0.3, 1, 1, 1, 1, 0];
 
 /** The atlas's swatch colours (sRGB hex) for a faction and variant: the CPU side of the textures. */
 export function swatchColors(f: Faction, v: Variant = 'base'): { color: string[]; glow: string[] } {

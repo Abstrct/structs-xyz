@@ -9,7 +9,7 @@ import { LOOK } from '../../core/engine';
 import { easeInOutCubic, easeOutBack, easeOutCubic } from '../../core/util';
 import { type Ambit, AMBIT_COLOR, COMMAND_SHIP_ID, TYPES_BY_ID } from '../../data/catalogue';
 import { Effects } from '../../gfx/fx';
-import { getHullModel, hullFxMaterial, type HullModel, type HullUniforms } from '../../gfx/hull/model';
+import { getHullModel, hullFxMaterial, hullOutline, setOutline, type HullModel, type HullUniforms } from '../../gfx/hull/model';
 import { BattleSet, compactBoost, FIELD, type SetOptions, slotStagger, slotX } from './env';
 import type { AttackDetail, Block, Chain, ChainEvent, ShotRow, SimStruct } from '../../sim/chain';
 
@@ -174,6 +174,8 @@ export class UnitView {
   flash = 0;
   private bobSeed = Math.random() * 100;
   private damagedShown = false;
+  /** The dark keyline round the hull (a child of `mesh`: it hides with it, and never takes a pick). */
+  private outline: THREE.Mesh | null = null;
 
   constructor(readonly id: string, readonly side: SideV, s: SimStruct) {
     this.typeId = s.typeId;
@@ -199,6 +201,9 @@ export class UnitView {
     this.mesh.scale.setScalar(k);
     if (this.side === 'enemy') this.mesh.scale.x *= -1;
     this.pivot.add(this.mesh);
+    this.outline = hullOutline(this.base);
+    this.outline.raycast = () => {};
+    this.mesh.add(this.outline);
     // The pad under the hull, sized to its footprint.
     this.ringMat = padMaterial(TEAM[this.side]);
     this.ring = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.ringMat);
@@ -265,6 +270,7 @@ export class UnitView {
 
   dispose() {
     this.tag.remove();
+    (this.outline?.material as THREE.Material | undefined)?.dispose();
     this.material?.dispose();
     this.ring?.geometry.dispose(); this.ringMat?.dispose();
     if (this.pick) { this.pick.geometry.dispose(); (this.pick.material as THREE.Material).dispose(); }
@@ -324,6 +330,8 @@ export class UnitView {
     // hull lays down its depth first (the geometry's first group), so only its nearest surface
     // shows: wings never show through the fuselage.
     if (m.transparent !== transparent) { m.transparent = transparent; m.needsUpdate = true; this.mesh.material = transparent ? [PREPASS, m] : m; }
+    // The keyline fades with the hull, and goes while it's cloaked or a hologram.
+    if (this.outline) setOutline(this.outline, a * (1 - this.cloak) * (1 - this.holo));
     m.opacity = a;
     // Opacity scales alpha before the alpha test; scale the test with it.
     m.alphaTest = Math.min(0.5, a * 0.5);

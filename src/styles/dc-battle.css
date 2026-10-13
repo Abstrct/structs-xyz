@@ -661,3 +661,5 @@ body:has(.screen.battle .setup-panel):not(:has(.debrief-back)) > .banner.reward 
 @media (max-width: 760px) and (min-height: 561px) {
   .screen.battle .block-card.dc-ot .dc-ot-meter { contain: inline-size; width: 100%; }
 }
+/* The setup's trophies keep their round shape beside a long title. */
+.screen.battle .dc-setup-head .dc-gauntlet-trophy, .screen.battle .dc-setup-head .dc-ladder-crown { flex: none; }

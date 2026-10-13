@@ -188,7 +188,7 @@ export function hullFxMaterial(m: HullModel): THREE.MeshStandardMaterial {
     uFlash: { value: 0 },
     uCloak: { value: 0 },
     uHolo: { value: 0 },
-    uShade: { value: 0.8 },
+    uShade: { value: 0.88 },
   };
   mat.userData.hull = u;
   mat.onBeforeRender = tick;
@@ -243,4 +243,68 @@ export function hullFxMaterial(m: HullModel): THREE.MeshStandardMaterial {
       `);
   };
   return mat;
+}
+
+/* ── Outline ───────────────────────────────────────────────────────────── */
+
+/** The hull's normals averaged where faces meet: the outline shell pushed out along them stays
+ * closed at every edge (the flat-shaded normals would split it). Kept on the shared geometry. */
+function outlineNormals(g: THREE.BufferGeometry): void {
+  if (g.getAttribute('outlineN')) return;
+  const pos = g.getAttribute('position'), nor = g.getAttribute('normal');
+  const sums = new Map<string, THREE.Vector3>();
+  const keyOf = (i: number) => `${Math.round(pos.getX(i) * 1e4)},${Math.round(pos.getY(i) * 1e4)},${Math.round(pos.getZ(i) * 1e4)}`;
+  const keys: string[] = [];
+  for (let i = 0; i < pos.count; i++) {
+    const k = keyOf(i);
+    keys.push(k);
+    let s = sums.get(k);
+    if (!s) sums.set(k, s = new THREE.Vector3());
+    s.x += nor.getX(i); s.y += nor.getY(i); s.z += nor.getZ(i);
+  }
+  const out = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const s = sums.get(keys[i])!;
+    const l = s.length() || 1;
+    out[i * 3] = s.x / l; out[i * 3 + 1] = s.y / l; out[i * 3 + 2] = s.z / l;
+  }
+  g.setAttribute('outlineN', new THREE.Float32BufferAttribute(out, 3));
+}
+
+/** The keyline the old pixel art had drawn in: a dark shell just behind the hull, the same width on
+ * screen however far the hull is, so a struct reads against clouds, rock and sea. Add it as a child
+ * of the hull's mesh; fade it with {@link setOutline}. */
+export function hullOutline(m: HullModel, color = 0x0b1424): THREE.Mesh {
+  outlineNormals(m.geometry);
+  const mat = new THREE.ShaderMaterial({
+    // A little heavier on a small screen, where the hulls themselves are small.
+    uniforms: { uWidth: { value: typeof window !== 'undefined' && Math.min(window.innerWidth, window.innerHeight) < 600 ? 0.0058 : 0.0042 }, uColor: { value: new THREE.Color(color) }, uOpacity: { value: 1 } },
+    vertexShader: /* glsl */ `
+      attribute vec3 outlineN;
+      uniform float uWidth;
+      void main() {
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vec3 n = normalize(normalMatrix * outlineN);
+        // Outward in view space, scaled by depth: a constant width on screen.
+        mv.xyz += n * uWidth * max(1.0, -mv.z);
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: /* glsl */ `
+      uniform vec3 uColor;
+      uniform float uOpacity;
+      void main() { gl_FragColor = vec4(uColor, uOpacity); }`,
+    side: THREE.BackSide,
+  });
+  const mesh = new THREE.Mesh(m.geometry, mat);
+  mesh.name = 'outline';
+  return mesh;
+}
+
+/** Fade an outline with its hull (dimmed, cloaked, under construction): 0 hides it. */
+export function setOutline(outline: THREE.Mesh, a: number) {
+  const mat = outline.material as THREE.ShaderMaterial;
+  outline.visible = a > 0.02;
+  const transparent = a < 0.99;
+  if (mat.transparent !== transparent) { mat.transparent = transparent; mat.needsUpdate = true; }
+  mat.uniforms.uOpacity.value = a;
 }

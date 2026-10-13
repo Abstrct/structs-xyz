@@ -13,7 +13,7 @@ export const QUIET_MOVES = 10;
 /** Blocks with nobody hurt before the sim calls it (50: 100 s at 2 s turns; 200 s of nothing read as broken). */
 export const QUIET_BLOCKS = 50;
 /* A fight that drags on goes to overtime, then a decision on hull (like a tower-health tiebreak): turns
- * since it began, so pause and tempo are respected. The quiet draws above still come first. */
+ * since it began, so pause and tempo are respected. The standoffs above apply only before overtime. */
 export const OVERTIME_AT = 100;
 export const DECIDE_AT = 120;
 
@@ -163,9 +163,11 @@ export class BattleSession {
       this.finish({ winner: left.length === 0 ? 'draw' : left[0] === YOU.fleetId ? 'you' : 'cpu', height: b.height });
       return;
     }
-    const stalemate = this.quietMoves >= QUIET_MOVES ? 'moves' : b.height - this.lastHurt >= QUIET_BLOCKS ? 'quiet' : null;
-    if (stalemate) { this.finish(this.decide(b.height, stalemate)); return; }
+    // (Once overtime begins, it is the cap: no standoff cuts it short.)
     const turns = b.height - this.startHeight;
+    const capped = this.timeLimit && turns >= OVERTIME_AT;
+    const stalemate = capped ? null : this.quietMoves >= QUIET_MOVES ? 'moves' : b.height - this.lastHurt >= QUIET_BLOCKS ? 'quiet' : null;
+    if (stalemate) { this.finish(this.decide(b.height, stalemate)); return; }
     if (this.timeLimit && turns >= OVERTIME_AT && !this.overtimeSaid) { this.overtimeSaid = true; this.onOvertime(); }
     if (this.timeLimit && turns >= DECIDE_AT) { this.finish(this.decide(b.height)); return; }
     this.scheduleAi();
@@ -202,8 +204,11 @@ export class BattleSession {
    * to QUIET_MOVES flagship moves with no damage (`moves`: moves left). Null when neither is near. */
   standoffLeft(): { kind: 'quiet' | 'moves'; left: number } | null {
     if (this.finished) return null;
+    // (Only one that would come before overtime: from then on, overtime is the cap.)
+    const turns = this.chain.height - this.startHeight;
+    if (this.timeLimit && turns >= OVERTIME_AT) return null;
     const quiet = this.chain.height - this.lastHurt;
-    const q = quiet >= QUIET_BLOCKS * 0.6 ? QUIET_BLOCKS - quiet : null;
+    const q = quiet >= QUIET_BLOCKS * 0.6 && (!this.timeLimit || turns + (QUIET_BLOCKS - quiet) < OVERTIME_AT) ? QUIET_BLOCKS - quiet : null;
     const m = this.quietMoves >= QUIET_MOVES * 0.6 ? QUIET_MOVES - this.quietMoves : null;
     if (m != null && (q == null || m <= 2)) return { kind: 'moves', left: Math.max(0, m) };
     return q != null ? { kind: 'quiet', left: Math.max(0, q) } : null;
