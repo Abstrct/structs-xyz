@@ -17,13 +17,20 @@ import {
   AMBIT_COLOR, AMBIT_FLAG, AMBIT_NAME, AMBITS, type Ambit, CATALOGUE_HEIGHT, COMMAND_SHIP_ID, controlName, DEFENSE_HINT, DEFENSE_NAME, PASSIVE_NAME,
   reachLabel, roleOf, STRUCT_TYPES, type StructType, TYPES_BY_ID, type WeaponSystem, ambitsOf, canTargetAmbit, hasWeapon, weaponField, weaponLabel,
 } from '../data/catalogue';
-import { getPixelModel, pixelMaterial, spriteDataUrl, type Faction, type PixelModel } from '../gfx/pixelModel';
+import { getHullModel, hullFxMaterial, type Faction, type HullModel } from '../gfx/hull/model';
+import { structPortrait } from '../gfx/hull/portrait';
 import { latestAttacks } from '../chain/combat';
 import { currentRoute, replaceRoute, setPageMeta } from '../core/nav';
 import { bakeEpoch, createNebulaSky, createStarfield, tickSpace } from '../gfx/space';
 import { encodeBattle, fits, layout, unitId } from '../sim/fleets';
 import { STRUCT_LORE } from '../data/lore';
 import { Effects } from '../gfx/fx';
+
+/** The turntable's front: nose to the right, turned a little toward you (as the portraits are). */
+const FRONT = -0.35;
+const TAU = Math.PI * 2;
+/** The front heading nearest `a`. */
+const frontOf = (a: number) => Math.round((a - FRONT) / TAU) * TAU + FRONT;
 
 export class CodexScreen implements Screen {
   readonly scene = new THREE.Scene();
@@ -32,9 +39,11 @@ export class CodexScreen implements Screen {
   private sky: THREE.Object3D[];
   private pedestal = new THREE.Group();
   private holder = new THREE.Group();
+  /** The turntable's plane, tipped toward you so the hull's deck shows as it turns. */
+  private tip = new THREE.Group();
   private mesh: THREE.Mesh | null = null;
-  /** The pixel model behind `mesh` (what shatters when the next type arrives). */
-  private meshModel: PixelModel | null = null;
+  /** The hull model behind `mesh` (what comes apart when the next type arrives). */
+  private meshModel: HullModel | null = null;
   /** Shared by every stage shader: clock, the display's accent (ambit, or hostile coral), the
    * faction rim, damage, the dial's angle (it turns with the hull), seconds since a hull arrived. */
   private u = {
@@ -59,10 +68,8 @@ export class CodexScreen implements Screen {
   private drag: { x: number; rot: number } | null = null;
   private spin = 0;
   private targetRot = 0;
-  /** The heading the hull sways about (a multiple of a full turn: facing you), and the sway's clock.
-   * Units are flat pixel sprites: a full spin showed them edge-on, a sliver, half the time. */
-  private rest = 0;
-  private swayT = 0;
+  /** The turntable's heading (it turns slowly; a drag turns it any way), and the drag's clock. */
+  private rest = FRONT;
   private loadToken = 0;
   private cleanup: (() => void)[] = [];
   /** Re-fits the card when its words change size (Expert, Larger text, a font arriving, the record). */
@@ -127,7 +134,9 @@ export class CodexScreen implements Screen {
 
     this.holoMat = stageMaterial(this.u, HOLO_FRAG, { uMap: { value: null }, uH: { value: 1 } }, HOLO_VERT);
     this.scene.add(this.pedestal);
-    this.scene.add(this.holder);
+    this.tip.rotation.x = 0.36;
+    this.tip.add(this.holder);
+    this.scene.add(this.tip);
     this.scene.add(this.fx.group);
     this.camera.position.set(0, 2.2, 12.4);
     this.camera.lookAt(0, -0.6, 0);
@@ -285,7 +294,7 @@ export class CodexScreen implements Screen {
         h('div', { class: 't-label c-hint codex-gtitle', title: g.title }, h('span', { class: 'cx-gico', html: icon(g.ico, 14) }), g.word),
         h('div', { class: 'codex-grid cx-grid' }, g.items.map((t) => {
           const img = h('img', { alt: '' });
-          void spriteDataUrl(t.id).then((u) => { img.src = u; });
+          void structPortrait(t.id).then((u) => { img.src = u; });
           return h('button', { class: 'codex-item cx-item' + (t.id === this.typeId ? ' active' : ''), title: t.type, 'aria-label': t.type, 'data-id': String(t.id), onclick: () => { audio.play('select'); void this.show(t.id, true); } },
             h('div', { class: 'codex-thumb' }, img));
         })),
@@ -354,7 +363,7 @@ export class CodexScreen implements Screen {
       window.addEventListener('pointerdown', this.mxDismiss, true); // one shared listener: re-adding it is a no-op
     };
     const whyOf = (a: StructType, b: StructType, r: { e: number; how: string }) => r.e ? `${a.type} → ${b.type}\n${r.how}\nExpected ${r.e.toFixed(2)} HP per attack (of ${b.maxHealth})` : `${a.type} cannot reach ${b.type}`;
-    const sprite = (t: StructType, cls: string) => { const img = h('img', { alt: '' }); void spriteDataUrl(t.id).then((u) => { img.src = u; }); return h('span', { class: 'mx-sprite ' + cls }, img); };
+    const sprite = (t: StructType, cls: string) => { const img = h('img', { alt: '' }); void structPortrait(t.id).then((u) => { img.src = u; }); return h('span', { class: 'mx-sprite ' + cls }, img); };
     const close = h('button', { class: 'btn ghost icon mx-close', 'aria-label': 'Close', title: 'Close (Esc / B)', onclick: () => this.closeMatrix(true) }, '✕');
     const headEl = h('div', { class: 'panel-head', title: 'Best weapon that can reach, after accuracy, the target’s evasion (jamming vs smart, maneuvers vs ballistic) and armour. Guards, counters and stealth come on top. Hover or tap a cell for the breakdown.' },
       h('span', { class: 'cx-title' }, h('span', { html: icon('battle', 16) }), h('span', { class: 't-label' }, 'Matchups')), h('span', { class: 't-tiny c-hint mx-sub' }, 'damage per attack'), close);
@@ -445,17 +454,18 @@ export class CodexScreen implements Screen {
     const token = ++this.loadToken;
     const t = TYPES_BY_ID[typeId];
     if (currentRoute().startsWith('/codex')) setPageMeta({ title: `${t.type} · Codex`, description: `${t.type} (${t.defaultCosmeticName} ${t.defaultCosmeticModelNumber}): a Structs ${t.category === 'fleet' ? 'fleet' : t.category} struct, with its weapons, charge costs, build costs, defences and computed matchups.`, path: '/codex/' + typeId });
-    const model = await getPixelModel(typeId, this.faction, this.damaged ? 'dmg' : 'base', 12);
+    const model = getHullModel(typeId, this.faction, this.damaged ? 'dmg' : 'base', 'upright');
     if (token !== this.loadToken) return;
     if (this.mesh) {
       if (animate && this.meshModel) this.derez(this.meshModel, this.mesh.matrixWorld);
       this.holder.remove(this.mesh);
       (this.mesh.material as THREE.Material).dispose();
     }
-    const mat = pixelMaterial(model);
+    const mat = hullFxMaterial(model);
     this.mesh = new THREE.Mesh(model.geometry, mat);
     this.meshModel = model;
-    const k = 2.7 / Math.max(model.width, model.height);
+    // Sized by its widest turn: length, depth or height.
+    const k = 2.7 / Math.max(model.width, model.height, model.depth);
     this.mesh.scale.setScalar(k);
     this.mesh.position.y = 0.2;
     this.holder.add(this.mesh);
@@ -476,7 +486,9 @@ export class CodexScreen implements Screen {
     this.rimLight.color.copy(rim);
     // The emitter lights the hull's belly (the hull material's bounce knob), and the hull
     // materialises out of its hologram scan.
-    const pu = mat.userData.pixel as { uBounce?: { value: THREE.Color }; uHolo?: { value: number } } | undefined;
+    const pu = mat.userData.hull as { uBounce?: { value: THREE.Color }; uHolo?: { value: number }; uShade?: { value: number } } | undefined;
+    // The stage blooms from 0.55: white paint would glow.
+    if (pu?.uShade) pu.uShade.value = 0.6;
     pu?.uBounce?.value.copy(color).multiplyScalar(0.28);
     this.holoIn = pu?.uHolo ?? null;
     if (this.holoIn) this.holoIn.value = 1;
@@ -501,13 +513,13 @@ export class CodexScreen implements Screen {
   }
 
   /** The outgoing hull comes apart into light that drains back into the lens. */
-  private derez(m: PixelModel, world: THREE.Matrix4) {
+  private derez(m: HullModel, world: THREE.Matrix4) {
     const lens = new THREE.Vector3(0, -1.72, 0);
     const accent = this.u.uColor.value;
     const c = new THREE.Color();
     for (let i = 0, n = Math.min(180, m.pixels.length); i < n; i++) {
       const px = m.pixels[(Math.random() * m.pixels.length) | 0];
-      const p = new THREE.Vector3(px.x, px.y, (Math.random() - 0.5) * m.depth).applyMatrix4(world);
+      const p = new THREE.Vector3(px.x, px.y, px.z - Math.random() * Math.min(m.depth * 0.5, 0.4)).applyMatrix4(world);
       const life = 0.3 + Math.random() * 0.4;
       c.setRGB(px.r / 255, px.g / 255, px.b / 255, THREE.SRGBColorSpace).lerp(accent, 0.5).multiplyScalar(1.6);
       this.fx.particles.spawn({ pos: p, vel: lens.clone().sub(p).multiplyScalar(0.85 / life), color: c.clone(), size: 0.05 + Math.random() * 0.05, life, drag: 0, stretch: 0.05 });
@@ -557,7 +569,7 @@ export class CodexScreen implements Screen {
     // Each unit in a matchup list is its portrait: a press shows it.
     const faces = (list: StructType[], cls: string) => list.length ? h('div', { class: 'cx-faces' }, list.map((x) => {
       const img = h('img', { alt: '' });
-      void spriteDataUrl(x.id).then((u) => { img.src = u; });
+      void structPortrait(x.id).then((u) => { img.src = u; });
       return h('button', { class: 'cx-face ' + cls, title: x.type, 'aria-label': x.type, 'data-k': `cx-face-${cls}-${x.id}`, onclick: () => { audio.play('select'); void this.show(x.id, true); } }, img);
     })) : h('span', { class: 'dc-num c-hint', title: 'None' }, '—');
     const lore = STRUCT_LORE[t.id];
@@ -675,8 +687,8 @@ export class CodexScreen implements Screen {
     const systems = (['primaryWeapon', 'secondaryWeapon'] as WeaponSystem[]).filter((ws) => hasWeapon(t, ws));
     if (!systems.length || !this.mesh || this.firing) return;
     this.firing = true;
-    // Face front (pixel models face +x at rest), then fire (the sway holds still while it does).
-    this.rest = Math.round(this.rest / (Math.PI * 2)) * Math.PI * 2;
+    // Face front, three-quarters on and nose right, then fire (the turntable holds while it does).
+    this.rest = frontOf(this.rest);
     if (!this.dummy) {
       // A holographic target drone: a lattice over a glowing shell, two gimbal rings round it.
       const hot = new THREE.Color(0xee7d69).multiplyScalar(1.6);
@@ -739,8 +751,8 @@ export class CodexScreen implements Screen {
       if (!this.drag) { c.style.cursor = 'grab'; return; }
       this.targetRot = this.drag.rot + (e.clientX - this.drag.x) * 0.01;
     };
-    // Let go: the sway picks up from where the drag left it, then eases back to face you.
-    const up = () => { if (this.drag) { this.rest = this.targetRot; this.swayT = 0; } this.drag = null; c.style.cursor = 'grab'; };
+    // Let go: the turntable carries on from where the drag left it.
+    const up = () => { if (this.drag) this.rest = this.targetRot; this.drag = null; c.style.cursor = 'grab'; };
     /* Arrows step through the units, but only from the stage itself or the unit list: on a button in
      * the detail panel they are the pad's to move between controls, and a window on top (Settings,
      * a confirm) keeps them. The cursor follows the unit to its tile. */
@@ -787,13 +799,12 @@ export class CodexScreen implements Screen {
     this.u.uShow.value += dt;
     if (this.holoIn) this.holoIn.value = 1 - THREE.MathUtils.smoothstep(this.u.uShow.value, 0.15, 1.1);
     if (!this.drag) {
-      // A gentle sway, ±30° about facing you (never edge-on); a drag turns it any way, and once let
-      // go it turns back to the front. Held still while it test-fires, and with reduced motion.
-      const front = Math.round(this.rest / (Math.PI * 2)) * Math.PI * 2;
-      this.rest = damp(this.rest, front, 1.2, dt);
+      // A slow turn on the pedestal: the hulls are solid, every side is worth seeing. It holds
+      // front-on, three-quarters, while it test-fires and with reduced motion.
       const still = this.firing || this.engine.reduceMotion;
-      if (!still) this.swayT += dt;
-      this.targetRot = this.rest + (still ? 0 : Math.sin(this.swayT * 0.55) * 0.52);
+      if (still) this.rest = damp(this.rest, frontOf(this.rest), 2.5, dt);
+      else this.rest += dt * 0.32;
+      this.targetRot = this.rest;
     }
     this.spin = damp(this.spin, this.targetRot, 6, dt);
     this.u.uRot.value = this.spin;
@@ -804,7 +815,7 @@ export class CodexScreen implements Screen {
     const m = this.meshModel;
     if (this.damaged && this.mesh && m && m.pixels.length && Math.random() < dt * 2.5) {
       const px = m.pixels[(Math.random() * m.pixels.length) | 0];
-      const at = new THREE.Vector3(px.x, px.y, (Math.random() - 0.5) * m.depth).applyMatrix4(this.mesh.matrixWorld);
+      const at = new THREE.Vector3(px.x, px.y, px.z).applyMatrix4(this.mesh.matrixWorld);
       this.fx.particles.burst(at, 5, { speed: 1.4, color: [0xffd27a, 0xff8a3a], size: 0.05, life: 0.5, drag: 1.5, gravity: 3 });
     }
     this.fx.update(dt);

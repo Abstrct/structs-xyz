@@ -23,7 +23,7 @@ import { live } from '../chain/live';
 import { lcd, num, type StructFull } from '../chain/lcd';
 import { store } from '../chain/store';
 import { blocksToDuration, formatAlpha, hash32 } from '../core/util';
-import { spriteDataUrl } from '../gfx/pixelModel';
+import { structPortrait } from '../gfx/hull/portrait';
 import { Planet } from '../gfx/planet';
 import { openVault } from '../ui/vault';
 import { enlisting, retryEnlist } from '../game/enlist';
@@ -506,7 +506,7 @@ export class CommandScreen extends PanelScreen {
   /** The Command Ship, in the fleet's title bar: its picture, a star and its health. */
   private mini(s: OwnedStruct) {
     const img = h('img', { alt: '', draggable: false });
-    if (s.type) void spriteDataUrl(s.type.id).then((u) => { img.src = u; });
+    if (s.type) void structPortrait(s.type.id).then((u) => { img.src = u; });
     return h('button', { class: 'cd-mini' + (this.selected === s.id ? ' on' : '') + (s.online ? '' : ' off'), title: `Command Ship: ${s.type?.type || s.id}${s.online ? '' : ' (offline)'}`, onclick: () => this.pick(s) },
       h('span', { class: 'dcb-ico', html: icon('star', 14) }), h('span', { class: 'sprite' }, img), h('span', { class: 'x-only' }, s.type?.type || s.id),
       h('span', { class: 'pips' }, ...Array.from({ length: s.type?.maxHealth || 0 }, (_, i) => h('i', { class: i < s.health ? '' : 'lost' }))));
@@ -530,7 +530,7 @@ export class CommandScreen extends PanelScreen {
     }
     const t = s.type;
     const img = h('img', { alt: '', draggable: false });
-    if (t) void spriteDataUrl(t.id).then((u) => { img.src = u; });
+    if (t) void structPortrait(t.id).then((u) => { img.src = u; });
     const task = [...pow.tasks.values()].find((x) => x.objectId === s.id && x.status !== 'done');
     const pending = txq.active.find((j) => j.msgs.some((mm) => Object.values(mm.value).includes(s.id)));
     const cls = ['cd-cell', s.built ? '' : 'building', s.online ? 'online' : 'offline', s.hidden ? 'hidden' : '', this.selected === s.id ? 'on' : '', pending ? 'pending' : '',
@@ -632,7 +632,7 @@ export class CommandScreen extends PanelScreen {
       const reach = shooter && m.kind === 'attack' && t ? canTargetAmbit(shooter.type!, m.weapon, shooter.ambit as Ambit, e.Struct.operatingAmbit as Ambit) : false;
       const picked = m.kind === 'attack' && m.picks.includes(e.Struct.id);
       const img = h('img', { alt: '', draggable: false });
-      if (t) void spriteDataUrl(t.id).then((u) => { img.src = u; });
+      if (t) void structPortrait(t.id, 'base', 'enemy').then((u) => { img.src = u; });
       return h('button', { class: 'cd-cell foe' + (reach && !hidden ? ' target' : m.kind === 'attack' ? ' dim' : '') + (picked ? ' on' : '') + (hidden ? ' hidden' : ''), title: `${t?.type || 'Struct'} ${e.Struct.id} · ${e.Struct.operatingAmbit}${hidden ? ' · stealthed' : ''}`, onclick: () => {
         if (m.kind !== 'attack' || !reach) { audio.play('deny'); return; }
         const max = (m.weapon === 'primaryWeapon' ? shooter!.type!.primaryWeaponTargets : shooter!.type!.secondaryWeaponTargets) || 1;
@@ -678,7 +678,7 @@ export class CommandScreen extends PanelScreen {
     const weapons: WeaponSystem[] = (['primaryWeapon', 'secondaryWeapon'] as WeaponSystem[]).filter((w) => hasWeapon(t, w));
     const away = p.fleet?.status === 'away';
     const img = h('img', { alt: '', draggable: false });
-    void spriteDataUrl(t.id).then((u) => { img.src = u; });
+    void structPortrait(t.id).then((u) => { img.src = u; });
     const verbBtn = (label: string, cost: number, run: () => void, cls = '', hint = '') => h('button', { class: `btn ${cls}`, title: hint, onclick: run },
       label, cost ? h('span', { class: 'cost ' + (ch >= cost ? '' : 'c-warn') }, `⚡${cost}`) : null);
     const task = [...pow.tasks.values()].find((x) => x.objectId === s.id && x.status !== 'done');
@@ -721,7 +721,7 @@ export class CommandScreen extends PanelScreen {
         buildBlock(p) ? h('div', { class: 't-tiny c-warn' }, buildBlock(p)!) : null,
         ...(types.length ? types.map((t) => {
           const img = h('img', { alt: '', draggable: false });
-          void spriteDataUrl(t.id).then((u) => { img.src = u; });
+          void structPortrait(t.id).then((u) => { img.src = u; });
           const limit = t.buildLimit && owned(t) >= t.buildLimit;
           const why = limit ? `You already have the most allowed (${t.buildLimit})` : buildBlock(p, t);
           return h('button', { class: 'cd-buildopt' + (why ? ' dim' : ''), disabled: !!why, title: why || roleLine(t), onclick: () => {

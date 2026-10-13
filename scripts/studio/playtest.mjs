@@ -104,7 +104,11 @@ try {
     const weapon = await centre('.action-bar .btn.action:not([disabled])');
     if (weapon) await tap(weapon.x, weapon.y);
     step('touch: a weapon arms', await until(`window.__structs.screens().sim?.targeting?.kind === 'attack'`, 3000));
-    const enemy = await b.evaluate(`(() => { const s = window.__structs.screens().sim; const u = [...s.view.units.values()].find((u) => u.side === 'enemy' && u.targetable); return u ? s.view.screenOf(u.id) : null; })()`);
+    // A weapon's first tap also aims (their guard, else their flagship) and pins that target's card.
+    step('touch: the aimed card offers Fire', !!(await centre('.tooltip.on .tip-fire')));
+    // A tap on another enemy in reach moves the aim there and opens its card. (Not the ringed one, whose
+    // tap fires, nor their Command Ship, whose tap goes at its guard while one stands.)
+    const enemy = await b.evaluate(`(() => { const s = window.__structs.screens().sim; const u = [...s.view.units.values()].find((u) => u.side === 'enemy' && u.targetable && !u.command && u.id !== s.aimId); return u ? s.view.screenOf(u.id) : null; })()`);
     if (enemy) await tap(enemy.x, enemy.y);
     const fire = await centre('.tooltip.on .tip-fire');
     step('touch: the enemy card offers Fire', !!fire);

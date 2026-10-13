@@ -3,8 +3,7 @@
  * glows hot and throws sparks where it lands, shockwave rings, energy beams, hex-cell shields,
  * flash lights, and projectiles that fly a curve and call back on arrival. */
 import * as THREE from 'three';
-import type { PixelModel } from './pixelModel';
-import { PX } from './pixelModel';
+import { PX, type HullModel } from './hull/model';
 import { PIXEL_RATIO } from '../core/engine';
 
 const tmpV = new THREE.Vector3();
@@ -559,17 +558,21 @@ export class Debris {
     this.mesh.count = 0;
   }
 
-  /** Break a pixel model apart from `origin` (world), every pixel a cube. */
-  shatter(model: PixelModel, matrixWorld: THREE.Matrix4, origin: THREE.Vector3, power = 6, floorY = -1e9, keep = 1) {
+  /** Break a hull apart from `origin` (world), a cube for every art pixel of it. */
+  shatter(model: HullModel, matrixWorld: THREE.Matrix4, origin: THREE.Vector3, power = 6, floorY = -1e9, keep = 1) {
     const step = keep >= 1 ? 1 : Math.round(1 / keep);
-    const zs = [-model.depth / 2 + PX / 2, model.depth / 2 - PX / 2];
+    // Each pixel of the hull's nearest surface, and a chunk from a little inside it.
+    const inner = Math.min(model.depth * 0.5, PX * 6);
     const dir = new THREE.Vector3(), jit = new THREE.Vector3();
+    let hiWritten = this.mesh.count, wrapped = false;
     for (let k = 0; k < model.pixels.length; k += step) {
       const px = model.pixels[k];
-      for (const z of zs) {
+      for (const z of [px.z - PX / 2, px.z - inner]) {
         if (Math.random() < 0.45) continue;
         const i = this.next;
         this.next = (this.next + 1) % this.max;
+        if (this.next === 0) wrapped = true;
+        hiWritten = Math.max(hiWritten, i + 1);
         tmpV.set(px.x, px.y, z).applyMatrix4(matrixWorld);
         this.p[i * 3] = tmpV.x; this.p[i * 3 + 1] = tmpV.y; this.p[i * 3 + 2] = tmpV.z;
         dir.copy(tmpV).sub(origin);
@@ -592,15 +595,16 @@ export class Debris {
       }
     }
     this.mesh.instanceColor!.needsUpdate = true;
-    if (this.alive > 0) this.mesh.count = this.max;
+    // Draw only the slots in use: up to the last one written (all of them once the ring wraps).
+    if (this.alive > 0) this.mesh.count = wrapped ? this.max : hiWritten;
   }
 
   private alive = 0;
   update(dt: number) {
     if (this.alive === 0) return;
     const d = this.dummy;
-    let alive = 0, bounces = 0, trails = 0;
-    for (let i = 0; i < this.max; i++) {
+    let alive = 0, bounces = 0, trails = 0, hi = 0;
+    for (let i = 0; i < this.mesh.count; i++) {
       if (this.age[i] > this.life[i]) continue;
       this.age[i] += dt;
       const t = this.age[i] / this.life[i];
@@ -610,6 +614,7 @@ export class Debris {
         continue;
       }
       alive++;
+      hi = i + 1;
       this.v[i * 3 + 1] -= 5.5 * dt;
       const dr = Math.exp(-0.9 * dt);
       this.v[i * 3] *= dr; this.v[i * 3 + 2] *= dr;
@@ -637,7 +642,10 @@ export class Debris {
     this.alive = alive;
     this.mesh.instanceMatrix.needsUpdate = true;
     this.heatAttr.needsUpdate = true;
-    if (alive === 0) this.mesh.count = 0;
+    // Only as many instances as the last flying chunk needs (each is 12 triangles: a full ring of
+    // 6000 is 72k). Once nothing flies the ring starts again at slot 0, so the next blast stays short.
+    this.mesh.count = hi;
+    if (alive === 0) this.next = 0;
   }
 
   /** Drop every flying cube at once (a new board starts clean). */
@@ -647,6 +655,7 @@ export class Debris {
     this.dummy.updateMatrix();
     for (let i = 0; i < this.max; i++) if (this.age[i] <= this.life[i]) { this.age[i] = 1e9; this.mesh.setMatrixAt(i, this.dummy.matrix); }
     this.alive = 0;
+    this.next = 0;
     this.mesh.instanceMatrix.needsUpdate = true;
     this.mesh.count = 0;
   }

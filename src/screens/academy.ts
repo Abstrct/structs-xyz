@@ -27,7 +27,7 @@ import { dailyScenario } from '../sim/fleets';
 import { matchupQuestion, priceQuestion, codeQuestion, type MatchupQuestion, type PriceQuestion, type CodeQuestion } from '../game/practice';
 import { dailyBest, dailyStreak } from './battle/record';
 import { AMBITS, AMBIT_NAME, TYPES_BY_ID } from '../data/catalogue';
-import { spriteDataUrl } from '../gfx/pixelModel';
+import { structPortrait } from '../gfx/hull/portrait';
 
 type Tab = Track['id'] | 'career' | 'glossary';
 /** What the main panel shows in a track: one lesson (by id), or the track's practice game. */
@@ -443,7 +443,7 @@ export class AcademyScreen extends PanelScreen {
   private matchupBoard(q: MatchupQuestion, answered: boolean): HTMLElement {
     const unit = (id: number, side: 'player' | 'enemy') => {
       const img = h('img', { alt: '' });
-      void spriteDataUrl(id).then((u) => { img.src = u; });
+      void structPortrait(id).then((u) => { img.src = u; });
       return h('span', { class: 'ac-mx-unit ' + side, title: TYPES_BY_ID[id]?.type || '' }, img);
     };
     const verdict = answered ? (q.yes ? h('span', { class: 'ac-mx-verdict yes', html: icon('check', 16), title: 'In reach' }) : h('span', { class: 'ac-mx-verdict no', title: 'Out of reach' }, '✕')) : null;

@@ -376,8 +376,9 @@ input.range:focus-visible { outline: 2px solid var(--focus-ring); outline-offset
 .pfp.sm { width: 40px; height: 40px; }
 .pfp.player { border-color: var(--accent-primary); box-shadow: inset 0 0 0 1px rgba(0,0,0,.45), 0 0 10px rgba(67,205,182,.28); }
 .pfp.enemy { border-color: var(--accent-destructive); box-shadow: inset 0 0 0 1px rgba(0,0,0,.45), 0 0 10px rgba(238,125,105,.28); }
-.sprite { image-rendering: pixelated; width: 64px; height: 64px; flex: none; position: relative; }
-.sprite img { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+/* Struct pictures are rendered from the hull models (src/gfx/hull): smooth, never pixelated. */
+.sprite { width: 64px; height: 64px; flex: none; position: relative; }
+.sprite img { position: absolute; inset: 0; width: 100%; height: 100%; }
 
 kbd { font-family: var(--font-ticker); font-size: 11px; padding: 1px 5px; border: 1px solid rgba(150,190,204,.45); color: var(--text-hint);
   background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.01)), rgba(0,0,0,.35); box-shadow: inset 0 -1px 0 rgba(0,0,0,.5), 0 1px 0 rgba(0,0,0,.45); }

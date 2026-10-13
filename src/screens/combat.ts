@@ -17,7 +17,7 @@ import { currentRoute, replaceRoute, routeUrl } from '../core/nav';
 import { type Ambit, AMBITS, AMBIT_NAME, COMMAND_SHIP_ID, TYPES_BY_ID, weaponLabel, type WeaponSystem } from '../data/catalogue';
 import { encodeBattle, type Side, type Unit, unitId, validate } from '../sim/fleets';
 import { createNebulaSky, createStarfield, tickSpace } from '../gfx/space';
-import { spriteDataUrl } from '../gfx/pixelModel';
+import { structPortrait } from '../gfx/hull/portrait';
 import { BattleView, UnitView, type SideV } from './battle/view';
 import { addBattleLights, WORLD_PALETTES } from './battle/env';
 import { BoardZoom, bindPinch, bindTap } from './battle/zoom';
@@ -34,7 +34,7 @@ const ico = (name: string, size = 16, cls = '') => h('span', { class: 'dw-ico' +
 /** A struct type's sprite, filled in when it has been drawn. */
 function sprite(typeId: string | number, cls = 'cr-thumb', title?: string) {
   const img = h('img', { class: 'cr-sprite', alt: '' }) as HTMLImageElement;
-  void spriteDataUrl(Number(typeId)).then((u) => { img.src = u; }).catch(() => {});
+  void structPortrait(Number(typeId)).then((u) => { img.src = u; }).catch(() => {});
   return h('span', { class: cls, title }, img);
 }
 /** A result call: DESTROYED, BLOCKED, EVADED. */

@@ -11,7 +11,7 @@ import { playerOfUser } from '../../chat/format';
 import { store } from '../../chain/store';
 import { pfpAttrs, type PfpAttrs } from '../../data/droidParts';
 import { DroidActor } from '../../gfx/droid/actor';
-import { homeSpot, clampWalk } from './layout';
+import { homeSpot, clampWalk, floorAt } from './layout';
 export { homeSpot, clampWalk };
 import type { Msg, Room } from '../../chat/model';
 
@@ -179,6 +179,7 @@ export class Crowd {
         const d = Math.hypot(meAt.x - pos.x, meAt.z - pos.z);
         p.actor.look = d < 4 ? wrap(Math.atan2(meAt.x - pos.x, meAt.z - pos.z) - p.yaw) : null;
       } else p.actor.look = null;
+      pos.y = floorAt(pos.x, pos.z);
       p.actor.setFar(camera.position.distanceTo(pos) > 30);
       p.actor.update(dt, t);
     }

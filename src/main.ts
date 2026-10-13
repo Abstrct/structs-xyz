@@ -9,7 +9,7 @@ import { store } from './chain/store';
 import { lcd } from './chain/lcd';
 import { TIPS } from './data/lore';
 import { STRUCT_TYPES } from './data/catalogue';
-import { getPixelModel } from './gfx/pixelModel';
+import { getHullModel } from './gfx/hull/model';
 import { applySettings, loadSettings, openSettings, setExpert } from './core/settings';
 import { wallet } from './wallet/wallet';
 import { txq } from './wallet/queue';
@@ -580,9 +580,15 @@ async function boot() {
   try { startPad(); } catch (e) { console.warn('[pad] no controllers here', e); }
   // A tap reads what a hover would (stat chips and icons explain themselves in their titles).
   startPeek();
-  // Warm the model cache while idle so the simulator and codex open instantly.
-  const idle = (window as unknown as { requestIdleCallback?: (f: () => void) => void }).requestIdleCallback || ((f: () => void) => setTimeout(f, 1500));
-  idle(() => { for (const t of STRUCT_TYPES) { void getPixelModel(t.id, 'player'); void getPixelModel(t.id, 'enemy'); } });
+  // Build the hulls while idle, a few per idle slice, so the simulator and codex open instantly.
+  type Idle = (f: (d?: { timeRemaining(): number }) => void) => void;
+  const idle: Idle = (window as unknown as { requestIdleCallback?: Idle }).requestIdleCallback || ((f) => setTimeout(f, 300));
+  const todo = STRUCT_TYPES.flatMap((t) => [() => getHullModel(t.id, 'player'), () => getHullModel(t.id, 'enemy')]);
+  const build = (d?: { timeRemaining(): number }) => {
+    do todo.shift()?.(); while (todo.length && d && d.timeRemaining() > 6);
+    if (todo.length) idle(build);
+  };
+  setTimeout(() => idle(build), 1500);
 }
 
 void boot();

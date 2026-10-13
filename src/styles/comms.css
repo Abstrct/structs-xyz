@@ -224,7 +224,7 @@ a.cp-link:hover { color: #fff; }
 .cp-rg.emoji { font-size: 13px; }
 .cp-rg.tone-player { color: var(--accent-primary); } .cp-rg.tone-enemy { color: var(--accent-destructive); } .cp-rg.tone-warn { color: var(--text-warning); }
 .cp-rg.tone-neutral { color: var(--text-neutral-primary); } .cp-rg.tone-hint { color: var(--text-hint); }
-.cp-rg-img { width: 18px; height: 18px; image-rendering: pixelated; object-fit: contain; }
+.cp-rg-img { width: 18px; height: 18px; object-fit: cover; }
 .cp-seen { display: flex; justify-content: flex-end; gap: 2px; min-height: 0; }
 .cp-seen:not(:empty) { margin-top: 3px; }
 .cp-seen .pfp.cp-face.xs { width: 14px; height: 14px; opacity: .85; }

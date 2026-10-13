@@ -26,7 +26,7 @@ import {
   roleOf, TYPES_BY_ID, type StructType, type WeaponSystem, hasWeapon, weaponField, weaponLabel,
 } from '../data/catalogue';
 import { createNebulaSky, createStarfield, tickSpace } from '../gfx/space';
-import { spriteDataUrl } from '../gfx/pixelModel';
+import { structPortrait } from '../gfx/hull/portrait';
 import { BattleView, UnitView, type SideV } from './battle/view';
 import { BoardZoom, bindDrag, bindPinch, bindTap } from './battle/zoom';
 import { addBattleLights, WORLD_PALETTES } from './battle/env';
@@ -938,7 +938,7 @@ export class PlanetScreen implements Screen {
     const mine = this.sideOf(st.owner) === 'player';
     const hp = num(at.health);
     const img = h('img', { alt: t.type });
-    void spriteDataUrl(t.id, hp < t.maxHealth ? 'dmg' : 'base').then((u) => { img.src = u; });
+    void structPortrait(t.id, hp < t.maxHealth ? 'dmg' : 'base', mine ? 'player' : 'enemy').then((u) => { img.src = u; });
     const weapons = (['primaryWeapon', 'secondaryWeapon'] as WeaponSystem[]).filter((ws) => hasWeapon(t, ws));
     const cmds: string[] = [];
     if (weapons.length) cmds.push(`# fire on another struct with ${weaponLabel(t, weapons[0])}\nstructsd tx structs struct-attack --from [key] --gas auto --gas-adjustment 1.5 -- ${st.id} [target-struct-id] ${weapons[0]}`);
@@ -1272,7 +1272,7 @@ export class PlanetScreen implements Screen {
     const t = TYPES_BY_ID[Number(st.type)];
     const hp = num(at.health);
     const img = h('img', { alt: t.type });
-    void spriteDataUrl(t.id, hp < t.maxHealth ? 'dmg' : 'base').then((u) => { img.src = u; });
+    void structPortrait(t.id, hp < t.maxHealth ? 'dmg' : 'base').then((u) => { img.src = u; });
     const f = this.field()!;
     const own = asOwned(s);
     // Attack and guard need the owner's grid online too (ReadinessCheck, DefenseSet); a move doesn't.
@@ -1344,7 +1344,7 @@ export class PlanetScreen implements Screen {
     const close = () => { this.buildAt = null; audio.play('select'); this.refreshField(true); };
     const opts = types.map((t) => {
       const img = h('img', { alt: '', draggable: false });
-      void spriteDataUrl(t.id).then((u) => { img.src = u; });
+      void structPortrait(t.id).then((u) => { img.src = u; });
       const have = owned(t);
       const limit = !!t.buildLimit && have >= t.buildLimit;
       const no = why || (p ? this.typeWhy(t, p) : 'reading your empire');

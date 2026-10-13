@@ -148,7 +148,7 @@
 .screen.combat .dw-seq { font-family: var(--font-chrome); font-weight: 900; font-size: 16px; color: var(--dc-x); }
 .screen.combat .dw-atk { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 16px; background: rgba(5, 9, 40, 0.45); border: 2px solid rgba(110, 140, 240, 0.25); cursor: help; }
 .screen.combat .dw-spr { position: relative; flex: none; width: 34px; height: 34px; overflow: hidden; border-radius: 8px; background: rgba(0, 0, 0, 0.25); }
-.screen.combat .dw-spr img { position: absolute; width: 68px; height: 68px; left: -17px; top: -17px; image-rendering: pixelated; }
+.screen.combat .dw-spr img { position: absolute; width: 68px; height: 68px; left: -17px; top: -17px; }
 .screen.combat .dw-spr.big { width: 52px; height: 52px; border-radius: 12px; }
 .screen.combat .dw-spr.big img { width: 104px; height: 104px; left: -26px; top: -26px; }
 .screen.combat .dw-spr.sm { width: 24px; height: 24px; border-radius: 6px; }

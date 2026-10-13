@@ -1,7 +1,6 @@
 /* The struct catalogue: chain mechanics (synced from the testnet LCD) plus the
  * production copy (weapon names, drive and passive labels) and the art map. */
 import raw from './structTypes.json';
-import { asset } from '../core/base';
 
 export type Ambit = 'space' | 'air' | 'land' | 'water';
 export const AMBITS: Ambit[] = ['space', 'air', 'land', 'water'];
@@ -151,41 +150,17 @@ export const PASSIVE_NAME: Record<string, string> = {
   lastResort: 'Last Resort',
 };
 
-/* ── Art ───────────────────────────────────────────────────────────────── */
+/* ── Slugs ─────────────────────────────────────────────────────────────── */
 
-export interface ArtSpec { dir: string; bottom: string[]; top: string[]; hidden?: boolean }
-/** battle-art.js, keyed by type id. 21 and 22 have no official art. */
-export const ART: Record<number, ArtSpec | null> = {
-  1: { dir: 'cmd-ship', bottom: [], top: ['top-weapon'] },
-  2: { dir: 'battleship', bottom: [], top: [] },
-  3: { dir: 'starfighter', bottom: ['bottom-weapon-smart'], top: ['top-weapon-ballistic'] },
-  4: { dir: 'frigate', bottom: ['bottom-weapon'], top: [] },
-  5: { dir: 'pursuit-fighter', bottom: ['bottom-weapon'], top: [] },
-  6: { dir: 'stealth-bomber', bottom: ['bottom-weapon'], top: [] },
-  7: { dir: 'interceptor', bottom: ['bottom-weapon'], top: [] },
-  8: { dir: 'mobile-artillery', bottom: [], top: ['top-weapon'] },
-  9: { dir: 'tank', bottom: [], top: ['top-weapon'] },
-  10: { dir: 'sam-launcher', bottom: [], top: ['top-weapon'] },
-  11: { dir: 'cruiser', bottom: ['bottom-ripples'], top: ['top-weapon-ballistic', 'top-weapon-smart'] },
-  12: { dir: 'destroyer', bottom: ['bottom-ripples'], top: ['top-weapon'] },
-  13: { dir: 'submersible', bottom: ['bottom-ripples'], top: ['top-weapon'], hidden: true },
-  14: { dir: 'extractor', bottom: [], top: ['top-drill'] },
-  15: { dir: 'refinery', bottom: [], top: ['top-bays'] },
-  16: { dir: 'orb-shield', bottom: [], top: ['top-weapon'] },
-  17: { dir: 'jamming-sat', bottom: [], top: ['top-weapon'] },
-  18: { dir: 'ore-bunker', bottom: [], top: ['top-weapon'] },
-  19: { dir: 'pdc', bottom: [], top: ['top-weapon'] },
-  20: { dir: 'generator', bottom: [], top: ['top-tube'] },
-  21: null,
-  22: null,
+/** A short stable name per struct type (the official art's folder names): chat reactions carry
+ * them (`:struct/tank:`). The pictures themselves are drawn in code (src/gfx/hull). */
+export const STRUCT_SLUG: Record<number, string> = {
+  1: 'cmd-ship', 2: 'battleship', 3: 'starfighter', 4: 'frigate', 5: 'pursuit-fighter', 6: 'stealth-bomber', 7: 'interceptor',
+  8: 'mobile-artillery', 9: 'tank', 10: 'sam-launcher', 11: 'cruiser', 12: 'destroyer', 13: 'submersible', 14: 'extractor',
+  15: 'refinery', 16: 'orb-shield', 17: 'jamming-sat', 18: 'ore-bunker', 19: 'pdc', 20: 'generator',
 };
-
-export function artLayers(typeId: number, variant: 'base' | 'dmg' = 'base'): string[] {
-  const a = ART[typeId];
-  if (!a) return [];
-  const p = (layer: string) => asset(`/img/structs/${a.dir}/${a.dir}-${layer}.webp`);
-  return [...a.bottom.map(p), p('struct-' + variant), ...a.top.map(p)];
-}
+/** The struct type a slug names (0 for none). */
+export const typeBySlug = (slug: string) => Number(Object.keys(STRUCT_SLUG).find((k) => STRUCT_SLUG[Number(k)] === slug) ?? 0);
 
 /** One-line role summary for the codex and tooltips. */
 export function roleOf(t: StructType): string {

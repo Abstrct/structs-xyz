@@ -7,6 +7,8 @@ import { comms } from '../../chat/matrix';
 import { guildInfo } from '../../chat/guilds';
 import { idKind, playerOfUser, REACTION_ART, refRoute, segment, structReaction, type Pill } from '../../chat/format';
 import type { Room } from '../../chat/model';
+import { typeBySlug } from '../../data/catalogue';
+import { structPortrait } from '../../gfx/hull/portrait';
 
 export type Nav = (hash: string) => void;
 
@@ -109,7 +111,11 @@ export function reactionGlyph(key: string): HTMLElement {
   const art = REACTION_ART[key];
   if (art) return h('span', { class: 'cp-rg tone-' + art.tone, title: art.label }, art.glyph);
   const st = structReaction(key);
-  if (st) return h('img', { class: 'cp-rg-img', src: `/img/structs/${st}/${st}-struct-base.webp`, alt: st, title: st, draggable: false });
+  if (st) {
+    const img = h('img', { class: 'cp-rg-img', alt: st, title: st, draggable: false }) as HTMLImageElement;
+    void structPortrait(typeBySlug(st)).then((u) => { img.src = u; });
+    return img;
+  }
   return h('span', { class: 'cp-rg emoji' }, key.length > 12 ? key.slice(0, 12) + '…' : key);
 }
 

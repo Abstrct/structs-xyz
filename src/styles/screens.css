@@ -47,7 +47,7 @@
 .slot-opt { appearance: none; display: flex; align-items: center; gap: 8px; text-align: left; padding: 4px 6px; border: 1px solid var(--hair); background: linear-gradient(90deg, rgba(255,255,255,.03), transparent), rgba(6,10,15,.6); cursor: pointer; color: var(--text-body); font-family: var(--font-content); font-size: 13px; transition: border-color .15s, box-shadow .15s; }
 .slot-opt:hover { border-color: var(--accent-primary); background: linear-gradient(90deg, rgba(67,205,182,.18), rgba(67,205,182,.03)), rgba(8,22,28,.7); box-shadow: 0 0 14px rgba(67,205,182,.15); }
 .slot-opt.active { border-color: var(--accent-primary); box-shadow: inset 2px 0 0 var(--accent-primary); }
-.slot-img { width: 48px; height: 48px; image-rendering: pixelated; flex: none; object-fit: cover; object-position: center; transform: scale(1.4); }
+.slot-img { width: 48px; height: 48px; flex: none; object-fit: cover; object-position: center; transform: scale(1.4); }
 
 /* ── Battle: HUD ────────────────────────────────────────────────────────── */
 .battle-top { position: absolute; top: 54px; left: 50%; transform: translateX(-50%); display: grid; grid-template-columns: 290px 220px 290px; gap: 10px; align-items: start; }
@@ -293,7 +293,7 @@ pre.cli { margin: 0; padding: 8px; background: var(--scan), linear-gradient(180d
 .codex-item.active { border-color: var(--accent-primary); background: linear-gradient(180deg, rgba(67,205,182,.26), rgba(28,95,106,.32)), rgba(8,22,28,.7); color: var(--accent-primary-active); box-shadow: inset 2px 0 0 var(--accent-primary), 0 0 16px rgba(67,205,182,.22); }
 .codex-thumb { width: 34px; height: 34px; flex: none; overflow: hidden; position: relative; background: radial-gradient(circle at 50% 60%, rgba(150,190,204,.12), transparent 70%); }
 .codex-item.active .codex-thumb { background: radial-gradient(circle at 50% 60%, rgba(67,205,182,.3), transparent 70%); }
-.codex-thumb img { position: absolute; width: 68px; height: 68px; left: -17px; top: -17px; image-rendering: pixelated; }
+.codex-thumb img { position: absolute; width: 68px; height: 68px; left: -17px; top: -17px; }
 .codex-detail { position: absolute; right: 16px; top: 60px; width: 370px; max-height: calc(100% - 76px); }
 .weapon-block { border: 1px solid var(--hair); padding: 8px; display: flex; flex-direction: column; gap: 5px; background: linear-gradient(180deg, rgba(150,190,204,.06), rgba(150,190,204,0) 40px), rgba(4,8,12,.38); box-shadow: inset 2px 0 0 rgba(150,190,204,.35); }
 @media (max-width: 900px) {
@@ -486,7 +486,7 @@ table.matrix .mx-cell.none { color: var(--accent-disabled); }
 @media (max-width: 420px) { .nav .btn { padding: 6px 3px; letter-spacing: .04em; } .topbar .brand { display: none; } }
 .lg-site { width: 9px; height: 9px; border: 2px solid #ff4a3a; border-radius: 50%; box-shadow: 0 0 6px rgba(255,74,58,.7); background: transparent; }
 .cr-thumb { width: 28px; height: 28px; overflow: hidden; position: relative; }
-.cr-thumb img { position: absolute; width: 56px; height: 56px; left: -14px; top: -14px; image-rendering: pixelated; }
+.cr-thumb img { position: absolute; width: 56px; height: 56px; left: -14px; top: -14px; }
 .field-record { display: flex; flex-direction: column; gap: 4px; padding: 8px; border: 1px solid rgba(255,74,58,.3); background: linear-gradient(180deg, rgba(255,74,58,.1), rgba(40,12,12,.2)); box-shadow: inset 2px 0 0 rgba(255,74,58,.6); }
 .grid-label.me { border-color: rgba(255,255,255,.75); background: rgba(6,10,15,.84); box-shadow: 0 0 12px rgba(255,255,255,.2); }
 .grid-label.me .t-label { color: #fff; }
