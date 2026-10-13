@@ -375,6 +375,8 @@ export class BattleView {
   private floaters: Floater[] = [];
   /** Screen y the floating words keep below (the battle screen's HUD cards; 0: none). */
   floorY = 0;
+  /** Screen y the floating words keep above (the action bar's top; 0: none). */
+  ceilY = 0;
   private queue: (() => Promise<void>)[] = [];
   private running = false;
   private tethers = new Map<string, { mesh: THREE.Mesh; mat: THREE.ShaderMaterial; from: string; to: string; t: number; dying: boolean }>();
@@ -1126,6 +1128,9 @@ export class BattleView {
       u.tag.style.transform = `translate(${((v.x + 1) / 2) * w}px, ${((1 - v.y) / 2) * hgt}px) translate(-50%, -100%)`;
       if (u.tag.style.visibility) u.tag.style.visibility = '';
     }
+    // Words placed this frame, newest first: a word that would print over one already placed (two ships
+    // side by side, or both pinned to the HUD's floor) steps down below it, as a stack does.
+    const placed: { x: number; y: number; hw: number; hh: number }[] = [];
     for (let i = this.floaters.length - 1; i >= 0; i--) {
       const f = this.floaters[i];
       f.age += dt;
@@ -1135,11 +1140,25 @@ export class BattleView {
       v.project(this.camera);
       // (Newest first: a word stacked on an older one keeps it a full line below, as 0.9 units is under a
       // line on a phone and the HUD's floor can press a stack together. The older word gives way, downward.)
-      const y = Math.max(this.floorOf(f), ((1 - v.y) / 2) * hgt, f.minY ?? -Infinity);
+      let y = Math.max(this.floorOf(f), ((1 - v.y) / 2) * hgt, f.minY ?? -Infinity);
       f.minY = undefined;
+      const x = clampX(((v.x + 1) / 2) * w, f.half || 0), hw = f.half || 0, hh = f.halfH || 0;
+      // (Down first, as a stack reads; where that would slip under the action bar, up above the word in
+      // the way instead, short of the HUD's floor.)
+      const lo = this.ceilY ? this.ceilY - hh : Infinity, hi = this.floorY ? this.floorY + hh : -Infinity;
+      for (let n = 0; n < 6; n++) {
+        const o = placed.find((p) => Math.abs(p.x - x) < p.hw + hw && Math.abs(p.y - y) < p.hh + hh);
+        if (!o) break;
+        const down = o.y + o.hh + hh + 2, up = o.y - o.hh - hh - 2;
+        if (down <= lo) y = down;
+        else if (up >= hi) y = up;
+        else break;
+      }
+      y = Math.min(y, Math.max(lo, hi));
+      placed.push({ x, y, hw, hh });
       const u = f.under;
-      if (u?.el.isConnected) u.minY = Math.max(u.minY ?? -Infinity, y + (f.halfH || 0) + (u.halfH || 0) + 2);
-      f.el.style.transform = `translate(${clampX(((v.x + 1) / 2) * w, f.half || 0)}px, ${y}px) translate(-50%, -50%) scale(${k < 0.12 ? 0.6 + k * 4 : 1})`;
+      if (u?.el.isConnected) u.minY = Math.max(u.minY ?? -Infinity, y + hh + (u.halfH || 0) + 2);
+      f.el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) scale(${k < 0.12 ? 0.6 + k * 4 : 1})`;
       f.el.style.opacity = String(k > 0.7 ? 1 - (k - 0.7) / 0.3 : 1);
     }
   }

@@ -204,7 +204,22 @@ export const GAUNTLET_ROUNDS: { preset: Preset; difficulty: Difficulty; name: st
   { preset: 'random', difficulty: 'hard', name: 'Armada', minEnemy: 10 },
 ];
 
-export function gauntletEnemy(round: number, seed: string): Unit[] {
+/** The boss round's largest fleet against `players` ships of yours: a fifth more, and at least two more. */
+export function bossCap(players: number) { return Math.max(Math.ceil(players * 1.2), players + 2); }
+
+/** A round's enemy. `players` (your fleet's size, when known): the boss round is capped at bossCap(players)
+ * (their Command Ship always stays; guards of a ship left out stand down). */
+export function gauntletEnemy(round: number, seed: string, players?: number): Unit[] {
+  const enemy = gauntletEnemyFull(round, seed);
+  if (!players || round < GAUNTLET_ROUNDS.length) return enemy;
+  const max = bossCap(players);
+  if (enemy.length <= max) return enemy;
+  const cs = enemy.filter((u) => u.type === COMMAND_SHIP_ID);
+  const rest = enemy.filter((u) => u.type !== COMMAND_SHIP_ID).sort((a, b) => a.slot - b.slot || AMBITS.indexOf(a.ambit) - AMBITS.indexOf(b.ambit));
+  const kept = [...cs, ...rest.slice(0, Math.max(0, max - cs.length))], ids = new Set(kept.map((u) => u.id));
+  return kept.map((u) => (u.protects && !ids.has(u.protects) ? { ...u, protects: null } : u));
+}
+function gauntletEnemyFull(round: number, seed: string): Unit[] {
   const r = GAUNTLET_ROUNDS[Math.min(round, GAUNTLET_ROUNDS.length) - 1];
   // Random rounds reroll until the enemy is at least as big as the round demands.
   const min = r.minEnemy || 0;

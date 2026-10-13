@@ -96,6 +96,7 @@ const COACH_ANCHOR: Record<string, string> = {
   drift: '.action-bar .drift || .battle-top .fleet-card.player',
   flagship: '.action-bar .btn.action.weapon.active',
   stuck: '.action-bar .drift .btn.mini.dc-go-layer || .action-bar .drift',
+  hunt: '.action-bar .drift || .battle-top .fleet-card.player',
 };
 
 export class BattleScreen implements Screen {
@@ -657,6 +658,8 @@ export class BattleScreen implements Screen {
         h('div', { class: 'dc-setup-head' }, h('span', { class: 'dc-setup-ico', html: icon('target', 30) }), h('span', { class: 't-display' }, g ? `Round ${g.round}/5` : this.daily ? this.daily.name.replace(/^Operation /, '') : 'Battle'),
           this.gauntletWins() ? h('span', { class: 'dc-gauntlet-trophy', title: `Gauntlet won${this.gauntletWins() > 1 ? ` ×${this.gauntletWins()}` : ''}${this.gauntletBestMs() ? ` · best run ${clock(this.gauntletBestMs())}` : ''}`, 'aria-label': 'Gauntlet won', html: icon('flag', 16) }) : null,
           this.ladderCleared() ? h('span', { class: 'dc-ladder-crown', title: `Ladder cleared${this.ladderCleared() > 1 ? ` ×${this.ladderCleared()}` : ''}: you beat a Large fleet on Hard`, 'aria-label': 'Ladder cleared', html: icon('crown', 18) }) : null),
+        // The boss round: what it does, in one line, first thing under the heading.
+        g && !g.over && g.round === GAUNTLET_ROUNDS.length ? h('div', { class: 'dc-reach-cue boss', title: 'The boss fleet hunts your Command Ship: set a guard on it in its own layer before you fire' }, h('span', { html: icon('crown', 16) }), 'Boss hunts your flagship: guard it first') : null,
         this.scenario ? h('div', { class: 'scenario', title: 'Fleets as they really were: ship types, layers, guards and damage' }, h('span', { html: icon('replay', 16) }), h('span', null, this.scenario)) : null,
         h('div', { class: 'dc-size-row', title: 'How big is the enemy fleet?' }, h('span', { class: 'c-enemy', html: icon('ship', 18) }), h('div', { class: 'choice-grid dc-sizes' }, presetBtns)),
         h('div', { class: 'dc-challenges' },
@@ -876,7 +879,7 @@ export class BattleScreen implements Screen {
   /** Back to the run: owe a reinforcement pick first, then the next round's setup. */
   private resumeGauntlet() {
     const g = this.gauntlet;
-    if (!g || g.over) { this.gauntlet = null; this.toSetup(true); return; }
+    if (!g || g.over) { if (g) this.restorePreRun(); this.gauntlet = null; this.toSetup(true); return; }
     if (g.reinforce) this.showReinforcements(() => { g.reinforce = false; this.loadGauntletRound(); });
     else this.loadGauntletRound();
   }
@@ -909,7 +912,8 @@ export class BattleScreen implements Screen {
     g.engaged = false;
     const r = GAUNTLET_ROUNDS[g.round - 1];
     this.difficulty = r.difficulty;
-    this.draft = [...g.fleet.map((u) => ({ ...u })), ...gauntletEnemy(g.round, g.seed)];
+    // (The boss is sized to the fleet you bring: bossCap.)
+    this.draft = [...g.fleet.map((u) => ({ ...u })), ...gauntletEnemy(g.round, g.seed, g.fleet.length)];
     this.toSetup(false);
     if (!quiet) banner(`ROUND ${g.round}`, `GAUNTLET · ${r.name.toUpperCase()}`, 'neutral', 1600);
   }
@@ -936,7 +940,7 @@ export class BattleScreen implements Screen {
     // The run may have been abandoned while the picker was open: then the pick does nothing.
     const choose = (f: () => void) => { audio.play('confirm'); back.remove(); if (this.gauntlet !== g || !g.reinforce) return; f(); if (this.root.isConnected) onDone(); };
     // The next round's flagship out of every ship's reach: one offer is a ship that reaches it (crowned).
-    const nextCs = gauntletEnemy(g.round, g.seed).find((u) => u.type === COMMAND_SHIP_ID);
+    const nextCs = gauntletEnemy(g.round, g.seed, g.fleet.length).find((u) => u.type === COMMAND_SHIP_ID);
     const reaches = (type: number, from: Ambit, to: Ambit) => (['primaryWeapon', 'secondaryWeapon'] as WeaponSystem[]).some((ws) => hasWeapon(TYPES_BY_ID[type], ws) && canTargetAmbit(TYPES_BY_ID[type], ws, from, to));
     let reacher = -1;
     if (nextCs && !g.fleet.some((u) => reaches(u.type, u.ambit, nextCs.ambit)) && !offers.some((o) => reaches(o.type, o.ambit, nextCs.ambit))) {
@@ -946,8 +950,9 @@ export class BattleScreen implements Screen {
         if (ft.id === COMMAND_SHIP_ID) continue;
         for (const cell of free) if (fits(ft.id, cell.ambit) && reaches(ft.id, cell.ambit, nextCs.ambit)) {
           const o = { type: ft.id, ambit: cell.ambit, slot: cell.slot };
-          if (offers.length >= 3) offers[offers.length - 1] = o; else offers.push(o);
-          reacher = offers.indexOf(o);
+          if (offers.length >= 3) offers.pop();
+          offers.unshift(o);
+          reacher = 0;
           break outer;
         }
       }
@@ -959,7 +964,7 @@ export class BattleScreen implements Screen {
       const t = TYPES_BY_ID[o.type];
       const img = h('img', { alt: '' });
       void structPortrait(o.type).then((u) => { img.src = u; });
-      return h('button', { class: 'reward', onclick: () => choose(() => { g.fleet.push({ id: unitId('player', o.type, o.ambit, o.slot), side: 'player', type: o.type, ambit: o.ambit, slot: o.slot, protects: null }); if (few && cmd) cmd.health = undefined; }) },
+      return h('button', { class: 'reward' + (offers.indexOf(o) === reacher ? ' reach' : ''), onclick: () => choose(() => { g.fleet.push({ id: unitId('player', o.type, o.ambit, o.slot), side: 'player', type: o.type, ambit: o.ambit, slot: o.slot, protects: null }); if (few && cmd) cmd.health = undefined; }) },
         h('div', { class: 'sprite big player' }, img), h('div', { class: 't-label c-player' }, t.type), h('div', { class: 't-tiny c-hint' }, `${AMBIT_NAME[o.ambit]} · ${roleOf(t)}`),
         offers.indexOf(o) === reacher && nextCs ? h('div', { class: 't-tiny c-warn reward-reach', title: `Next round their flagship flies in ${AMBIT_NAME[nextCs.ambit]}: none of yours reach it` }, h('span', { html: icon('crown', 12) }), ` Reaches ${AMBIT_NAME[nextCs.ambit]}`) : null,
         few ? h('div', { class: 't-tiny c-player' }, '✚ and a full repair') : null);
@@ -976,7 +981,7 @@ export class BattleScreen implements Screen {
         cards.length ? null : h('button', { class: 'btn solid', onclick: () => { back.remove(); if (this.gauntlet === g && g.reinforce) onDone(); } }, 'Continue'))));
     document.body.appendChild(back);
     // The cursor starts on a card, so Enter (or a pad's A) picks and the d-pad walks the others.
-    requestAnimationFrame(() => back.querySelector<HTMLElement>('.reward, .btn.solid')?.focus({ preventScroll: true, focusVisible: document.body.classList.contains('pad') } as FocusOptions));
+    requestAnimationFrame(() => (back.querySelector<HTMLElement>('.reward.reach') || back.querySelector<HTMLElement>('.reward, .btn.solid'))?.focus({ preventScroll: true, focusVisible: document.body.classList.contains('pad') } as FocusOptions));
   }
 
   private tryLoadCode(code: string) {
@@ -1122,6 +1127,8 @@ export class BattleScreen implements Screen {
     this.session.onOvertime = () => {
       banner('OVERTIME', 'MORE HULL WINS', 'neutral', 1800);
       audio.play('alert');
+      // (Their flagship still out of reach: where it hides, once more.)
+      setTimeout(() => { if (this.phase === 'battle') this.hideOvertime(); }, 1900);
     };
     if (this.spectate) {
       // Your side flies itself at Hard: the sharpest of the computer's levels.
@@ -1156,7 +1163,7 @@ export class BattleScreen implements Screen {
     this.stuckLayer = null;
     this.stuckWhy = 'reach';
     this.otBehind = false; this.otNudged = false; this.soNudged = false;
-    this.csReachAt = this.chain?.height ?? 0; this.hideNudged = false;
+    this.csReachAt = this.chain?.height ?? 0; this.hideNudged = false; this.huntSaid = false;
     this.flagshipTold = false;
     this.driftAsk = null;
     this.cmdHits = 0; this.cmdHitDmg = 0; this.cmdCounterDmg = 0; this.cmdGuardsSunk = 0; this.cmdGuardsLeft = 0; this.cmdGuardPossible = false; this.guardOfferDue = false; this.theirGuardMax = 0;
@@ -1266,7 +1273,16 @@ export class BattleScreen implements Screen {
     const theirs = Object.values(c.structs).find((x) => x.owner !== YOU.id && x.typeId === COMMAND_SHIP_ID && !c.isDestroyed(x));
     const mine = Object.values(c.structs).filter((x) => x.owner === YOU.id && !c.isDestroyed(x));
     if (!theirs || mine.some((x) => this.weaponsReady(x).some((w) => w.targets.some((t) => t.id === theirs.id)))) { this.csReachAt = height; return; }
-    if (this.hideNudged || height - this.csReachAt < 10) return;
+    const cmd0 = mine.find((x) => x.typeId === COMMAND_SHIP_ID);
+    const hunt0 = cmd0 ? this.huntLayer(c, cmd0, theirs) : null;
+    // After 6 turns: the Move step (plain: it holds nothing), once a fight, when there is a sound layer to go to.
+    if (!this.huntSaid && height - this.csReachAt >= 6 && hunt0) {
+      const M = AMBIT_NAME[hunt0];
+      this.coach('hunt', 'Move', { pad: `Y, then ${M}: reach their flagship`, keys: `D, then ${M}: reach their flagship`, touch: `Tap your flagship, then Move to ${M}` }, false, true);
+      if (this.coachKey === 'hunt' && this.coachEl?.isConnected) { this.huntSaid = true; this.movePulseUntil = performance.now() + 8000; this.pulseCoachTarget(); }
+    }
+    // The line: after 4 turns, and once more when overtime begins (hideOvertime).
+    if (this.hideNudged || height - this.csReachAt < 4) return;
     this.hideNudged = true;
     // Your flagship (it alone changes layer) goes only where the Move rule finds it safe, it isn't
     // crippled, and from there it reaches theirs; under fire or crippled it guards first; else the ship
@@ -1275,7 +1291,7 @@ export class BattleScreen implements Screen {
     const ct = cmd && TYPES_BY_ID[cmd.typeId];
     const reachFrom = (t: (typeof TYPES_BY_ID)[number], a: Ambit) => (['primaryWeapon', 'secondaryWeapon'] as WeaponSystem[]).some((ws) => hasWeapon(t, ws) && canTargetAmbit(t, ws, a, theirs.ambit));
     const adv = cmd && ct && ct.movable ? this.moveAdvice(c, cmd) : null;
-    const safeTo = adv?.to && ct && cmd && cmd.health > 2 && reachFrom(ct, adv.to) ? adv.to : null;
+    const safeTo = cmd ? this.huntLayer(c, cmd, theirs) : null;
     const L = AMBIT_NAME[theirs.ambit];
     let text: string;
     if (safeTo) {
@@ -1285,7 +1301,7 @@ export class BattleScreen implements Screen {
       const fc = this.root.querySelector<HTMLElement>('.battle-top .fleet-card.player');
       fc?.classList.add('dc-pulse'); setTimeout(() => { if (performance.now() >= this.movePulseUntil) fc?.classList.remove('dc-pulse'); }, 6050);
       this.renderActionBar();
-    } else if (cmd && (cmd.health <= 2 || (adv?.here ?? 0) > 0) && this.guardCandidate()) text = `Their flagship's in ${L}: guard yours first`;
+    } else if (cmd && (cmd.health <= 2 || (adv?.here ?? 0) > 0) && this.blockersOf(cmd.id).length < this.guardGoal && this.guardCandidate()) text = `Their flagship's in ${L}: guard yours first`;
     else if (cmd && (cmd.health <= 2 || (adv?.here ?? 0) > 0) && this.riskyLayer(c, cmd)) text = `Their flagship's in ${L}: move to ${AMBIT_NAME[this.riskyLayer(c, cmd)!]} (risky)`;
     else {
       const types = FLEET_TYPES.map((x) => TYPES_BY_ID[x.id]).filter((t) => t && t.id !== COMMAND_SHIP_ID && AMBITS.some((a) => (t.possibleAmbit & AMBIT_FLAG[a]) !== 0 && reachFrom(t, a)));
@@ -1296,6 +1312,34 @@ export class BattleScreen implements Screen {
   }
   /** The flagship's Move control pulses until then (a "move yours there" line is up). */
   private movePulseUntil = 0;
+  /** The plain Move step toward their hidden flagship has been given this fight. */
+  private huntSaid = false;
+  /** Enemy guns that reach a layer (as the Move rule counts them). */
+  private gunsOn(c: Chain, a: Ambit) {
+    return Object.values(c.structs).filter((f) => f.owner !== YOU.id && !c.isDestroyed(f) && (['primaryWeapon', 'secondaryWeapon'] as WeaponSystem[]).some((ws) => hasWeapon(TYPES_BY_ID[f.typeId], ws) && canTargetAmbit(TYPES_BY_ID[f.typeId], ws, f.ambit, a))).length;
+  }
+  /** Where your flagship should go to reach theirs: the Move rule's safe layer if it reaches it (and it has
+   * more than 2 hull); else the reaching layer with the fewest guns, when none reach it there or it is no
+   * worse than here with more than twice their guns in hull. Null: stay (the risky way is the endgame's). */
+  private huntLayer(c: Chain, cmd: SimStruct, theirs: SimStruct): Ambit | null {
+    const t = TYPES_BY_ID[cmd.typeId];
+    if (!t.movable) return null;
+    const reachFrom = (a: Ambit) => (['primaryWeapon', 'secondaryWeapon'] as WeaponSystem[]).some((ws) => hasWeapon(t, ws) && canTargetAmbit(t, ws, a, theirs.ambit));
+    const adv = this.moveAdvice(c, cmd);
+    if (adv.to && reachFrom(adv.to) && cmd.health > 2) return adv.to;
+    const cands = AMBITS.filter((a) => a !== cmd.ambit && (t.possibleAmbit & AMBIT_FLAG[a]) !== 0 && reachFrom(a)).map((a) => ({ a, risk: this.gunsOn(c, a) })).sort((p, q) => p.risk - q.risk);
+    // (Its guards stay behind in this layer: a move counts the guns there against bare hull.)
+    const ok = cands.find((x) => x.risk === 0 || (x.risk <= adv.here && cmd.health > 2 * x.risk));
+    return ok ? ok.a : null;
+  }
+  /** Overtime began with their flagship still out of every ship's reach: the line once more. */
+  private hideOvertime() {
+    const c = this.chain;
+    if (!c || this.spectate || this.phase !== 'battle') return;
+    this.hideNudged = false;
+    this.csReachAt = Math.min(this.csReachAt, c.height - 4);
+    this.hideCheck(c.height);
+  }
   /** One line under the turn card (and the overtime meter) for a few seconds: an icon and a few words. */
   private hudNudge(ico: string | null, text: string, cls = '', ms = 4200) {
     const card = this.els.blockNum?.closest('.block-card') as HTMLElement | null;
@@ -1405,6 +1449,31 @@ export class BattleScreen implements Screen {
     for (const x of ships) if (this.aimGoalWith(x)) return true;
     return false;
   }
+  /** Hand a press over to any fleet ship of yours (never your Command Ship) with any shot it lives through:
+   * armed and ringed at the best-ranked such target. False when none has one. */
+  private handOffSafe(exclude: string) {
+    const c = this.chain;
+    if (!c) return false;
+    const gs = new Set(this.theirGuards().map((g) => g.id));
+    const rank = (t: SimStruct) => (gs.has(t.id) ? 0 : t.typeId === COMMAND_SHIP_ID ? 1 : 2);
+    const ships = Object.values(c.structs).filter((x) => x.owner === YOU.id && x.id !== exclude && x.typeId !== COMMAND_SHIP_ID && !c.isDestroyed(x))
+      .sort((a, b) => AMBITS.indexOf(a.ambit) - AMBITS.indexOf(b.ambit) || a.slot - b.slot);
+    for (const x of ships) for (const w of this.weaponsReady(x)) {
+      const t = [...w.targets].sort((p, q) => rank(p) - rank(q)).find((tg) => this.autoSafe(x, w.ws, tg.id));
+      if (!t) continue;
+      if (this.selected !== x.id) this.select(x.id);
+      if (!(this.targeting?.kind === 'attack' && this.targeting.ws === w.ws)) this.beginAttack(w.ws);
+      if (this.targeting?.kind !== 'attack') return false;
+      this.preAim(t.id);
+      return true;
+    }
+    return false;
+  }
+  /** A refused press, with its reason (no input is ever silent). */
+  private denyWhy(why?: string) {
+    audio.play('deny');
+    toast(why || (this.flagshipSelected() ? 'Too hurt to trade fire: every shot could sink it' : 'Nothing to fire at from here'), 'warn', 1800);
+  }
   /** What A aims at first: the red-shield guards of their flagship if any, else their flagship (ids). */
   private aimGoals(): Set<string> {
     const gs = this.theirGuards();
@@ -1438,8 +1507,8 @@ export class BattleScreen implements Screen {
   }
 
   /** Arm a ship of yours that reaches this enemy, aimed at it (a touch opens its card). False if none can. */
-  private armAt(targetId: string, touch: boolean) {
-    const pick = this.shooterFor(targetId);
+  private armAt(targetId: string, touch: boolean, deliberate = false) {
+    const pick = this.shooterFor(targetId, deliberate);
     if (!pick) return false;
     if (this.selected !== pick.ship.id) this.select(pick.ship.id);
     if (!(this.targeting?.kind === 'attack' && this.targeting.ws === pick.ws)) this.beginAttack(pick.ws);
@@ -1454,7 +1523,7 @@ export class BattleScreen implements Screen {
 
   /** The ship (and weapon) of yours to fire at one enemy: not your Command Ship unless nothing else can;
    * the selected ship if it can, else one whose battery covers the shot, cheapest first, else any. */
-  private shooterFor(targetId: string): { ship: SimStruct; ws: WeaponSystem } | null {
+  private shooterFor(targetId: string, deliberate = false): { ship: SimStruct; ws: WeaponSystem } | null {
     const c = this.chain;
     if (!c) return null;
     const charge = this.session?.chargeAtNext() ?? 0;
@@ -1464,9 +1533,12 @@ export class BattleScreen implements Screen {
       for (const w of this.weaponsReady(x)) if (w.targets.some((t) => t.id === targetId)) opts.push({ ship: x, ws: w.ws, cost: w.cost });
     }
     // Your Command Ship only when no other ship of yours can reach this one, and only for a shot whose
-    // counter-fire can't sink it.
+    // counter-fire can't sink it; a fleet ship only for a shot it lives through.
     const fleet = opts.filter((o) => o.ship.typeId !== COMMAND_SHIP_ID);
-    opts.splice(0, opts.length, ...(fleet.length ? fleet : opts.filter((o) => this.flagshipSafe(o.ship, o.ws, targetId))));
+    const safe = (fleet.length ? fleet : opts).filter((o) => this.autoSafe(o.ship, o.ws, targetId));
+    // (A target the player picked that only risky fleet ships reach: the least bad of them.)
+    const risky = deliberate && !safe.length ? fleet.sort((a, b) => this.shotRisk(a.ship.id, a.ws, targetId) - this.shotRisk(b.ship.id, b.ws, targetId)).slice(0, 1) : [];
+    opts.splice(0, opts.length, ...(safe.length ? safe : risky));
     if (!opts.length) return null;
     const sel = opts.find((o) => o.ship.id === this.selected && o.cost <= charge);
     return sel || opts.filter((o) => o.cost <= charge).sort((a, b) => a.cost - b.cost)[0] || opts.sort((a, b) => a.cost - b.cost)[0];
@@ -1601,6 +1673,13 @@ export class BattleScreen implements Screen {
     const a = this.aimStart();
     if (a) this.preAim(a);
     return true;
+  }
+  /** Only your own flagship reaches this enemy (and its shot there could sink it). */
+  private flagshipCanOnly(targetId: string) {
+    const c = this.chain;
+    if (!c) return false;
+    const reach = Object.values(c.structs).filter((x) => x.owner === YOU.id && !c.isDestroyed(x) && this.weaponsReady(x).some((w) => w.targets.some((t) => t.id === targetId)));
+    return reach.length > 0 && reach.every((x) => x.typeId === COMMAND_SHIP_ID);
   }
   /** The selected ship is your own Command Ship (its shots are checked against its own sinking). */
   private flagshipSelected() { const sel = this.selectedStruct(); return sel && sel.owner === YOU.id && sel.typeId === COMMAND_SHIP_ID && !this.chain?.isDestroyed(sel) ? sel : null; }
@@ -1777,8 +1856,12 @@ export class BattleScreen implements Screen {
     const cmd = Object.values(c.structs).find((x) => x.owner === YOU.id && x.typeId === COMMAND_SHIP_ID && !c.isDestroyed(x));
     if (!cmd) return null;
     // A free ship in its layer first; else one there that guards some other ship (it can be re-tasked).
+    // Of those, the healthiest (2 hull or more first; then the most hull, then the toughest type): a 1-hull
+    // guard falls to the first shot.
     const there = Object.values(c.structs).filter((x) => x.owner === YOU.id && x.id !== cmd.id && !c.isDestroyed(x) && c.isOnline(x) && x.ambit === cmd.ambit && TYPES_BY_ID[x.typeId].canDefend && x.protectedStructId !== cmd.id);
-    return there.find((x) => !x.protectedStructId) || there[0] || null;
+    const tough = (x: SimStruct) => (x.health >= 2 ? 1000 : 0) + x.health * 10 + TYPES_BY_ID[x.typeId].maxHealth;
+    const best = (list: SimStruct[]) => list.sort((a, b) => tough(b) - tough(a))[0];
+    return best(there.filter((x) => !x.protectedStructId)) || best(there) || null;
   }
 
   /** Keep the selection if it is a ship of yours with an enemy in reach; otherwise select the best attacker. */
@@ -2051,19 +2134,20 @@ export class BattleScreen implements Screen {
       g.fought = g.round;
       g.ms = (g.ms || 0) + (session?.elapsedMs || 0);
       this.saveGauntletBest(won ? g.round : g.round - 1);
-      if (!won || g.round >= 5) g.over = true;
-      // All five won: the trophy, the best run and the first-time bonus are kept now (leaving early loses nothing).
-      if (won && g.round >= GAUNTLET_ROUNDS.length && session && !this.spectate && !this.wonRuns.has(session)) {
-        this.wonRuns.add(session);
-        const first = !this.gauntletWins();
-        try {
-          localStorage.setItem('structs.gauntlet.won', String(this.gauntletWins() + 1));
-          const best = this.gauntletBestMs(), ms = g.ms || 0;
-          if (ms > 0 && (!best || ms < best)) localStorage.setItem('structs.gauntlet.bestMs', String(Math.round(ms)));
-        } catch { /* this visit */ }
-        if (first) record.gain(200);
-      }
-      else { this.carryOver(); g.round++; g.reinforce = true; }
+      if (!won || g.round >= GAUNTLET_ROUNDS.length) {
+        g.over = true;
+        // All five won: the trophy, the best run and the first-time bonus are kept now (leaving early loses nothing).
+        if (won && session && !this.spectate && !this.wonRuns.has(session)) {
+          this.wonRuns.add(session);
+          const first = !this.gauntletWins();
+          try {
+            localStorage.setItem('structs.gauntlet.won', String(this.gauntletWins() + 1));
+            const best = this.gauntletBestMs(), ms = g.ms || 0;
+            if (ms > 0 && (!best || ms < best)) localStorage.setItem('structs.gauntlet.bestMs', String(Math.round(ms)));
+          } catch { /* this visit */ }
+          if (first) record.gain(200);
+        }
+      } else { this.carryOver(); g.round++; g.reinforce = true; }
     }
     // Service record and daily results: only battles you commanded.
     this.dailyLast = null;
@@ -2423,7 +2507,7 @@ export class BattleScreen implements Screen {
     const card = h('div', { class: 'unit-card' },
       h('div', { class: 'sprite big ' + side }, img),
       h('div', { class: 'col grow', style: 'gap:4px; min-width:0' },
-        h('div', { class: 'unit-name t-label-lg ' + (mine ? 'c-player' : 'c-enemy') }, t.type),
+        h('div', { class: 'unit-name t-label-lg ' + (mine ? 'c-player' : 'c-enemy') + (t.type.length > 18 ? ' long2' : t.type.length > 13 ? ' long' : '') }, t.type),
         h('div', { class: 't-tiny c-hint x-only' }, t.defaultCosmeticModelNumber + ` “${t.defaultCosmeticName}” · ${t.category === 'fleet' ? 'ship' : 'planet building'}`),
         h('div', { class: 'row', title: `Health ${s.health} of ${t.maxHealth}` }, h('span', { class: 'fc-ico hp', html: icon('shield', 14) }), h('div', { class: 'pips' }, Array.from({ length: t.maxHealth }, (_, i) => h('i', { class: i < s.health ? '' : 'lost' }))), h('span', { class: 'fc-n' }, `${s.health}`)),
         h('div', { class: 'row wrap', style: 'gap:4px' }, chips),
@@ -2693,7 +2777,10 @@ export class BattleScreen implements Screen {
     const root = this.root.getBoundingClientRect();
     // (Above the callout when one sits over the bar.)
     const co = this.coachEl?.isConnected && this.coachEl.offsetWidth ? this.coachEl.getBoundingClientRect() : null;
-    const ceiling = bar ? Math.min(bar.top, co && co.bottom <= bar.top + 4 && co.top > bar.top - 200 ? co.top : bar.top) : 0;
+    // (Above the "Fire! / Command Ship in reach" pill too, where it floats over the bar.)
+    const hintEl = this.root.querySelector<HTMLElement>('.action-bar .targeting-hint');
+    const hint = hintEl && hintEl.getClientRects().length && getComputedStyle(hintEl).display !== 'none' ? hintEl.getBoundingClientRect() : null;
+    const ceiling = bar ? Math.min(bar.top, co && co.bottom <= bar.top + 4 && co.top > bar.top - 200 ? co.top : bar.top, hint && hint.bottom <= bar.top + 4 ? hint.top : Infinity) : 0;
     if (bar) { el.classList.add('docked'); el.style.left = Math.round(bar.left - root.left + 8) + 'px'; el.style.top = Math.round(ceiling - root.top - el.offsetHeight - 6) + 'px'; }
     else el.style.top = '120px';
     this.srSay(mark === '⏳' ? `${label}: waiting for ${cost} charge` : label);
@@ -2773,6 +2860,12 @@ export class BattleScreen implements Screen {
         }
       }
     }
+    // (A game-picked ship with no shot it lives through: another fleet ship with a survivable shot at what A
+    // aims at takes over; else it arms with nothing ringed.)
+    if (s && s.owner === YOU.id && how === 'button' && !this.targeting && this.playerPick !== s.id && s.typeId !== COMMAND_SHIP_ID && this.phase === 'battle' && !this.spectate
+      && !this.weaponsReady(s).some((w) => w.targets.some((x) => this.autoSafe(s, w.ws, x.id))) && (this.handOffToGoal(s.id) || this.handOffSafe(s.id))) {
+      const tg = this.targeting as { kind: string; ws?: WeaponSystem } | null; this.flashWeapon(tg?.ws ?? null); this.renderActionBar(); audio.play('select'); return;
+    }
     const t = this.targeting;
     if (ws !== pressed) this.flashWeapon(ws);
     if (t?.kind === 'attack' && t.ws === ws && this.phase === 'battle') {
@@ -2785,7 +2878,7 @@ export class BattleScreen implements Screen {
         this.clearAim(); this.disarmTouch();
         const a = this.aimStart();
         if (a) { this.preAim(a); audio.play('hover'); }
-        else { audio.play('deny'); if (flag) toast('Too hurt to trade fire', 'warn', 1800); }
+        else this.denyWhy();
         return;
       }
       // (The button lets go of the cursor, as arming does: a verb left in focus would hold the bar's handover.)
@@ -2895,7 +2988,7 @@ export class BattleScreen implements Screen {
     // ("Move yours there" is up: your card, which selects the flagship, and its Move pulse with it.)
     if (performance.now() < this.movePulseUntil) for (const sel of ['.battle-top .fleet-card.player', '.action-bar .drift']) this.root.querySelector(sel)?.classList.add('dc-pulse');
     if (!this.coachEl?.isConnected) return;
-    const want = this.coachKey === 'arm' || this.coachKey === 'guard' || this.coachKey === 'drift' || this.coachKey === 'stuck' ? this.coachAnchor(this.coachKey) : null;
+    const want = this.coachKey === 'arm' || this.coachKey === 'guard' || this.coachKey === 'drift' || this.coachKey === 'stuck' || this.coachKey === 'hunt' ? this.coachAnchor(this.coachKey) : null;
     want?.classList.add('dc-pulse');
     // The bar is rebuilt every turn (and the pill comes and goes): the callout follows its control.
     this.placeCoach();
@@ -3182,7 +3275,7 @@ export class BattleScreen implements Screen {
     // The fight's rewards play now, its own XP (and any promotion it brings) in the same queue, so
     // banners go first and toasts after them, never over them (core/dom holdRewards).
     // (A beat after the fight's own call has gone, so a promotion never prints over "VICTORY".)
-    { const s0 = s; this.rewardsOwed = true; setTimeout(() => { if (this.session === s0 && this.phase === 'debrief' && this.rewardsOwed) { this.rewardsOwed = false; holdRewards(false); } }, cleared || conquered ? 2900 : 2100); }
+    { const s0 = s; this.rewardsOwed = true; setTimeout(() => { if (this.session === s0 && this.phase === 'debrief' && this.rewardsOwed) { this.rewardsOwed = false; holdRewards(false); } }, (cleared || conquered) && window.innerHeight > 560 ? 4200 : cleared || conquered ? 2900 : 2100); }
     const big = (ico: string, value: string, title: string, cls = '') => h('div', { class: 'db-stat ' + cls, title }, h('span', { class: 'db-ico', html: icon(ico, 26) }), h('b', null, value));
     // What the fight earned, and the rank bar filling: lessons and missions it finished pay in
     // moments after the last shot, so the row keeps up while the results are open.
@@ -3847,8 +3940,8 @@ export class BattleScreen implements Screen {
     }
     // An enemy out of the armed weapon's reach: another ship of yours that reaches it takes over.
     if (this.targeting?.kind === 'attack' && !unit.targetable && unit.side === 'enemy' && this.phase === 'battle' && !unit.destroyed) {
-      if (this.armAt(unit.id, touch)) return;
-      audio.play('deny'); return;
+      if (this.armAt(unit.id, touch, true)) return;
+      this.denyWhy(this.flagshipCanOnly(unit.id) ? 'Only your flagship reaches it, and it could be sunk' : 'None of yours reach it'); return;
     }
     if (this.targeting?.kind === 'attack' && unit.side === 'player' && this.phase === 'battle' && !unit.destroyed && !this.spectate) {
       audio.play('select'); this.disarmTouch(); this.select(unit.id); this.playerPick = unit.id; return;
@@ -3860,7 +3953,7 @@ export class BattleScreen implements Screen {
     if (this.phase === 'battle' && unit.side === 'enemy' && !this.targeting && !this.spectate && !unit.destroyed) {
       // (Their guarded flagship: one of its guards, the red shields, first.)
       if (unit.typeId === COMMAND_SHIP_ID) for (const g of this.blockersOf(unit.id)) if (this.armAt(g.id, touch)) return;
-      if (this.armAt(unit.id, touch)) return;
+      if (this.armAt(unit.id, touch, true)) return;
       audio.play('hover'); this.touchTip = unit.id; this.tipFor(unit, this.pointerPx);
       return;
     }
@@ -3900,7 +3993,9 @@ export class BattleScreen implements Screen {
         const gs = new Set(this.theirGuards().map((g) => g.id));
         const rank = (t: SimStruct) => (gs.has(t.id) ? 0 : t.typeId === COMMAND_SHIP_ID ? 1 : 2);
         const alt = [...order].sort((a, b) => rank(a) - rank(b)).find((t) => !this.fullyBlocked(t.id) && this.autoSafe(sel, ws, t.id));
-        if (alt) return { order, start: order.indexOf(alt) };
+        // (No target it lives through: the first by rank is ringed anyway, its card's "You lose it" in red; only
+        // a second, deliberate press fires it.)
+        return { order, start: alt ? order.indexOf(alt) : Math.max(0, cs) };
       }
     }
     return { order, start: Math.max(0, cs) };
@@ -4061,7 +4156,7 @@ export class BattleScreen implements Screen {
     const onControl = !!typing?.closest?.('button, a[href]') && !(this.targeting && typing?.closest?.('.action-bar') && !typing?.closest?.('.drift'));
     if (e.key === 'Enter' && this.phase === 'battle' && !onControl) {
       e.preventDefault();
-      if (this.targeting) { if (!this.commitAim()) this.cycleAim(0); return; }
+      if (this.targeting) { if (!this.commitAim()) { this.cycleAim(0); if (!this.aimId) this.denyWhy(); } return; }
       // Nothing selected: pick your first ship (as the battle does at the start) rather than nothing.
       if (!s || s.owner !== YOU.id || this.chain?.isDestroyed(s)) { this.selectBest(); return; }
       // This ship reaches none of what A aims at (their flagship's guards, else their flagship): a ship that
@@ -4240,6 +4335,9 @@ export class BattleScreen implements Screen {
     // (Overtime's meter hangs below the turn card on TV and desktop: the words keep below it too.)
     const meter = this.root.querySelector('.dc-ot-meter')?.getBoundingClientRect();
     this.view.floorY = hud && hud.height ? Math.max(hud.bottom, meter && meter.height ? meter.bottom : 0) + 4 : 0;
+    // ...and above the action bar, which words stepping down out of each other's way must not slip under.
+    const bar = this.root.querySelector('.action-bar')?.getBoundingClientRect();
+    this.view.ceilY = bar && bar.height ? bar.top - 4 : 0;
   }
 
   /** The struct card (and, while targeting, the forecast) for one unit, shown at `at`. */

@@ -28,7 +28,7 @@ import { Chain, STATUS, STRUCT_SWEEP_DELAY, type Block, type Msg } from '../../s
 import { Ai, type Difficulty } from '../../src/sim/ai';
 import { BattleSession, DECIDE_AT, type Outcome } from '../../src/screens/battle/session';
 import {
-  chainSetup, CPU, dailyScenario, decodeReplay, encodeReplay, fits, GAUNTLET_ROUNDS, gauntletEnemy, layout, MAX_CHARGE,
+  bossCap, chainSetup, CPU, dailyScenario, decodeReplay, encodeReplay, fits, GAUNTLET_ROUNDS, gauntletEnemy, layout, MAX_CHARGE,
   mirrorUnits, type Preset, reinforcementOffers, type Unit, unitId, validate, YOU,
 } from '../../src/sim/fleets';
 import { AMBIT_FLAG, AMBITS, COMMAND_SHIP_ID, type StructType, TYPES_BY_ID, type WeaponSystem, weaponField } from '../../src/data/catalogue';
@@ -460,8 +460,9 @@ function gauntlet(job: Job, one: (s: Spec) => Fight | null, fail: Fail): number 
   let fleet = layout('difficult', job.seed).filter((u) => u.side === 'player');
   for (let round = 1; round <= GAUNTLET_ROUNDS.length; round++) {
     const r = GAUNTLET_ROUNDS[round - 1];
-    const enemy = gauntletEnemy(round, job.seed);
-    const need = GAUNTLET_ROUNDS[round - 1]?.minEnemy || 0;
+    // (As the game does: the boss sized to the fleet that reaches it.)
+    const enemy = gauntletEnemy(round, job.seed, fleet.length);
+    const need = Math.min(GAUNTLET_ROUNDS[round - 1]?.minEnemy || 0, round === GAUNTLET_ROUNDS.length ? bossCap(fleet.length) : Infinity);
     if (enemy.length < need) fail(`gauntlet:${round}: the round fields ${enemy.length} enemy ships, it promises at least ${need}`);
     const units = [...fleet.map((u) => ({ ...u })), ...enemy];
     const f = one({ scenario: `gauntlet:${round}`, variant: r.name, units, chainSeed: `${job.seed}:g${round}:chain`, aiSeed: `${job.seed}:g${round}`, cpu: r.difficulty, you: job.you, blockMs: 2000, charge: CHARGE });

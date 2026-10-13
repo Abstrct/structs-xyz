@@ -663,3 +663,14 @@ body:has(.screen.battle .setup-panel):not(:has(.debrief-back)) > .banner.reward 
 }
 /* The setup's trophies keep their round shape beside a long title. */
 .screen.battle .dc-setup-head .dc-gauntlet-trophy, .screen.battle .dc-setup-head .dc-ladder-crown { flex: none; }
+
+/* ── Round 19 ── */
+/* A long ship name on the bar steps its size down instead of being cut ("MOBILE ARTILLERY"). */
+.screen.battle .action-bar .unit-card .unit-name.long { font-size: 0.86em; letter-spacing: 0.01em; }
+.screen.battle .action-bar .unit-card .unit-name.long2 { font-size: 0.74em; letter-spacing: 0; }
+.unit-card .unit-name.long, .unit-card .unit-name.long2 { text-overflow: clip; }
+/* The reinforcement that reaches the next round's flagship: first, and marked. */
+.gauntlet-back .reward.reach { box-shadow: inset 0 0 0 2px var(--dc-x); }
+/* The boss round's cue (setup). */
+.screen.battle .dc-reach-cue.boss { color: #fff; background: rgba(255, 61, 90, 0.18); box-shadow: inset 0 0 0 1.5px var(--text-enemy-primary); }
+.screen.battle .dc-reach-cue.boss span { color: var(--dc-x); }
