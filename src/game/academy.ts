@@ -99,7 +99,7 @@ class Academy {
   }
 
   /** Something happened worth a lesson (the command line opened, the glossary read). */
-  mark(event: 'palette' | 'glossary' | 'help' | 'expert') {
+  mark(event: 'palette' | 'glossary' | 'help' | 'expert' | 'concourse') {
     this.load();
     if (!this.s.events.includes(event)) { this.s.events.push(event); this.save(); }
     this.check();

@@ -39,6 +39,17 @@
         "--strictPort"
       ],
       "port": 5195
+    },
+    {
+      "name": "structs-xyz-concourse",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "5197",
+        "--strictPort"
+      ],
+      "port": 5197
     }
   ]
 }

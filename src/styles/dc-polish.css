@@ -110,3 +110,12 @@ body > .more-menu .mm-item:hover, body > .more-menu .mm-item:focus-visible { bac
 body > .more-menu .mm-item:focus-visible { outline: 3px solid var(--dc-accent); outline-offset: -1px; }
 body > .more-menu .mm-sep { height: 2px; border-radius: 2px; background: rgba(143, 168, 255, 0.3); }
 body > .more-menu kbd.mm-hint { border-radius: 8px; border: 2px solid rgba(143, 168, 255, 0.45); background: rgba(255, 255, 255, 0.08); color: var(--text-hint); }
+
+/* Toasts on a screen with a pinned bottom action row (the phone Code Lab's Queue / Dry run / Example):
+ * the top band, under the top bar, so a toast never covers the verbs or takes their first tap. */
+@media (max-width: 559px) {
+  body:has(.screen.forge) > .toasts { top: calc(var(--sa-t, 0px) + 54px); bottom: auto; margin-bottom: 0; }
+}
+
+/* On a phone's Code Lab the top band holds one toast at a time, the newest (two reached the form's header). */
+@media (max-width: 760px) { body:has(.screen.forge) > .toasts > .toast:not(:last-child) { display: none; } }

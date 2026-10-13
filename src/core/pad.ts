@@ -24,6 +24,18 @@ const REPEAT_DELAY = 320, REPEAT_EVERY = 110, STICK = 0.55;
 let polling = 0;
 const held = new Map<string, number>();
 
+/* A screen that reads the pad itself (the lobby walks on the sticks). While its function returns
+ * true it sees every poll's pads, and this file sends no keys except Back's Menu; a window on top
+ * (.modal-back) always gets the pad back. Buttons pressed while captured count as held, so a press
+ * that opens a menu doesn't also click the menu's first item when the capture lets go. */
+type Capture = (pads: Gamepad[]) => boolean;
+let capture: Capture | null = null;
+export function capturePad(fn: Capture): () => void {
+  capture = fn;
+  if (readPads().length && !polling) polling = requestAnimationFrame(poll);
+  return () => { if (capture === fn) capture = null; };
+}
+
 /** Send a key as if typed, to whatever has focus. Returns false when a handler took it (preventDefault). */
 function press(key: string, shift = false): boolean {
   const target = (document.activeElement && document.activeElement !== document.body ? document.activeElement : window) as EventTarget;
@@ -95,7 +107,10 @@ function poll() {
     if (ay < -STICK) now.add('ArrowUp#s'); if (ay > STICK) now.add('ArrowDown#s');
   }
   now.delete('');
+  const taken = !!capture && !document.querySelector('.modal-back') && capture(pads);
+  if (taken && now.size) document.body.classList.add('pad');
   for (const name of now) {
+    if (taken && name !== 'MENU') { if (!held.has(name)) held.set(name, performance.now()); continue; }
     down(name, () => {
       document.body.classList.add('pad');
       if (name === 'MENU') {

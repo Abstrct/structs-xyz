@@ -11,7 +11,7 @@ import { grass, parseGrass, type GrassEvent, type GrassState } from '../../grass
 import { GROUPS, groupOf, type Group } from '../../grass/describe';
 import { guildLabel } from '../../guild/directory';
 import { errorBox, receiving, type IntelCtx } from './common';
-import { FEED_HOT, attackCard, feedCards, fold, foldNear, foldTarget, newCard, tickTimes, type Card } from './feedCard';
+import { FEED_HOT, absorbOre, attackCard, feedCards, fold, foldNear, foldTarget, newCard, nowCards, tickTimes, type Card } from './feedCard';
 import { latestAttacks, type CombatRecord } from '../../chain/combat';
 import { cache } from '../../cache/idb';
 import { ago } from '../../core/util';
@@ -88,6 +88,10 @@ export function mountActivity(ctx: IntelCtx) {
     if (foldNear(ctx, cards, list, e, names)) return;
     const n = newCard(ctx, e, names);
     cards.set(n.el, n);
+    // Ore changes of this player that arrived just before the mining (or refining) itself fold in.
+    const below: Card[] = [];
+    for (let el = list.firstElementChild as HTMLElement | null; el && below.length < 8; el = el.nextElementSibling as HTMLElement | null) { const c = cards.get(el); if (c) below.push(c); }
+    for (const c of absorbOre(n, below)) { c.el.remove(); n.count += c.count; }
     list.prepend(n.el);
   };
   /** Cards for a run of history (newest first), folded the same way. */
@@ -147,6 +151,7 @@ export function mountActivity(ctx: IntelCtx) {
   };
   /** The newest real attack on the testnet: pinned on top when the stretch has no fight of its own. */
   let pinned: CombatRecord | null = null;
+  const PIN_FOR = 6 * 3_600_000;
 
   const paintEarlier = () => {
     const room = MAX_ROWS - liveCards().length;
@@ -174,15 +179,20 @@ export function mountActivity(ctx: IntelCtx) {
     const room = MAX_ROWS - liveCards().length;
     const { items: source, old } = chainItems();
     const items = room > 0 ? source.filter(feedVisible).slice(-Math.min(room, 80)) : [];
-    const { lead, fights, work, rest } = feedCards(ctx, items);
-    const cards = [lead, ...fights, work, ...rest].filter((x): x is HTMLElement => !!x);
+    const { lead, fights, notable, work, rest } = feedCards(ctx, items);
+    const cards = [lead, ...fights, ...notable, work, ...rest].filter((x): x is HTMLElement => !!x);
     // No fight in the stretch: the newest real one is pinned on top, under its own divider.
-    const pin = pinned && !items.some((x) => FEED_HOT.has(x.kind) || x.hash === pinned!.hash) && !prefs.off.includes('combat') && !query.value.trim() ? attackCard(ctx, pinned) : null;
+    // (Only a fresh one: a fight older than six hours isn't news; the stretch's own headline leads instead.)
+    const fresh = pinned && Date.now() - (Date.parse(pinned.time) || 0) < PIN_FOR;
+    const pin = pinned && fresh && !items.some((x) => FEED_HOT.has(x.kind) || x.hash === pinned!.hash) && !prefs.off.includes('combat') && !query.value.trim() ? attackCard(ctx, pinned) : null;
     const divider = (ico: string, word: string, title: string) => h('div', { class: 'adivider t-label', title }, h('span', { html: icon(ico, 14) }), word);
     // One divider says it all: everything below is from before News opened, read from the chain (or
     // the last visit's read of it, with its age).
+    // Nothing from the chain yet (its search takes a few seconds): the galaxy as it stands right now.
+    const now = !cards.length && !query.value.trim() ? nowCards(ctx) : [];
     chainBox.replaceChildren(
       ...(pin ? [divider('battle', 'Latest fight', 'The newest real attack on the testnet, read from the chain: not live'), pin] : []),
+      ...(now.length ? [divider('planet', 'Right now', 'The galaxy as it stands, from the roster: the news of the last half hour is on its way'), ...now] : []),
       ...(cards.length ? [old && snap ? lastVisit(snap.at) : divider('clock', 'Earlier', 'The last half hour or so, read from the chain: not live')] : []), ...cards);
     // The chips count what this visit read (the last visit's cards are not today's news).
     chainCounts.clear();

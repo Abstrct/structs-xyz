@@ -373,7 +373,7 @@ function renderProgress(body: HTMLElement, setBusy: (b: boolean) => void) {
 }
 
 /** A game name for a commander who can't think of one (letters and a dash: always valid). */
-function randomName(): string {
+export function randomName(): string {
   const a = ['Nova', 'Quasar', 'Comet', 'Orbit', 'Pulsar', 'Rocket', 'Nebula', 'Photon', 'Zenith', 'Vortex', 'Echo', 'Atlas', 'Cobalt', 'Ion', 'Flux', 'Astro'];
   const b = ['Falcon', 'Fox', 'Otter', 'Lynx', 'Raven', 'Badger', 'Panda', 'Wolf', 'Hawk', 'Gecko', 'Moth', 'Yak', 'Koala', 'Squid', 'Tiger', 'Bison'];
   const r = (xs: string[]) => xs[Math.floor(Math.random() * xs.length)];

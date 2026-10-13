@@ -2,6 +2,7 @@
   "about": "Cert budgets (scripts/studio/cert.mjs). Hardware numbers follow the Dreamcast: ~3M polygons a second is ~60k triangles a frame at 50-60 fps. Words count visible words; numbers are free. Budgets in 'enforce' fail the cert (since 2026-10-11 every screen meets them); the rest warn, and STUDIO_STRICT=1 fails on any. fps stays a warning: CI renders on a software GPU. bundle: gzipped KB a first visit downloads (entry) and of every chunk (total), ~10% over the 2026-10-11 build.",
   "routes": [
     "/",
+    "/lobby",
     "/galaxy#hud",
     "/planet/2-1",
     "/combat",

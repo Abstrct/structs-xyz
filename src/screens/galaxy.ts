@@ -27,6 +27,7 @@ import { dailyBest, dailyStreak, loadRecord } from './battle/record';
 import { latestAttacks, summarize, type CombatRecord } from '../chain/combat';
 import { commander } from '../chain/commander';
 import { enlisting } from '../game/enlist';
+import { startInLobby } from '../core/settings';
 import { icon, MARK } from '../ui/icons';
 import { touchScreen, touchWords } from '../core/touch';
 import '../styles/dc-watch.css';
@@ -275,6 +276,8 @@ export class GalaxyScreen implements Screen {
     // Leave sets the flag): you land on the doors, not on the bare map.
     let toMenu = false;
     try { toMenu = sessionStorage.getItem('structs.menu') === '1'; sessionStorage.removeItem('structs.menu'); } catch { /* storage blocked */ }
+    // A commander's menu is the Concourse lobby now (unless Settings keeps the doors).
+    if (toMenu && wallet.active?.playerId && startInLobby()) { this.titleShown = true; this.navigate('/lobby'); return; }
     if ((!this.titleShown || toMenu) && !this.titleUp) { this.titleShown = true; if (!params.focus) this.showTitle(); }
   }
 
@@ -836,10 +839,11 @@ export class GalaxyScreen implements Screen {
       const e = enlisting.current;
       const mine = wallet.active?.playerId;
       first.replaceChildren(
-        e && e.status === 'running' && !mine ? door('base', 'player', 'Base', `${e.guildName} is creating ${e.name}`, go('/command'))
+        e && e.status === 'running' && !mine ? door('join', 'player', 'Join', `${e.guildName} is creating ${e.name}: wait in the arrival bay`, go('/lobby'))
           : mine ? door('base', 'player', 'Base', 'Your planet, fleet and moves', go('/command'))
           : st === 'locked' ? door('lock', 'player', 'Unlock', 'Unlock your vault', go(null, () => openVault()))
-          : door('base', 'player', 'Enlist', 'Start your own base: free, in seconds', go(null, () => openVault())));
+          // Joining is player setup first: build a droid, name it, pick a guild, then the lobby.
+          : door('join', 'player', 'Join', 'Build your droid and join the Concourse: free, in seconds', go('/lobby')));
     };
     paintFirst();
     const offE = enlisting.onChange(paintFirst);
@@ -889,6 +893,8 @@ export class GalaxyScreen implements Screen {
     const firstDoor = () => (wallet.active?.playerId ? doors.querySelector('.dc-door') : doors.querySelector('.dc-door.enemy')) as HTMLElement | null;
     const open = () => {
       if (o.classList.contains('menu')) return;
+      // A commander walks straight into the Concourse; a visitor gets the doors.
+      if (wallet.active?.playerId && startInLobby()) { try { sessionStorage.setItem('structs.started', '1'); } catch { /* ignore */ } go('/lobby')(); return; }
       wake();
       o.classList.add('menu');
       // The bars come in with the doors (dc-nav.css): PRESS START is the logo and the galaxy alone.

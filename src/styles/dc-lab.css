@@ -711,3 +711,19 @@
   .screen.forge .fg-copy { width: 40px; min-width: 40px; padding: 0; justify-content: center; }
   .screen.forge .fg-copy-word { display: none; }
 }
+
+/* Academy on an upright phone: one scroll for the whole page (the header scrolls away with it), and
+ * the last control (Try it, Next) always clears the bottom tab bar with room to spare. */
+@media (max-width: 760px) and (pointer: coarse) and (min-height: 561px) {
+  .screen.academy .ac-frame { pointer-events: auto; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; align-content: start; padding-bottom: 20px; scroll-padding: 8px 0 24px; }
+  .screen.academy .ac-frame > :is(.ac-side, .ac-main) { max-height: none; overflow: visible; }
+  /* A little tighter, so the first lesson's Try it is on the first screen. */
+  .screen.academy .ac-frame:not(.picked) .ac-side { gap: 6px; padding: 8px; }
+  .screen.academy .ac-frame:not(.picked) :is(.ac-rank, .ac-daily) { padding-top: 4px; padding-bottom: 4px; }
+  .screen.academy .ac-main { gap: 8px; padding-top: 10px; }
+  .screen.academy .ac-main .ac-head { padding-bottom: 6px; }
+}
+/* Touch has no keys: the answers' 1 / 2 key caps are for keyboards and pads only (as in battle). */
+@media (hover: none) {
+  body:not(.pad) .screen.academy .ac-choice-n { display: none; }
+}

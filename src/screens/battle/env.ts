@@ -105,36 +105,74 @@ export function addBattleLights(scene: THREE.Scene) {
   scene.add(key, sun, fill);
 }
 
+/** The battlegrounds' heights stood further apart by `k` (1: the regular deck). */
+export const tiersFor = (k: number): Record<Ambit, number> => ({ space: TIER_Y.space * k, air: TIER_Y.air * k, land: TIER_Y.land * k, water: TIER_Y.water * k });
+/** How far apart an upright phone's fight stands its battlegrounds: its field is short of width and
+ * long on height, so the decks spread to fill it and each staggered rank gets a deck of its own. */
+export const TIER_STRETCH = 1.35;
+
 export class BattleSet {
   readonly group = new THREE.Group();
   readonly halfWidth: number;
+  /** This set's battleground heights (TIER_Y unless stretched by layTiers): hulls and bays read it. */
+  tiers: Record<Ambit, number> = { ...TIER_Y };
+  /** How far apart the decks stand, relative to the regular set. */
+  stretch = 1;
   private scenery: Scenery;
+  private labels: THREE.Mesh[] = [];
   private world: Planet;
   private pulses: Record<Ambit, number> = { space: 0, air: 0, land: 0, water: 0 };
+  private look: { palette: [number, number, number]; seed: number; spent: boolean };
 
   constructor(opts: SetOptions = {}) {
-    const HALF_WIDTH = this.halfWidth = opts.halfWidth ?? 23;
+    this.halfWidth = opts.halfWidth ?? 23;
     const palette = opts.palette ?? [0x0d2140, 0x332b21, 0x6b5c47];
-    this.scenery = new Scenery({ halfWidth: HALF_WIDTH, tierY: TIER_Y, palette, seed: opts.seed ?? 0, spent: !!opts.spent });
-    this.group.add(this.scenery.group);
-    // Each battleground's icon at both ends of its deck (its name is the tooltip on its chips).
+    this.look = { palette, seed: opts.seed ?? 0, spent: !!opts.spent };
+    this.scenery = this.buildScenery();
+
+    // A planet's limb far below: the battle is fought over someone's world.
+    this.world = new Planet({ radius: 260, palette, seed: opts.seed ?? 0, spent: opts.spent, sun: SUN_DIR });
+    this.world.group.position.set(0, -335, -270);
+    this.group.add(this.world.group);
+  }
+
+  /** The decks and each battleground's icon at both ends of its deck (its name is the tooltip on its chips). */
+  private buildScenery() {
+    const scenery = new Scenery({ halfWidth: this.halfWidth, tierY: this.tiers, palette: this.look.palette, seed: this.look.seed, spent: this.look.spent });
+    this.group.add(scenery.group);
     for (const a of AMBITS) {
       const hexCol = '#' + new THREE.Color(AMBIT_COLOR[a]).getHexString();
       for (const side of [-1, 1]) {
         const label = ambitIconMesh(a, hexCol, 2.1, 0.95);
         const g = label.geometry as THREE.PlaneGeometry;
         g.translate(-side * g.parameters.width / 2, 0, 0);
-        label.position.set(side * (HALF_WIDTH - 0.4), TIER_Y[a] - 1.55, 2.9);
+        label.position.set(side * (this.halfWidth - 0.4), this.tiers[a] - 1.55, 2.9);
         label.rotation.x = -0.35;
         label.renderOrder = 5;
         this.group.add(label);
+        this.labels.push(label);
       }
     }
+    return scenery;
+  }
 
-    // A planet's limb far below: the battle is fought over someone's world.
-    this.world = new Planet({ radius: 260, palette, seed: opts.seed ?? 0, spent: opts.spent, sun: SUN_DIR });
-    this.world.group.position.set(0, -335, -270);
-    this.group.add(this.world.group);
+  /** Stand the battlegrounds `k` times further apart than the regular set (1 = regular), rebuilding
+   * the decks if that changes anything. Hulls placed before this must be re-placed by the caller. */
+  layTiers(k: number) {
+    if (Math.abs(k - this.stretch) < 1e-6) return false;
+    this.stretch = k;
+    this.tiers = tiersFor(k);
+    this.scenery.dispose();
+    this.group.remove(this.scenery.group);
+    for (const l of this.labels) {
+      this.group.remove(l);
+      l.geometry.dispose();
+      const m = l.material as THREE.MeshBasicMaterial;
+      m.map?.dispose(); m.dispose();
+    }
+    this.labels = [];
+    this.scenery = this.buildScenery();
+    return true;
   }
 
   dispose() {
@@ -153,6 +191,7 @@ export class BattleSet {
 
   /** Repaint the world below: palette, terrain seed, spent or alive. */
   setWorld(opts: { palette: [number, number, number]; seed: number; spent?: boolean }) {
+    this.look = { palette: opts.palette, seed: opts.seed, spent: !!opts.spent };
     this.world.setWorld(opts);
     this.scenery.paint(opts.palette, !!opts.spent);
   }

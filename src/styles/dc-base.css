@@ -314,3 +314,8 @@ body:not(.expert) .dcb-vital.empty { display: none; }
 .screen .planet-error .dcp-dish.big::before, .screen .planet-error .dcp-dish.big::after { animation: none; opacity: 0; }
 .screen .planet-error .row { gap: 10px; justify-content: center; }
 .screen .planet-error .btn { display: inline-flex; align-items: center; gap: 6px; }
+
+/* A verb's left padding leaves room for its face badge; with no pad in hand the badge is hidden, so
+ * the word gets the same room on both sides (it sat flush on the pill's left edge). */
+body:not(.pad) .dcb-verb:has(> .dc-face:first-child) { padding-left: 16px; }
+body:not(.pad) .dcb-verb.mini:has(> .dc-face:first-child) { padding-left: 10px; }

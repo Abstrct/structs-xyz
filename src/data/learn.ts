@@ -71,6 +71,7 @@ export const HUBS: Hub[] = [
   {
     id: 'team', label: 'Team', tagline: 'Your guild and your friends', color: '#B794F0',
     items: [
+      { path: '/lobby', label: 'Concourse', desc: 'Walk the lobby as your droid and talk with other commanders out loud.' },
       { path: '/comms', label: 'Chat', desc: 'Talk with your guild. Every planet and fleet has its own channel too.' },
       { path: '/guild', label: 'Guild Hall', desc: 'Your team: members, ranks, invites and who may act for you.' },
       { path: '/intel/guilds', label: 'All Guilds', desc: 'Every guild in the galaxy, with its members and power.' },
@@ -100,7 +101,7 @@ export function hubFor(path: string, homePlanet?: string | null): HubId | null {
   if (p.startsWith('/forge')) return 'lab';
   if (p.startsWith('/sim') || p.startsWith('/combat') || p.startsWith('/codex')) return 'battle';
   if (p.startsWith('/economy')) return 'trade';
-  if (p.startsWith('/comms') || p.startsWith('/guild') || p.startsWith('/intel/guild')) return 'team';
+  if (p.startsWith('/comms') || p.startsWith('/guild') || p.startsWith('/intel/guild') || p.startsWith('/lobby')) return 'team';
   return 'explore';
 }
 
@@ -184,6 +185,10 @@ const press = (thing: string, toDo: string, shows: string): Say => ({ keys: `Cli
 
 /** Keyed by router screen name. */
 export const GUIDES: Record<string, Guide> = {
+  lobby: guide('Concourse', 'Walk, talk, and use the kiosks.', [
+    { keys: 'WASD walks. E uses a kiosk.', touch: 'Left thumb walks. Tap a kiosk.', pad: 'Stick walks. A uses a kiosk.' },
+    { keys: 'Enter talks. X sends a stamp.', touch: 'Tap Talk, or Stamp.', pad: 'Start talks. X sends a stamp.' },
+    'Every kiosk opens a hub.'], 'concourse'),
   galaxy: guide('Galaxy Map', 'Every planet, live. Red arcs: raids.', [
     { keys: 'Six buttons at the top open every screen.', touch: 'Six buttons at the {hubs} open every screen.', pad: 'Press Back: six hubs open every screen.' },
     { keys: 'Drag to spin, scroll to zoom.', touch: 'Drag to spin, pinch to zoom.', pad: 'D-pad moves, A presses.' },
@@ -250,7 +255,7 @@ export type TrackId = 'strategy' | 'economics' | 'technology';
 export type LessonCheck =
   | { route: string }
   | { stat: 'wins' | 'flagships' | 'dailyWins' | 'gauntlet' | 'battles'; min: number }
-  | { event: 'palette' | 'glossary' | 'help' | 'expert' };
+  | { event: 'palette' | 'glossary' | 'help' | 'expert' | 'concourse' };
 
 export interface Quiz { q: string; choices: string[]; answer: number; why: string }
 
@@ -296,6 +301,8 @@ export const TRACKS: Track[] = [
         learn: 'One new battle every day, the same for every player: same fleets, same dice. Win it, then compare with friends.' },
       { id: 'gauntlet', title: 'Run the Gauntlet', xp: 80, go: '/sim', check: { stat: 'gauntlet', min: 2 },
         learn: 'Five battles in a row: ships you lose stay lost and damage carries over. Clear two rounds to pass.' },
+      { id: 'concourse', title: 'Say hi on the Concourse', xp: 30, go: '/lobby', check: { event: 'concourse' },
+        learn: 'Commanders meet in the lobby. Walk up to someone, then say hi or send a stamp: good allies start with a hello.' },
     ],
   },
   {

@@ -10,7 +10,8 @@ import { CPU, YOU } from '../../sim/fleets';
  * dancing out of reach with no damage landing, or a long stretch where
  * nobody is hurt at all. */
 export const QUIET_MOVES = 10;
-export const QUIET_BLOCKS = 100;
+/** Blocks with nobody hurt before the sim calls it (50: 100 s at 2 s turns; 200 s of nothing read as broken). */
+export const QUIET_BLOCKS = 50;
 
 export interface SideStats { attacks: number; damage: number; evaded: number; blocked: number; countered: number; failed: number }
 export interface Kill { height: number; structId: string; type: string; owner: string; command: boolean }

@@ -901,7 +901,24 @@ export class PlanetScreen implements Screen {
         const busiest = () => [...store.planets.values()].filter((x) => x.active && x.owner && x.structs > 0 && x.id !== this.planetId).sort((x, y) => y.structs - x.structs)[0]?.id;
         this.root.appendChild(h('div', { class: 'action-bar panel empty dcb-emptyworld' + (this.held ? ' pa-armed' : '') }, this.hint(),
           tip(h('span', { class: 'chip', tabindex: 0 }, h('span', { class: 'dcb-ico', html: icon('planet', 14) }), 'Empty', h('b', { class: 'dcb-n' }, ` ${used}/16`)), `Empty world: ${used} of 16 slots built`, 'No ships or buildings here yet, so there is nothing to pick.'),
-          h('button', { class: 'btn solid dcb-verb', title: 'Go to the world with the most ships and buildings on it', onclick: () => { audio.play('select'); const id = busiest(); this.navigate(id ? '/planet/' + id : '/galaxy'); } }, face('a'), 'Visit a busy world'),
+          h('button', { class: 'btn solid dcb-verb', title: 'Go to the world with the most ships and buildings on it', onclick: async (e: Event) => {
+            audio.play('select');
+            // Opened from a link, the galaxy's world list may still be on its way: wait for it (a few
+            // seconds at most) rather than landing on the galaxy's title.
+            let id = busiest();
+            if (!id && !store.planetsLoaded) {
+              const b = e.currentTarget as HTMLButtonElement;
+              // (This screen is reused: a different root or load means the player has moved on.)
+              const root = this.root, tok = this.loadToken;
+              if (b.classList.contains('busy')) return;
+              b.disabled = true; b.classList.add('busy');
+              await Promise.race([store.loadPlanets().catch(() => {}), new Promise((r) => setTimeout(r, 8000))]);
+              b.disabled = false; b.classList.remove('busy');
+              if (this.root !== root || this.loadToken !== tok || !root.isConnected) return;
+              id = busiest();
+            }
+            this.navigate(id ? '/planet/' + id : '/galaxy');
+          } }, face('a'), 'Visit a busy world'),
           pause));
         return;
       }

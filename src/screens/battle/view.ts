@@ -10,7 +10,7 @@ import { easeInOutCubic, easeOutBack, easeOutCubic } from '../../core/util';
 import { type Ambit, AMBIT_COLOR, COMMAND_SHIP_ID, TYPES_BY_ID } from '../../data/catalogue';
 import { Effects } from '../../gfx/fx';
 import { getPixelModel, pixelMaterial, type PixelModel, type PixelUniforms } from '../../gfx/pixelModel';
-import { BattleSet, compactBoost, FIELD, type SetOptions, TIER_Y, slotStagger, slotX } from './env';
+import { BattleSet, compactBoost, FIELD, type SetOptions, slotStagger, slotX } from './env';
 import type { AttackDetail, Block, Chain, ChainEvent, ShotRow, SimStruct } from '../../sim/chain';
 
 export type SideV = 'player' | 'enemy';
@@ -394,11 +394,14 @@ export class BattleView {
 
   slotPosition(side: SideV, ambit: Ambit, slot: number, command: boolean, halfHeight: number, column: 'fleet' | 'planet' = 'fleet') {
     const x = this.xFor(side, slot, command, column);
-    let y = TIER_Y[ambit] - 0.2;
-    if (ambit === 'land') y = TIER_Y.land - 1.85 + halfHeight;
-    if (ambit === 'water') y = TIER_Y.water - 1.75 + halfHeight * 0.55;
-    // The compact deck's staggered line (env.ts): every other slot a step back and up.
-    const [lift, depth] = this.xFor === fieldX ? slotStagger(slot, command, ambit) : [0, 0];
+    const T = this.set.tiers;
+    let y = T[ambit] - 0.2;
+    if (ambit === 'land') y = T.land - 1.85 + halfHeight;
+    if (ambit === 'water') y = T.water - 1.75 + halfHeight * 0.55;
+    // The compact deck's staggered line (env.ts): every other slot a step back and up. When the decks
+    // stand further apart (a phone's fight), the step aloft grows with them, a rank to each half-deck.
+    const [lift0, depth] = this.xFor === fieldX ? slotStagger(slot, command, ambit) : [0, 0];
+    const lift = ambit === 'space' || ambit === 'air' ? lift0 * this.set.stretch * this.set.stretch : lift0;
     // Command Ships sit a little back so they read as the flagship.
     return new THREE.Vector3(x, y + lift, (command ? -0.6 : 0) + depth);
   }
@@ -511,6 +514,13 @@ export class BattleView {
     this.fx.clear();
   }
 
+  /** The decks moved under the board (a phone turned mid-fight): every standing hull steps back onto
+   * its slot at the new heights, and the guard tethers follow. Animations keep playing. */
+  restand() {
+    for (const u of this.units.values()) if (!u.destroyed) u.root.position.copy(this.slotPosition(u.side, u.ambit, u.slot, u.command, u.halfHeight, u.column));
+    for (const from of [...this.tethers.keys()]) this.rebuildTethersFor(from);
+  }
+
   /** Stop whatever is playing but keep the board: queued and running animations are dropped, and
    * every standing unit goes back to its slot (a lunge or sidestep may have been cut short). */
   halt() {
@@ -566,6 +576,9 @@ export class BattleView {
   }
 
   floater(pos: THREE.Vector3, text: string, cls: string, life = 1.3) {
+    // Words born on the same spot (COUNTERED, then DESTROYED) stack upward instead of printing over each other.
+    pos = pos.clone();
+    for (const f of this.floaters) if (f.age < 0.7 && Math.abs(f.pos.x - pos.x) < 2.6 && Math.abs(f.pos.y - pos.y) < 0.8) pos.y = f.pos.y + 0.9;
     const el = h('div', { class: 'floater ' + cls }, text);
     // Place it now: floaters are often born between frames (after an await) and
     // would otherwise sit in the corner until the next overlay pass.
@@ -937,7 +950,7 @@ export class BattleView {
     const c = u.center();
     const big = u.command ? 2.2 : 1;
     this.fx.explosion(c, big, u.side === 'player' ? 0x43cdb6 : 0xff7a50);
-    this.fx.debris.shatter(u.mesh.geometry === u.dmg.geometry ? u.dmg : u.base, u.mesh.matrixWorld, c.clone().add(new THREE.Vector3(0, -0.2, -0.5)), u.command ? 9 : 6, TIER_Y[u.ambit] - 2.0);
+    this.fx.debris.shatter(u.mesh.geometry === u.dmg.geometry ? u.dmg : u.base, u.mesh.matrixWorld, c.clone().add(new THREE.Vector3(0, -0.2, -0.5)), u.command ? 9 : 6, this.set.tiers[u.ambit] - 2.0);
     audio.play('explosion', big);
     this.onShake(u.command ? 1.1 : 0.45);
     this.onFlash(u.command ? 0.35 : 0.08, u.side === 'player' ? 0xee7d69 : 0xffffff);

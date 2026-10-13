@@ -74,7 +74,7 @@ try { engineOrNull = new Engine(document.getElementById('gl') as HTMLCanvasEleme
 const engine: Engine = engineOrNull;
 (window as unknown as { __structs: unknown }).__structs = { engine, navigate: (p: string) => navigate(p), screens: () => screens, store, live, wallet, txq, empire, pow, replicants, step: (s: number) => engine.advance(s) };
 
-type RouteName = 'galaxy' | 'planet' | 'sim' | 'codex' | 'combat' | 'grid' | 'command' | 'ops' | 'forge' | 'comms' | 'intel' | 'economy' | 'guild' | 'academy';
+type RouteName = 'galaxy' | 'planet' | 'sim' | 'codex' | 'combat' | 'grid' | 'command' | 'ops' | 'forge' | 'comms' | 'intel' | 'economy' | 'guild' | 'academy' | 'lobby';
 const screens: Partial<Record<RouteName, Screen>> = {};
 /* Screens load on first visit (separate chunks), then stay alive. */
 const LOADERS: Record<RouteName, () => Promise<Screen>> = {
@@ -92,6 +92,7 @@ const LOADERS: Record<RouteName, () => Promise<Screen>> = {
   guild: () => import('./screens/guild').then((m) => new m.GuildScreen(engine, navigate)),
   economy: () => import('./screens/economy').then((m) => new m.EconomyScreen(engine, navigate)),
   academy: () => import('./screens/academy').then((m) => new m.AcademyScreen(engine, navigate)),
+  lobby: () => import('./screens/lobby/lobby').then((m) => new m.LobbyScreen(engine, navigate)),
 };
 async function screenFor(name: RouteName): Promise<Screen> {
   if (!screens[name]) {
@@ -120,6 +121,7 @@ function parse(path: string): { name: RouteName; params: Record<string, string> 
   if (head === 'codex') return { name: 'codex', params: arg ? { type: arg } : {} };
   if (head === 'combat') return { name: 'combat', params: arg === 'by' && parts[2] ? { by: parts[2] } : arg ? { hash: arg, ...(parts[2] === 'e' ? { engage: '1' } : {}) } : {} };
   if (head === 'grid') return { name: 'grid', params: {} };
+  if (head === 'lobby') return { name: 'lobby', params: {} };
   // The commander's own screens: /command[/<playerId>], /ops[/<tab>], /forge[/<Msg>], /comms[/<room>], /intel[/<tab>[/<arg>]]
   if (head === 'command') return { name: 'command', params: arg ? { player: arg } : {} };
   if (head === 'ops') return { name: 'ops', params: arg ? { tab: arg } : {} };

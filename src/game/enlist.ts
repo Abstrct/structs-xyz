@@ -20,10 +20,12 @@ export interface Enlistment {
   steps: string[];
   error?: string;
   playerId?: string;
+  /** The droid the player built in setup, sent with the signup so it's on chain from block one. */
+  pfp?: Record<string, number>;
 }
 
 const KEY = 'structs.enlist.pending';
-type Pending = Pick<Enlistment, 'index' | 'name' | 'guildId' | 'guildName'>;
+type Pending = Pick<Enlistment, 'index' | 'name' | 'guildId' | 'guildName' | 'pfp'>;
 
 let current: Enlistment | null = null;
 const listeners = new Set<() => void>();
@@ -37,14 +39,14 @@ export const enlisting = {
 
 /** Name a commander and join a guild. Makes the vault first when there is none. Resolves once the
  * request is under way (not when the player lands): the rest happens in the background. */
-export async function enlist(name: string, guildId: string, guildName: string, index = wallet.activeIndex) {
+export async function enlist(name: string, guildId: string, guildName: string, index = wallet.activeIndex, pfp?: Record<string, number>) {
   if (current?.status === 'running') throw new Error('Already enlisting');
   if (wallet.state === 'empty') await wallet.createInstant();
   // Another tab made the vault after this one booted: it opens the same way here.
   if (!wallet.unlocked && wallet.deviceSealed) await wallet.restore();
   if (!wallet.unlocked) throw new Error('Unlock the vault to enlist');
   wallet.setAccount(index, { label: name });
-  const p: Pending = { index, name, guildId, guildName };
+  const p: Pending = { index, name, guildId, guildName, pfp };
   try { localStorage.setItem(KEY, JSON.stringify(p)); } catch { /* resumes only this visit */ }
   void run(p);
 }
@@ -61,7 +63,7 @@ export function resumeEnlist() {
 
 export function retryEnlist() {
   const c = current;
-  if (c?.status === 'failed') void run({ index: c.index, name: c.name, guildId: c.guildId, guildName: c.guildName });
+  if (c?.status === 'failed') void run({ index: c.index, name: c.name, guildId: c.guildId, guildName: c.guildName, pfp: c.pfp });
 }
 
 function clear() { try { localStorage.removeItem(KEY); } catch { /* ignore */ } }
@@ -75,7 +77,7 @@ function run(p: Pending): Promise<void> {
 }
 
 async function watch(p: Pending) {
-  const job: Enlistment = { index: p.index, name: p.name, guildId: p.guildId, guildName: p.guildName, status: 'running', steps: ['Another tab is finishing your signup'] };
+  const job: Enlistment = { index: p.index, name: p.name, guildId: p.guildId, guildName: p.guildName, pfp: p.pfp, status: 'running', steps: ['Another tab is finishing your signup'] };
   current = job;
   emit();
   for (let i = 0; i < 60 && current === job; i++) {
@@ -87,14 +89,14 @@ async function watch(p: Pending) {
 }
 
 async function work(p: Pending) {
-  const job: Enlistment = { index: p.index, name: p.name, guildId: p.guildId, guildName: p.guildName, status: 'running', steps: [] };
+  const job: Enlistment = { index: p.index, name: p.name, guildId: p.guildId, guildName: p.guildName, pfp: p.pfp, status: 'running', steps: [] };
   current = job;
   emit();
   // A forget mid-way abandons this job: nothing it learns afterwards is shown or acted on.
   const live = () => current === job;
   const step = (s: string) => { if (!live()) return; job.steps = [...job.steps, s]; emit(); };
   try {
-    const pid = await joinGuild(p.index, p.guildId, p.name, step);
+    const pid = await joinGuild(p.index, p.guildId, p.name, step, p.pfp);
     if (!live()) return;
     job.playerId = pid;
     // A player that landed while the page was closed may not have claimed its planet yet.

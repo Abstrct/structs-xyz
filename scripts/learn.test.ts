@@ -12,8 +12,8 @@ let fails = 0;
 const ok = (cond: unknown, msg: string) => { if (!cond) { fails++; console.error('FAIL', msg); } };
 
 /** Route heads the router in src/main.ts understands (anything else falls back to the galaxy). */
-const HEADS = new Set(['galaxy', 'planet', 'player', 'sim', 'codex', 'combat', 'grid', 'command', 'ops', 'forge', 'comms', 'guild', 'economy', 'intel', 'academy']);
-const SCREENS = ['galaxy', 'planet', 'sim', 'codex', 'combat', 'grid', 'command', 'ops', 'forge', 'comms', 'intel', 'economy', 'guild', 'academy'];
+const HEADS = new Set(['galaxy', 'planet', 'player', 'sim', 'codex', 'combat', 'grid', 'command', 'ops', 'forge', 'comms', 'guild', 'economy', 'intel', 'academy', 'lobby']);
+const SCREENS = ['galaxy', 'planet', 'sim', 'codex', 'combat', 'grid', 'command', 'ops', 'forge', 'comms', 'intel', 'economy', 'guild', 'academy', 'lobby'];
 const routes = (p: string) => p.startsWith('/') && HEADS.has(p.split('/')[1]);
 
 /* ── Hubs ───────────────────────────────────────────────────────────────── */

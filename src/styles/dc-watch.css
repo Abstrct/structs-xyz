@@ -436,8 +436,8 @@
 .dc-save-chip.daily.fresh::after { content: ''; position: absolute; right: -3px; top: -3px; width: 12px; height: 12px; border-radius: 50%; background: var(--dc-accent); animation: dc-ping 1.2s ease-out infinite; }
 @media (prefers-reduced-motion: reduce) { .dc-title .dc-save { animation: none; } .dc-save-chip.daily.fresh::after { animation: none; } }
 @media (max-width: 640px) { .dc-title .dc-save { gap: 6px; } .dc-save-chip { padding: 4px 12px 4px 8px; gap: 6px; } .dc-save-bar { width: 64px; } }
-/* A short screen (the TV's 480 lines, a phone on its side): the card waits for the doors. */
-@media (max-height: 560px) { .dc-title:not(.menu) .dc-save { display: none; } .dc-title .dc-save { margin-top: 10px; } .dc-save-chip { min-height: 40px; } }
+/* A short screen (the TV's 480 lines, a phone on its side): a tighter card. */
+@media (max-height: 560px) { .dc-title .dc-save { margin-top: 10px; } .dc-save-chip { min-height: 40px; } }
 /* A galaxy tile still waiting on the chain: the meter stands at the number's height. */
 .dw-tile .num .dcp-bars { height: 0.8em; color: var(--accent-primary); }
 .dc-title .dc-save[hidden] { display: none; }

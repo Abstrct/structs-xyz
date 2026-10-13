@@ -137,12 +137,14 @@ export function replyContent(parent: ReplyParent, body: string, html: string | n
 /* ── Outgoing content ────────────────────────────────────────────────────── */
 
 export type MsgType = 'm.text' | 'm.emote' | 'm.notice';
-export interface Outgoing { msgtype: MsgType; body: string; mentions?: Pill[]; replyTo?: ReplyParent | null }
+/** `stamp`: a lobby stamp (wave, thanks…). The body stays readable text for every other client. */
+export interface Outgoing { msgtype: MsgType; body: string; mentions?: Pill[]; replyTo?: ReplyParent | null; stamp?: string }
 
 export function messageContent(o: Outgoing): Record<string, unknown> {
   const mentions = o.mentions ?? [];
   const html = formatWithPills(o.body, mentions);
   const c: Record<string, unknown> = { msgtype: o.msgtype, body: o.body };
+  if (o.stamp) c['xyz.structs.stamp'] = o.stamp;
   const ids = [...new Set(mentions.map((m) => m.userId))];
   if (o.replyTo) ids.push(o.replyTo.sender);
   // m.mentions is always present: an empty one tells servers not to guess from the body.

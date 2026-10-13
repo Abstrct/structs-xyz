@@ -97,7 +97,7 @@ export const ITEM_ICONS: Record<string, string> = {
   '/sim': 'target', '/sim/daily': 'daily', '/combat': 'replay', '/codex': 'book',
   '/galaxy': 'explore', '/grid': 'grid', '/intel': 'news',
   '/economy/power': 'power', '/economy/fuel': 'fuel', '/economy/market': 'market', '/economy/banks': 'bank', '/economy/transfers': 'send',
-  '/comms': 'chat', '/guild': 'team', '/intel/guilds': 'flag',
+  '/lobby': 'robot', '/comms': 'chat', '/guild': 'team', '/intel/guilds': 'flag',
   palette: 'terminal', '/forge': 'code', '/ops/replicants': 'robot', '/ops/orders': 'rules', '/ops/proofs': 'chip', '/ops/health': 'health',
 };
 

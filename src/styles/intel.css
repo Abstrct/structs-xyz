@@ -322,3 +322,11 @@
   .intel .abar > .achips { order: 1; flex: 1 1 0; min-width: 0; }
   .intel .abar.searching .asearch { color: var(--dc-void); background: #fff; border-color: var(--dc-accent); }
 }
+/* A player's card: each pill in the colour of what happened. */
+.intel .acard-act.tone-player { --t: var(--accent-primary); }
+.intel .acard-act.tone-enemy { --t: var(--accent-destructive); }
+.intel .acard-act.tone-warn { --t: var(--dc-x); }
+.intel .acard-act.tone-neutral { --t: var(--text-neutral-primary); }
+.intel .acard-act.tone-hint { --t: var(--accent-secondary); }
+.intel .acard-act > b { font-weight: 900; }
+.intel .acard.now .acard-main > a.id-link + a.id-link::before { content: '·'; margin-right: 6px; color: var(--text-hint); }

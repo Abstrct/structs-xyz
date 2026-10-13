@@ -42,11 +42,16 @@ const PET: Record<'egg' | 'baby' | 'adult', string[][]> = {
 const HEART = ['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...'];
 const MOUTHS = { happy: [[3, 7], [4, 8], [5, 8], [6, 8], [7, 8], [8, 7]], wait: [[4, 8], [5, 8], [6, 8], [7, 8]], sad: [[3, 9], [4, 8], [5, 8], [6, 8], [7, 8], [8, 9]] };
 
+/** While you're in the Concourse, the VMU shows your deck and how many droids are on it. */
+let lobby: { deck: string; count: number } | null = null;
+export function vmuLobby(v: { deck: string; count: number } | null) { lobby = v; }
+
 export function mountVmu(): HTMLElement {
   const canvas = h('canvas', { width: W, height: H, class: 'vmu-lcd', 'aria-hidden': 'true' }) as HTMLCanvasElement;
   // A button: a tap (or A) says what the little screen is showing.
   const el = h('button', { type: 'button', class: 'vmu', 'aria-label': 'VMU' }, canvas) as HTMLButtonElement;
   const about = () => {
+    if (lobby) return `Deck ${lobby.deck} · ${lobby.count} here`;
     if (st) return `${st.name}: charge ${st.charge}${st.online ? '' : ' · grid offline'}${st.storedOre ? ` · ${st.storedOre} ore at risk` : ''}`;
     return wins >= 5 ? `Your pet is grown · ♥ ${wins} wins` : wins >= 1 ? `Your pet · ♥ ${wins} · grows up at 5 wins` : 'An egg · win a battle to hatch it';
   };
@@ -74,6 +79,15 @@ export function mountVmu(): HTMLElement {
   const draw = () => {
     g.fillStyle = LCD; g.fillRect(0, 0, W, H);
     g.fillStyle = INK;
+    if (lobby) {
+      // The beacon's chevron and the deck; a little droid and the head count.
+      sprite(['###..', '.###.', '..###', '.###.', '###..'], 3, 3);
+      if (/^\d$/.test(lobby.deck)) text(lobby.deck, 12, 3); else px(12, 3, 3, 5);
+      sprite(['.###.', '.#.#.', '.###.', '#####', '.#.#.'], 3, 18 - (frame % 8 < 4 ? 0 : 1));
+      text(String(Math.min(999, lobby.count)), 11, 18);
+      px(0, 30, W, 1);
+      return;
+    }
     if (!st) {
       // Idle: the pet under slow stars; a block landing flashes one star.
       for (const s of stars) { if (s.y < 16) { s.x = (s.x - s.s * 0.15 + W) % W; px(Math.floor(s.x), s.y); } }

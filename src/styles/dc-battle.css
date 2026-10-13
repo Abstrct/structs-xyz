@@ -429,3 +429,29 @@ body:has(.screen.battle .battle-top) > .banner { background: rgba(7, 11, 44, 0.5
  * say it), and if it still can't fit, the row wraps. */
 .debrief-back .dc-debrief .db-main { flex-wrap: wrap; }
 .debrief-back .dc-debrief .db-go.db-next .db-size-w { display: none; }
+
+/* ── Round 8 ── */
+/* Their Command Ship aimed at: its guards wear a red shield in their tags (battle.ts paintGuardMarks). */
+.screen.battle .unit-tag .dc-guard-mark { position: absolute; right: calc(100% + 3px); top: 50%; translate: 0 -50%; width: 15px; height: 15px; display: flex; align-items: center; justify-content: center;
+  pointer-events: none; border-radius: 50%; background: var(--accent-destructive); color: #fff; box-shadow: 0 0 0 1.5px #fff, 0 0 8px rgba(255, 61, 90, 0.8); font-style: normal; animation: dc-ping 1.1s ease-out infinite; }
+.screen.battle .unit-tag .dc-reach + .dc-guard-mark, .screen.battle .unit-tag .dc-guard-mark + .dc-reach { right: calc(100% + 21px); }
+@media (prefers-reduced-motion: reduce) { .screen.battle .unit-tag .dc-guard-mark { animation: none; } }
+/* The results' small row starts with Leave, at the left (nothing of it sits over the enemy's side). */
+.debrief-back .dc-debrief .db-minor { justify-content: flex-start; }
+/* The endgame's "Only your flagship reaches" line shows even while a short screen docks the aim. */
+.screen.battle.dc-dock-aim .coach.dc-callout.k-flagship { display: grid; }
+
+/* ── Round 9 ── */
+/* A guarded ship's card: "Guarded ×N", in their red. A fully blocked shot's Fire says to hit the guard. */
+.tooltip .dc-guarded, .screen.battle .aim-card .dc-guarded { display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-chrome); font-weight: 900; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent-destructive); }
+.tooltip .dc-guarded { margin: 2px 0 4px; padding: 1px 8px; border-radius: 999px; background: rgba(255, 61, 90, 0.16); box-shadow: inset 0 0 0 1.5px rgba(255, 61, 90, 0.6); }
+.tooltip.on .tip-fire.tip-guard { background: var(--accent-destructive); border-color: #fff; }
+/* The order's call, docked just above the verbs' left end. */
+.screen.battle .dc-order.docked { transform: none; z-index: 5; padding: 3px 10px 3px 6px; gap: 5px; }
+.screen.battle .dc-order.docked .dc-order-ship { width: 28px; height: 28px; }
+.screen.battle .dc-order.docked .dc-order-words { display: none; }
+/* The ship picker: ships that reach their Command Ship from this bay carry a gold crown. */
+.screen.battle .slot-editor .slot-opt.reaches-cs { box-shadow: inset 3px 0 0 var(--dc-x); }
+.screen.battle .slot-editor .slot-cs { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 24px; height: 24px; border-radius: 50%; color: var(--dc-x); background: rgba(245, 197, 24, 0.14); box-shadow: inset 0 0 0 1.5px var(--dc-x); }
+/* The Move step's layer: its button glows until the move goes in. */
+.screen.battle .action-bar .drift .btn.mini.dc-go-layer { border-color: var(--dc-accent); box-shadow: 0 0 0 3px rgba(255, 106, 19, 0.45); }

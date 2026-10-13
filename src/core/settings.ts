@@ -10,10 +10,11 @@ import { academy } from '../game/academy';
 
 /** `expert`: show the technical layer (chain links, block heights, raw event names, data sources);
  * off by default so the game reads plainly. Everything stays reachable either way. */
-export interface Settings { volume: number; music: number; bloom: boolean; quality: 'high' | 'low'; look: Look; reduceMotion: boolean; expert: boolean; bigText: boolean }
+/** `startIn`: where PRESS START takes a commander: the Concourse lobby, or the title's doors. */
+export interface Settings { volume: number; music: number; bloom: boolean; quality: 'high' | 'low'; look: Look; reduceMotion: boolean; expert: boolean; bigText: boolean; startIn: 'lobby' | 'galaxy' }
 const KEY = 'structs.settings';
 const DEFAULTS: Settings = {
-  volume: 0.8, music: 0.55, bloom: true, quality: 'high', look: 'dc', expert: false, bigText: false,
+  volume: 0.8, music: 0.55, bloom: true, quality: 'high', look: 'dc', expert: false, bigText: false, startIn: 'lobby',
   reduceMotion: typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches,
 };
 
@@ -24,6 +25,9 @@ export function loadSettings(): Settings {
     return { ...DEFAULTS, ...v, expert: v.expert ?? !!v.proHud };
   } catch { return { ...DEFAULTS }; }
 }
+
+/** PRESS START takes a commander to the Concourse (unless Settings says the title's doors). */
+export const startInLobby = () => loadSettings().startIn !== 'galaxy';
 
 /** Flip expert mode from anywhere (the More menu, the command line). */
 export function setExpert(engine: Engine, on: boolean) {
@@ -92,6 +96,7 @@ export function openSettings(engine: Engine) {
         toggle('Sharp picture', () => s.quality === 'high', () => { s.quality = s.quality === 'high' ? 'low' : 'high'; }, 'Draw at up to twice the pixels (turn off if the game feels slow)'),
         toggle('Reduce motion', () => s.reduceMotion, () => { s.reduceMotion = !s.reduceMotion; }, 'No camera shake, flashes or slow motion'),
         toggle('Larger text', () => s.bigText, () => { s.bigText = !s.bigText; }, 'Bigger labels and small print, easier to read'),
+        toggle('Start in the lobby', () => s.startIn !== 'galaxy', () => { s.startIn = s.startIn === 'galaxy' ? 'lobby' : 'galaxy'; }, 'PRESS START takes your commander straight to the Concourse; off shows the title doors'),
         head('Help & learning'),
         tipsRow,
         toggle('Expert mode', () => s.expert, () => { s.expert = !s.expert; }, 'Show the technical details: chain links and block height in the top bar, raw event names, data sources'),

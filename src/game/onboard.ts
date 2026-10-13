@@ -35,7 +35,7 @@ export async function guildCall<T = unknown>(guildId: string, path: string, init
 }
 
 /** Sign up account `index` with guild `guildId` under `username`; resolves with the new player id. */
-export async function joinGuild(index: number, guildId: string, username: string, onStep: (s: string) => void = () => {}): Promise<string> {
+export async function joinGuild(index: number, guildId: string, username: string, onStep: (s: string) => void = () => {}, pfp?: Record<string, number>): Promise<string> {
   const acct = wallet.account(index);
   if (!acct) throw new Error('No such account');
   onStep('Checking the game');
@@ -47,7 +47,9 @@ export async function joinGuild(index: number, guildId: string, username: string
   onStep('Asking your guild to let you in');
   const r = await guildCall(guildId, 'auth/signup', {
     method: 'POST',
-    body: JSON.stringify({ primary_address: sig.address, signature: sig.signature, pubkey: sig.pubkey, guild_id: guildId, username }),
+    // The portrait rides along (the guild's signup takes pfp_client_render_attributes), so the
+    // commander's droid exists from its first block.
+    body: JSON.stringify({ primary_address: sig.address, signature: sig.signature, pubkey: sig.pubkey, guild_id: guildId, username, ...(pfp ? { pfp_client_render_attributes: JSON.stringify(pfp) } : {}) }),
   });
   if (!(r.status === 202 || r.success || /exist/i.test(Object.values(r.errors).join(' ')))) {
     throw new Error('The guild refused the signup: ' + (Object.values(r.errors).join('; ') || `HTTP ${r.status}`));

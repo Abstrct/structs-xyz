@@ -20,6 +20,14 @@ export interface RouteDoc {
 
 export const ROUTES: RouteDoc[] = [
   {
+    path: '/lobby', title: 'The Concourse',
+    description: 'The Structs lobby: walk a round plaza as a droid built from your PFP, talk with other commanders in speech balloons, and reach every part of the game from its kiosks.',
+    body: [
+      'The Concourse is where commanders meet. Your portrait becomes a droid you walk around in a plaza under a glass dome, with a kiosk for each part of the game (Base, Battle, Explore, Trade, Team and Lab), a warp gate to training battles, a live news wall, and the Academy.',
+      'Each deck is a chat channel: what people say pops up as speech balloons over their droids, with stamps and quick phrases for pad players. New players build a droid, pick a name and a guild first, then ride the lift up.',
+    ],
+  },
+  {
     path: '/academy', title: 'Academy',
     description: 'Learn Structs by playing it: short lessons and quizzes on strategy, economics and technology, from ambits and charge to supply and demand, proof of work and if-then robot rules.',
     body: [

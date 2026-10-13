@@ -26,6 +26,8 @@ export interface Msg {
   edited?: boolean; editTs?: number;
   media?: Media; sys?: SysInfo;
   pending?: boolean; failed?: string; txnId?: string;
+  /** A lobby stamp ('wave', 'thanks'…) carried as `xyz.structs.stamp`; the body is its plain fallback. */
+  stamp?: string;
   /** Pagination token reaching history older than this event (set on the first event of each page). */
   before?: string;
   /** A local-only card (help, whois…); never sent. */
@@ -66,6 +68,8 @@ export interface Room {
   rev: number;
   /** Someone is reading old history: don't trim from the top (up to twice the cap). */
   holdCap?: boolean;
+  /** Our own state events (`xyz.structs.*`): type → state key → content, sender, time. */
+  custom: Map<string, Map<string, { content: any; sender?: string; ts?: number }>>;
 }
 
 export interface ChatState {
@@ -89,6 +93,7 @@ export function newRoom(id: string, membership: Room['membership']): Room {
     id, membership, altAliases: [], encrypted: false, members: new Map(), heroes: [], isDirect: false,
     timeline: [], byId: new Map(), reachedStart: false, unread: 0, highlights: 0, typing: [], receipts: new Map(),
     pinned: [], reactions: new Map(), annotations: new Map(), pendingEdits: new Map(), pendingRedactions: new Set(), lastTs: 0, rev: 0,
+    custom: new Map(),
   };
 }
 
@@ -318,6 +323,8 @@ function fillContent(m: Msg, c: any, msgtype: string | undefined) {
   const mm = c['m.mentions'];
   m.mentions = mm && typeof mm === 'object' ? (Array.isArray(mm.user_ids) ? mm.user_ids.filter((x: unknown) => typeof x === 'string') : []) : undefined;
   m.media = undefined;
+  const st = c['xyz.structs.stamp'];
+  m.stamp = typeof st === 'string' && /^[a-z]{2,12}$/.test(st) ? st : undefined;
   switch (msgtype) {
     case 'm.text': m.kind = 'text'; break;
     case 'm.emote': m.kind = 'emote'; break;
@@ -413,6 +420,13 @@ export function applyState(r: Room, ev: RawEvent, membersOnly = false) {
     case 'm.room.pinned_events': r.pinned = Array.isArray(c.pinned) ? c.pinned.filter((x: unknown) => typeof x === 'string') : []; break;
     case 'm.room.power_levels': r.power = c; break;
     case 'm.room.tombstone': if (c.replacement_room) r.tombstone = { body: String(c.body ?? ''), replacement: c.replacement_room }; break;
+    default:
+      // The lobby's own state (where each droid last stood): kept per state key, never shown.
+      if (ev.type.startsWith('xyz.structs.') && typeof ev.state_key === 'string') {
+        let m = r.custom.get(ev.type);
+        if (!m) r.custom.set(ev.type, m = new Map());
+        m.set(ev.state_key, { content: c, sender: ev.sender, ts: ev.origin_server_ts });
+      }
   }
 }
 
