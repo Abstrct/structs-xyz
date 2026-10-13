@@ -64,17 +64,22 @@ export function moveFocus(dir: 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRig
   const cx = from.left + from.width / 2, cy = from.top + from.height / 2;
   const [dx, dy] = dir === 'ArrowUp' ? [0, -1] : dir === 'ArrowDown' ? [0, 1] : dir === 'ArrowLeft' ? [-1, 0] : [1, 0];
   let best: HTMLElement | null = null, bestScore = Infinity;
+  let wide: HTMLElement | null = null, wideScore = Infinity;
   for (const el of all) {
     if (el === cur) continue;
     const r = el.getBoundingClientRect();
     const x = r.left + r.width / 2 - cx, y = r.top + r.height / 2 - cy;
     const along = x * dx + y * dy;
     if (along <= 4) continue;
-    // Straight ahead beats off to the side: sideways distance costs twice as much.
-    const score = along + 2 * Math.abs(x * dy - y * dx);
-    if (score < bestScore) { bestScore = score; best = el; }
+    // Straight ahead beats off to the side: sideways distance costs twice as much. Something
+    // within 45° of the direction pressed always wins over something further round.
+    const side = Math.abs(x * dy - y * dx);
+    const score = along + 2 * side;
+    if (side <= along) { if (score < bestScore) { bestScore = score; best = el; } }
+    else if (score < wideScore) { wideScore = score; wide = el; }
   }
-  if (best) focus(best);
+  const pick = best ?? wide;
+  if (pick) focus(pick);
 }
 
 function focus(el: HTMLElement) {

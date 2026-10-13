@@ -108,8 +108,11 @@ export function addBattleLights(scene: THREE.Scene) {
 /** The battlegrounds' heights stood further apart by `k` (1: the regular deck). */
 export const tiersFor = (k: number): Record<Ambit, number> => ({ space: TIER_Y.space * k, air: TIER_Y.air * k, land: TIER_Y.land * k, water: TIER_Y.water * k });
 /** How far apart an upright phone's fight stands its battlegrounds: its field is short of width and
- * long on height, so the decks spread to fill it and each staggered rank gets a deck of its own. */
+ * long on height, so the decks spread to fill it and each staggered rank gets a deck of its own. The
+ * taller the screen for its width, the further apart (1.35 on a 16:9 phone, up to 1.9 on a tall one,
+ * in steps of 0.05). */
 export const TIER_STRETCH = 1.35;
+export const tierStretch = () => Math.round(20 * Math.min(1.9, Math.max(TIER_STRETCH, 1.35 + (window.innerHeight / window.innerWidth - 1.8) * 1.5))) / 20;
 
 export class BattleSet {
   readonly group = new THREE.Group();

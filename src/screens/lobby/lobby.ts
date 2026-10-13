@@ -22,11 +22,30 @@ import { comms } from '../../chat/matrix';
 import type { Msg, Room } from '../../chat/model';
 import { pfpAttrs, AURA_COLOR, droidSpec, type PfpAttrs } from '../../data/droidParts';
 import { DroidActor } from '../../gfx/droid/actor';
-import { buildWorld, STATIONS, SPAWN, INSTRUCTOR, HANGAR_Y, WALK_R, type World, type Station } from './world';
+import { buildWorld, themeFor, floorAt, STATIONS, SPAWN, INSTRUCTOR, HANGAR_Y, WALK_R, PLAZA_R, type World, type Station } from './world';
+
+/** The camera stays this far in from the centre (the wall stands at PLAZA_R + 0.4). */
+const CAM_R = PLAZA_R - 0.6;
+/** The pillar, as the camera sees it: its base and capsule, with a little room. */
+const PILLAR_R = 2.1;
+/** The charge bar is full at this many blocks (charge itself keeps counting). */
+const CHARGE_BAR = 30;
+/** The camera stays under the ceiling ring (its underside is at 10.85). */
+const CAM_TOP = 9.6;
+
+/** Where (0..1) the floor-plan line from a to b first enters the pillar; 1 if it doesn't. */
+function pillarHit(a: THREE.Vector3, b: THREE.Vector3): number {
+  const dx = b.x - a.x, dz = b.z - a.z;
+  const A = dx * dx + dz * dz, B = 2 * (a.x * dx + a.z * dz), C = a.x * a.x + a.z * a.z - PILLAR_R * PILLAR_R;
+  const disc = B * B - 4 * A * C;
+  if (A < 1e-9 || disc < 0) return 1;
+  const s = (-B - Math.sqrt(disc)) / (2 * A);
+  return s > 0 && s < 1 ? s : 1;
+}
 import { Crowd, clampWalk, sendSpot, attrsOf, lists, turnToward, wrap } from './crowd';
 import { Talk, STAMPS, type Deck } from './talk';
 import { Tags, type Tagged } from './tags';
-import { Setup } from './setup';
+import { Setup, watchGalaxy } from './setup';
 import { cwWindow, closeWindows, anyWindow, stationDialog, deckWindow, ringWindow, stampWindow, emoteWindow, phraseWindow, profileCard, partRows, focusFirst } from './menus';
 import { icon } from '../../ui/icons';
 import { vmuLobby } from '../../ui/vmu';
@@ -41,7 +60,8 @@ const SEEN_KEY = 'structs.lobby.welcomed';
 export class LobbyScreen implements Screen {
   readonly scene = new THREE.Scene();
   readonly camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 2000);
-  readonly bloom = { strength: 0.6, radius: 0.45, threshold: 0.55 };
+  // Only the lamps bloom (world.ts burns them past white); lit paint stays under the threshold.
+  readonly bloom = { strength: 0.55, radius: 0.4, threshold: 1 };
   readonly streaks = 0;
 
   private world: World;
@@ -81,7 +101,11 @@ export class LobbyScreen implements Screen {
   private previewSpin = 0;
 
   // HUD.
-  private hud: { prompt: HTMLButtonElement; deck: HTMLButtonElement; map: HTMLCanvasElement; count: HTMLElement } | null = null;
+  private hud: {
+    prompt: HTMLButtonElement; deck: HTMLButtonElement; map: HTMLCanvasElement; count: HTMLElement;
+    gem: HTMLElement; name: HTMLElement; pwr: HTMLElement; chg: HTMLElement; near: HTMLElement;
+  } | null = null;
+  private nearKey = '';
   private near: Station | null = null;
   private mapT = 0;
   private noticeDirty = true;
@@ -97,9 +121,10 @@ export class LobbyScreen implements Screen {
   private pendingLook: PfpAttrs | null = null;
   private padIdle = true;
   private previewSoon = 0;
+  private themeKey = '1';
 
   constructor(private engine: Engine, private navigate: (path: string) => void) {
-    this.world = buildWorld(this.scene, engine.renderer);
+    this.world = buildWorld(this.scene, engine.renderer, { lite: softwareGL(engine.renderer) });
     this.crowd = new Crowd(softwareGL(engine.renderer));
     this.scene.add(this.crowd.group);
     this.instructor = new DroidActor(INSTRUCTOR_ATTRS, { seed: INSTRUCTOR_ID, lite: softwareGL(engine.renderer) });
@@ -137,6 +162,7 @@ export class LobbyScreen implements Screen {
     closeWindows();
     this.leavePlaza();
     this.leaveHangar();
+    this.world.release();
     this.root?.remove();
     this.keys.clear();
   }
@@ -330,8 +356,18 @@ export class LobbyScreen implements Screen {
       h('button', { type: 'button', class: 'lh-act', title: 'Talk (Enter)', onclick: () => this.talk?.focus() }, h('span', { class: 'dc-face a key' }, '↵'), h('span', { class: 'lh-act-ico', html: icon('chat', 18) }), h('span', { class: 'lh-act-word' }, 'Talk')),
       h('button', { type: 'button', class: 'lh-act', title: 'Stamp (X)', onclick: () => this.openStamps() }, h('span', { class: 'dc-face x' }, 'X'), h('span', { class: 'lh-act-ico', html: STAMPS[0] ? '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' + STAMPS[0].glyph + '</svg>' : '' }), h('span', { class: 'lh-act-word' }, 'Stamp')),
       h('button', { type: 'button', class: 'lh-act', title: 'Menu (R)', onclick: () => this.openRing() }, h('span', { class: 'dc-face y' }, 'Y'), h('span', { class: 'lh-act-ico', html: icon('more', 18) }), h('span', { class: 'lh-act-word' }, 'Menu')));
-    this.root.append(h('div', { class: 'lh' }, deck, map, prompt, acts));
-    this.hud = { prompt, deck, map, count };
+    // My plate, top left: an aura gem, my name, power in use and charge (the old lobbies' HP and TP).
+    const gem = h('span', { class: 'lh-gem', 'aria-hidden': 'true' });
+    const name = h('span', { class: 'lh-me-name' });
+    const bar = (cls: string, label: string) => h('span', { class: 'lh-bar ' + cls }, h('b', null, label), h('span', { class: 'lh-track' }, h('i')));
+    const pwr = bar('pwr', 'PWR'), chg = bar('chg', 'CHG');
+    const me = h('div', { class: 'lh-me cw' }, gem, h('div', { class: 'lh-me-text' }, name, h('div', { class: 'lh-bars' }, pwr, chg)));
+    // Who's near me, under the map: tap one for their card.
+    const near = h('div', { class: 'lh-near', 'aria-label': 'Nearby' });
+    this.root.append(h('div', { class: 'lh' }, me, deck, map, near, prompt, acts));
+    this.hud = { prompt, deck, map, count, gem, name, pwr, chg, near };
+    this.nearKey = '';
+    this.paintMe();
     this.near = null;
     this.paintDeck();
   }
@@ -339,10 +375,50 @@ export class LobbyScreen implements Screen {
   private paintDeck() {
     if (!this.hud || !this.talk) return;
     const d = this.talk.deck;
+    // Each deck has its own colour (the floor repaints only when it changes).
+    if (d.key !== this.themeKey) { this.themeKey = d.key; this.world.setTheme(themeFor(d.key)); }
     (this.hud.deck.children[0] as HTMLElement).textContent = `DECK ${d.key}`;
     (this.hud.deck.children[1] as HTMLElement).textContent = d.name;
     this.hud.count.textContent = String(this.crowd.people.size + 1);
     vmuLobby({ deck: d.key, count: this.crowd.people.size + 1 });
+  }
+
+  private paintMe() {
+    if (!this.hud) return;
+    const { gem, name, pwr, chg } = this.hud;
+    const p = empire.commander;
+    gem.style.setProperty('--gem', AURA_COLOR[droidSpec(this.myAttrs()).aura]);
+    name.textContent = p?.name || wallet.active?.label || 'You';
+    pwr.hidden = chg.hidden = !p;
+    if (!p) return;
+    const capacity = p.capacity + p.connectionCapacity, load = p.load + p.structsLoad;
+    const used = capacity > 0n ? Math.min(1, Number((load * 1000n) / capacity) / 1000) : load > 0n ? 1 : 0;
+    (pwr.querySelector('i') as HTMLElement).style.width = `${Math.round(used * 100)}%`;
+    pwr.classList.toggle('warn', used >= 0.8);
+    pwr.classList.toggle('off', !p.online);
+    pwr.title = p.online ? `Power: ${Math.round(used * 100)}% of your capacity in use` : 'Power: your grid is offline';
+    const ch = empire.charge(p);
+    (chg.querySelector('i') as HTMLElement).style.width = `${Math.round(Math.min(1, ch / CHARGE_BAR) * 100)}%`;
+    chg.title = `Charge ${ch}: blocks since your last move`;
+  }
+
+  /** The three droids nearest me (within talking distance). */
+  private paintNear() {
+    if (!this.hud) return;
+    const near = [...this.crowd.people.values()]
+      .map((p) => ({ p, d: Math.hypot(p.actor.group.position.x - this.pos.x, p.actor.group.position.z - this.pos.z) }))
+      .filter((x) => x.d < 9)
+      .sort((a, b) => a.d - b.d).slice(0, 3)
+      .map(({ p }) => ({ p, nm: comms.nameOf(p.userId, this.room), aura: AURA_COLOR[droidSpec(attrsOf(p.userId)).aura] }));
+    // Names load late and looks change: the rows repaint whenever what they show changes.
+    const key = near.map((x) => `${x.p.userId} ${x.nm} ${x.aura}`).join('|');
+    if (key === this.nearKey) return;
+    this.nearKey = key;
+    this.hud.near.replaceChildren(...near.map(({ p, nm, aura }) => {
+      const gem = h('span', { class: 'lh-gem' });
+      gem.style.setProperty('--gem', aura);
+      return h('button', { type: 'button', class: 'lh-near-row cw', title: `${nm}: open their card`, onclick: () => this.openCard(p.userId) }, gem, h('span', { class: 'lh-near-name' }, nm));
+    }));
   }
 
   private paintMap() {
@@ -443,7 +519,10 @@ export class LobbyScreen implements Screen {
     let now = { ...before };
     let saved = false;
     this.mirrorOpen = true;
-    const w = cwWindow('Mirror', { place: 'left', cls: 'cw-mirror', onClose: () => { this.mirrorOpen = false; if (!saved) this.me?.setAttrs(before); this.refreshMe(); } });
+    // X (the pad's alternate) rolls here too.
+    const rollKey = (e: KeyboardEvent) => { if (e.key === 'g' || e.key === 'x' || e.key === 'X') w.body.querySelector<HTMLButtonElement>('[data-act="roll"]')?.click(); };
+    window.addEventListener('keydown', rollKey);
+    const w = cwWindow('Mirror', { place: 'left', cls: 'cw-mirror', onClose: () => { window.removeEventListener('keydown', rollKey); this.mirrorOpen = false; if (!saved) this.me?.setAttrs(before); this.refreshMe(); } });
     // Stepping fast through parts builds only where it stops.
     let soon = 0;
     const rows = partRows(before, (a) => { now = a; clearTimeout(soon); soon = window.setTimeout(() => this.me?.setAttrs(a), 120); });
@@ -479,7 +558,7 @@ export class LobbyScreen implements Screen {
     this.vel.set(0, 0, 0);
     if (st.kind === 'academy') { this.npcSay('Lessons are short and give XP. Have fun!'); }
     stationDialog(st, {
-      go: (p) => this.navigate(p),
+      go: (p) => (p === '/galaxy' ? watchGalaxy(this.navigate) : this.navigate(p)),
       mirror: () => this.openMirror(),
       decks: () => this.openDecks(),
       palette: () => window.dispatchEvent(new KeyboardEvent('keydown', { key: '/' })),
@@ -647,7 +726,7 @@ export class LobbyScreen implements Screen {
   /* ── Frame ─────────────────────────────────────────────────────────── */
 
   update(dt: number, t: number) {
-    this.world.update(t, this.camera.position);
+    this.world.update(t, this.camera.position, dt, this.live);
     if (!this.live) return;
     if (this.mode === 'hangar') return this.updateHangar(dt, t);
     if (this.noticeDirty) this.paintNotice();
@@ -697,7 +776,9 @@ export class LobbyScreen implements Screen {
     if (speed > 0.2) this.yaw = turnToward(this.yaw, Math.atan2(this.vel.x, this.vel.z), dt * 10);
 
     if (this.me) {
-      this.me.group.position.set(this.pos.x, -this.rising * 2.2, this.pos.z);
+      // Up a step onto the lift or the warp pad.
+      const fy = floorAt(this.pos.x, this.pos.z), y = this.me.group.position.y + this.rising * 2.2;
+      this.me.group.position.set(this.pos.x, y + (fy - y) * Math.min(1, dt * 14) - this.rising * 2.2, this.pos.z);
       this.me.group.rotation.y = this.yaw;
       this.me.speed = speed;
       this.me.turn = wrap(this.yaw - prevYaw) / Math.max(dt, 1e-3);
@@ -752,7 +833,7 @@ export class LobbyScreen implements Screen {
       this.tags.update(this.camera, innerWidth, innerHeight, tagged);
     }
     this.mapT -= dt;
-    if (this.mapT <= 0) { this.mapT = 0.2; this.paintMap(); this.paintDeck(); }
+    if (this.mapT <= 0) { this.mapT = 0.2; this.paintMap(); this.paintDeck(); this.paintMe(); this.paintNear(); }
   }
 
   private placeCamera(dt: number) {
@@ -765,8 +846,14 @@ export class LobbyScreen implements Screen {
     let dist = this.camDist * (tall ? 1.25 : 1);
     const off = () => new THREE.Vector3(Math.sin(this.camYaw) * Math.cos(this.camPitch) * dist, Math.sin(this.camPitch) * dist + 0.4, Math.cos(this.camYaw) * Math.cos(this.camPitch) * dist);
     let p = target.clone().add(off());
-    // The dome wall pulls the camera in.
-    for (let i = 0; i < 6 && Math.hypot(p.x, p.z) > 23; i++) { dist *= 0.82; p = target.clone().add(off()); }
+    // The hall's wall pulls the camera in.
+    for (let i = 0; i < 8 && Math.hypot(p.x, p.z) > CAM_R; i++) { dist *= 0.85; p = target.clone().add(off()); }
+    const pr = Math.hypot(p.x, p.z);
+    if (pr > CAM_R) { p.x *= CAM_R / pr; p.z *= CAM_R / pr; }
+    // Nor through the pillar: stop short of it on the line back to me.
+    const hit = pillarHit(target, p);
+    if (hit < 1) p = target.clone().lerp(p, Math.max(0.15, hit - 0.06));
+    p.y = Math.min(p.y, CAM_TOP);
     const k = Math.min(1, dt * 8);
     this.camera.position.lerp(p, k);
     if (this.camera.position.distanceTo(p) > 12) this.camera.position.copy(p);
@@ -785,8 +872,10 @@ export class LobbyScreen implements Screen {
     }
     // Frame the lift between the two windows; upright, the droid stands above the parts window.
     const narrow = this.camera.aspect < 1;
-    this.camera.position.set(0, HANGAR_Y + 1.45, narrow ? 7.4 : 4.4);
-    this.camera.lookAt(0, HANGAR_Y + (narrow ? -0.9 : 0.95), 0);
+    // A small landscape frame (the 640×480 TV): the droid steps right, clear of the parts window.
+    const side = !narrow && innerWidth <= 760 ? -0.75 : 0;
+    this.camera.position.set(side, HANGAR_Y + 1.45, narrow ? 7.4 : 4.4);
+    this.camera.lookAt(side, HANGAR_Y + (narrow ? -0.9 : 0.95), 0);
     if (this.setup && wallet.active?.playerId) this.world.setLiftReady(true);
   }
 }

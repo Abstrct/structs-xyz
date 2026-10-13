@@ -68,21 +68,28 @@ export function whenNoticesShow(f: () => void, big = false) {
   if (held.length > 12) { const i = held.findIndex((n) => !n.big); held.splice(i < 0 ? 0 : i, 1); }
 }
 
-/** Rewards (a lesson done, a mission paid) waiting for a fight's results screen. */
-let rewardsHeld: (() => void)[] | null = null;
-/** A fight keeps its rewards for the results (they printed over the fleets at the first shot); letting
- * go plays the latest three, one by one. */
+/** Rewards (a lesson done, a mission paid, a promotion) waiting for a fight's results screen. */
+let rewardsHeld: { run: () => void; big: boolean }[] | null = null;
+/** A fight keeps its rewards for the results (they printed over the fleets at the first shot). Letting
+ * go plays every banner first (a promotion, a badge: never trimmed), then the latest two toasts, each
+ * given time to be read: the results show one toast at a time. */
 export function holdRewards(on: boolean) {
   if (on) { rewardsHeld ||= []; return; }
   const q = rewardsHeld;
   rewardsHeld = null;
-  q?.slice(-3).forEach((f, i) => setTimeout(f, 700 + i * 450));
+  if (!q) return;
+  const big = q.filter((n) => n.big), small = q.filter((n) => !n.big).slice(-2);
+  // Left the results before one played (Next, Again: a new fight holds again)? It waits for that one's.
+  const play = (n: { run: () => void; big: boolean }) => () => { if (rewardsHeld) rewardsHeld.push(n); else n.run(); };
+  big.forEach((n, i) => setTimeout(play(n), 700 + i * 3000));
+  const after = 700 + big.length * 3000;
+  small.forEach((n, i) => setTimeout(play(n), after + i * 1800));
 }
-/** Show a reward (its sound and toast) now, or with the fight's results. */
-export function whenRewardsShow(f: () => void) {
+/** Show a reward (its sound and toast or banner) now, or with the fight's results. `big`: a banner. */
+export function whenRewardsShow(f: () => void, big = false) {
   if (!rewardsHeld) { f(); return; }
-  rewardsHeld.push(f);
-  if (rewardsHeld.length > 8) rewardsHeld.shift();
+  rewardsHeld.push({ run: f, big });
+  if (rewardsHeld.length > 12) { const i = rewardsHeld.findIndex((n) => !n.big); rewardsHeld.splice(i < 0 ? 0 : i, 1); }
 }
 
 export function toast(text: string, kind: '' | 'player' | 'enemy' | 'warn' = '', ms = 3200, action?: { label: string; run: () => void }) {

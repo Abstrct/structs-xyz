@@ -279,6 +279,10 @@ export class GalaxyScreen implements Screen {
     try { toMenu = sessionStorage.getItem('structs.menu') === '1'; sessionStorage.removeItem('structs.menu'); } catch { /* storage blocked */ }
     // A commander's menu is the Concourse lobby now (unless Settings keeps the doors).
     if (toMenu && wallet.active?.playerId && startInLobby()) { this.titleShown = true; redirectTo('/lobby'); return; }
+    // "Watch" from the Concourse: the live galaxy itself, no title in the way (once).
+    let watch = false;
+    try { watch = sessionStorage.getItem('structs.watch') === '1'; sessionStorage.removeItem('structs.watch'); } catch { /* storage blocked */ }
+    if (watch && !toMenu) { this.titleShown = true; return; }
     if ((!this.titleShown || toMenu) && !this.titleUp) { this.titleShown = true; if (!params.focus) this.showTitle(); }
   }
 

@@ -119,3 +119,9 @@ body > .more-menu kbd.mm-hint { border-radius: 8px; border: 2px solid rgba(143, 
 
 /* On a phone's Code Lab the top band holds one toast at a time, the newest (two reached the form's header). */
 @media (max-width: 760px) { body:has(.screen.forge) > .toasts > .toast:not(:last-child) { display: none; } }
+
+/* Settings: each label takes the room its row has (the old fixed 70 px wrapped "Start in the lobby"
+ * onto three lines on the 640×480 TV); the sliders' short labels keep them lined up. */
+body > .settings-back .set-row > .t-label { width: auto; min-width: 70px; flex: 0 1 auto; white-space: normal; line-height: 1.2; }
+body > .settings-back .set-row > .grow { flex: 1 1 8px; }
+body > .settings-back .set-row > .range { flex: 1 1 auto; min-width: 0; }

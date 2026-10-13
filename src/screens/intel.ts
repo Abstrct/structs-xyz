@@ -53,7 +53,7 @@ export class IntelScreen extends PanelScreen {
 
   constructor(engine: Engine, navigate: (hash: string) => void) { super(engine, navigate, 'intel', 5.1); }
 
-  protected async mount(params: Record<string, string>) {
+  protected mount(params: Record<string, string>) {
     const tab: Tab = params.tab === 'guild' ? 'guilds' : (TABS.find((t) => t.id === params.tab)?.id || 'activity');
     const arg = params.arg;
 
@@ -127,29 +127,33 @@ export class IntelScreen extends PanelScreen {
     this.cleanup.push(() => this.unmountTab());
     if (early) { this.mountTab(tab, arg, body, ctaHost); earlyGuild = this.mounted; }
     else if (grass.state !== 'live') body.replaceChildren(receiving('Tuning in', 'Dialling the guild’s live news feed…', TABS.find((t) => t.id === tab)!.icon));
-    await Promise.race([grass.start(), sleep(4000)]);
-    // Left while GRASS was dialling: cleanup has already run, so add nothing it would miss.
-    if (!alive) return;
-    const paintSource = (list: GuildEntry[]) => {
-      const current = grass.guildId || DEFAULT_GUILD;
-      const usable = list.filter((g) => g.services?.guild_api || g.services?.grass);
-      source.replaceChildren(...(usable.length ? usable : [{ id: current } as GuildEntry]).map((g) =>
-        h('option', { value: g.id, selected: g.id === current }, `${guildLabel(g.id).name} (${guildLabel(g.id).tag})`)));
-    };
-    this.cleanup.push(onGuilds(paintSource));
-    void guilds().catch(() => { /* fallback list painted by onGuilds */ });
-    // Only the latest pick, and only while this screen is up, re-mounts the tab.
-    let picks = 0;
-    source.addEventListener('change', async () => {
-      audio.play('select');
-      const pick = ++picks;
-      try { await grass.switchGuild(source.value); } catch (e) { console.error(e); }
-      if (!alive || pick !== picks) return;
-      this.mountTab(tab, arg, body, ctaHost);
-      paintUplink();
-    });
+    // The rest waits for the feed, but the screen doesn't: entering returns now (the router holds
+    // its loading screen until enter() resolves, so an await here kept NOW LOADING up for seconds).
+    void (async () => {
+      await Promise.race([grass.start(), sleep(4000)]);
+      // Left while GRASS was dialling: cleanup has already run, so add nothing it would miss.
+      if (!alive) return;
+      const paintSource = (list: GuildEntry[]) => {
+        const current = grass.guildId || DEFAULT_GUILD;
+        const usable = list.filter((g) => g.services?.guild_api || g.services?.grass);
+        source.replaceChildren(...(usable.length ? usable : [{ id: current } as GuildEntry]).map((g) =>
+          h('option', { value: g.id, selected: g.id === current }, `${guildLabel(g.id).name} (${guildLabel(g.id).tag})`)));
+      };
+      this.cleanup.push(onGuilds(paintSource));
+      void guilds().catch(() => { /* fallback list painted by onGuilds */ });
+      // Only the latest pick, and only while this screen is up, re-mounts the tab.
+      let picks = 0;
+      source.addEventListener('change', async () => {
+        audio.play('select');
+        const pick = ++picks;
+        try { await grass.switchGuild(source.value); } catch (e) { console.error(e); }
+        if (!alive || pick !== picks) return;
+        this.mountTab(tab, arg, body, ctaHost);
+        paintUplink();
+      });
 
-    if (!early || (grass.guildId || grass.preferred() || DEFAULT_GUILD) !== earlyGuild) this.mountTab(tab, arg, body, ctaHost);
+      if (!early || (grass.guildId || grass.preferred() || DEFAULT_GUILD) !== earlyGuild) this.mountTab(tab, arg, body, ctaHost);
+    })();
   }
   /** The guild the tab on screen was drawn for. */
   private mounted = '';

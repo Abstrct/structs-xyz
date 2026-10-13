@@ -23,7 +23,7 @@ The lobby at `/lobby`. Your PFP is a droid you walk around a round plaza in, the
 | `src/gfx/droid/skin.ts` | Reads the layer pixels into an atlas: a palette per part, the layer as a decal on the part's front, and an emissive mask of its bright, rare pixels (eyes, visors, screens). |
 | `src/gfx/droid/actor.ts` | One droid in the world: shared builds per PFP, gaits, talking, eight emotes, and the flat-bust sprite for far or low-end crowds. |
 | `src/screens/lobby/layout.ts` | The plaza's plan, pure: stations, colliders, the spawn, each person's seeded home spot, and `clampWalk`. |
-| `src/screens/lobby/world.ts` | The scene: floor, dome, beacon, kiosks, warp gate, notice wall, Academy, deck lift, and the hangar below. |
+| `src/screens/lobby/world.ts` | The hall: a floor painted per deck, hull walls under tall windows onto a planet, ceiling ribs carrying light, the central pillar with the chevron in its capsule, a counter per hub (attendant, monitor), the warp pad, the news screen, the Academy console, the deck lift, and the hangar below. `setTheme()` recolours it for each deck. |
 | `src/screens/lobby/lobby.ts` | The screen: hangar or plaza, walking, the camera, stations, the HUD, the Mirror, profile cards and the Instructor. |
 | `src/screens/lobby/crowd.ts` | Who's on the deck and where they stand, plus the local mute and block lists. |
 | `src/screens/lobby/talk.ts` | Decks (channels), the five-line log, the input (with the recovery-phrase guard), stamps and phrases. |
@@ -33,6 +33,14 @@ The lobby at `/lobby`. Your PFP is a droid you walk around a round plaza in, the
 | `src/styles/dc-concourse.css` | The window kit, HUD, balloons and setup. |
 
 Tests: `scripts/droid.test.ts` covers every family combination (inside 1,800 triangles) and the family tables. `scripts/lobby.test.ts` covers room state, stamps, and the plaza plan.
+
+## The look
+
+The hall follows the Dreamcast-era lobbies: high-key light, pale hull panelling, periwinkle floors with maroon bands, magenta, cyan and amber light strips, and green CRT monitors. We studied a PSO disc for proportions and palette only. Every shape and texture here is drawn in code; nothing from the disc ships. Each deck gets its own floor, band and light colour (`THEMES` in world.ts), the way the old lobbies did.
+
+Bloom only takes the lamps. Light strips burn at `LAMP` (2.6× white) and the lobby's bloom threshold is 1. Lit paint peaks around 0.85, so it never blooms. The camera stays inside the wall (`CAM_R`) and stops short of the pillar.
+
+The HUD has my plate (aura gem, name, power in use, charge) at the top left, the deck plate under it, and the three nearest droids under the map.
 
 ## Controls
 

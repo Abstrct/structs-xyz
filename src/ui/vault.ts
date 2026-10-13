@@ -23,7 +23,9 @@ let closeOpen: (() => void) | null = null;
 /** Close the vault modal, releasing its listeners. */
 export function closeVault() { closeOpen?.(); }
 
-export function openVault(view?: 'send' | 'join') {
+/** `restore`: a fresh browser opens on bringing a commander back from a recovery phrase (a vault
+ * already here keeps its usual view, so nothing is ever overwritten). */
+export function openVault(view?: 'send' | 'join' | 'restore') {
   if (open) closeOpen?.();
   const body = h('div', { class: 'panel-body col vault-body scroll' });
   const back = h('div', { class: 'modal-back vault-back', onclick: (e: Event) => { if (e.target === back) close(); } },
@@ -47,7 +49,7 @@ export function openVault(view?: 'send' | 'join') {
     body.replaceChildren();
     showingProgress = false;
     const st = wallet.state;
-    if (st === 'empty') return renderEnlist(body, 0, setBusy);
+    if (st === 'empty') { if (view === 'restore') { view = undefined; return renderImport(body, setBusy); } return renderEnlist(body, 0, setBusy); }
     if (st === 'locked') return renderUnlock(body, setBusy);
     if (view === 'send') { view = undefined; return renderSend(body, () => render()); }
     if (view === 'join') { view = undefined; return renderEnlist(body, wallet.activeIndex, setBusy); }

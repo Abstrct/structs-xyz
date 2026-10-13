@@ -28,12 +28,14 @@ export const polar = (deg: number, r: number, y = 0) => {
 
 export const KIOSK_R = 15.6;
 export const KIOSK_DEG: Record<HubId, number> = { explore: -55, battle: 55, team: -105, trade: 105, lab: -150, base: 150 };
-export const SPAWN = polar(180, 17.4);
+// The hall is walled now: arrive far enough in that the camera fits behind you.
+export const SPAWN = polar(180, 14.8);
 // Far enough from the Academy podium that a droid fits between them.
 export const INSTRUCTOR = polar(175, 10.4);
 export const ACADEMY = polar(162, 11.4);
-export const NOTICE = polar(0, 12.5);
-export const WARP = polar(0, 18.2);
+// The news terminal stands by the north wall, its big screen hung above it.
+export const NOTICE = polar(-24, 17.2);
+export const WARP = polar(0, 16.9);
 
 export const STATIONS: Station[] = [
   ...HUBS.map((hb): Station => ({ id: hb.id, kind: 'kiosk', label: hb.label, color: hb.color, at: polar(KIOSK_DEG[hb.id], KIOSK_R), reach: 3.1, hub: hb.id })),
@@ -43,14 +45,29 @@ export const STATIONS: Station[] = [
   { id: 'lift', kind: 'lift', label: 'Decks', color: '#79D3F2', at: SPAWN, reach: 1.8 },
 ];
 
+/** A point by a counter in the counter's own frame: x along it, z toward the centre. */
+export function kioskPoint(at: THREE.Vector3, x: number, z: number) {
+  const d = Math.hypot(at.x, at.z), ix = -at.x / d, iz = -at.z / d;
+  return { x: at.x + iz * x + ix * z, z: at.z - ix * x + iz * z };
+}
+
+/** The pillar's dais, the counters, the Academy console, the Instructor and the news terminal.
+ * A counter is one circle set back from its middle, wide enough for its posts and its front corners
+ * (overlapping circles leave pockets a droid can be pushed into and stay). */
+export const DAIS_R = 3.3;
 export const COLLIDERS: Collider[] = [
-  { x: 0, z: 0, r: 2.75 },
-  ...STATIONS.filter((s) => s.kind === 'kiosk').map((s) => ({ x: s.at.x, z: s.at.z, r: 1.55 })),
+  { x: 0, z: 0, r: DAIS_R },
+  ...STATIONS.filter((s) => s.kind === 'kiosk').map((s) => ({ ...kioskPoint(s.at, 0, -0.9), r: 2.55 })),
   { x: ACADEMY.x, z: ACADEMY.z, r: 0.75 },
   { x: INSTRUCTOR.x, z: INSTRUCTOR.z, r: 0.6 },
   { x: NOTICE.x, z: NOTICE.z, r: 0.9 },
-  { x: WARP.x - 2.45, z: WARP.z, r: 0.5 }, { x: WARP.x + 2.45, z: WARP.z, r: 0.5 },
 ];
+
+/** The pads you step up onto: the deck lift (where you arrive) and the warp. */
+export const PAD_TOP = 0.135;
+const PADS = [{ at: SPAWN, r: 1.6 }, { at: WARP, r: 2.0 }];
+/** How high the floor is here: up on a pad, or the plaza's floor. */
+export const floorAt = (x: number, z: number) => PADS.some((p) => Math.hypot(x - p.at.x, z - p.at.z) < p.r) ? PAD_TOP : 0;
 
 /** A stable spot on the ring for someone, clear of the stations. */
 export function homeSpot(userId: string): THREE.Vector3 {

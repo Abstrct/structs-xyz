@@ -1,7 +1,7 @@
 /* Headless checks on the combat port: rules hold, and AI battles finish. */
 import { Chain } from '../src/sim/chain';
 import { Ai } from '../src/sim/ai';
-import { BattleSession } from '../src/screens/battle/session';
+import { BattleSession, DECIDE_AT, OVERTIME_AT, QUIET_BLOCKS, type Outcome } from '../src/screens/battle/session';
 import { formatAlpha, formatPower, powAgeFor, powDifficulty } from '../src/core/util';
 import { layout, chainSetup, validate, YOU, CPU, type Preset, encodeBattle, decodeBattle, unitsFromChainFleet, mirrorUnits, encodeReplay, decodeReplay, dailyScenario } from '../src/sim/fleets';
 import { TYPES_BY_ID } from '../src/data/catalogue';
@@ -130,6 +130,70 @@ for (const p of ['easy', 'hard', 'random'] as Preset[]) {
     }
     check(JSON.stringify(again.structs) === JSON.stringify(chain.structs) && JSON.stringify(again.fleets) === JSON.stringify(chain.fleets), `replay ${p} reproduces the final state`);
   }
+}
+
+// 3b. A long fight: overtime at OVERTIME_AT turns, then a decision on hull at DECIDE_AT (Command Ship
+// fraction, then the fleet's, else a draw). The clock is wound forward; no computer orders interfere.
+{
+  const seed = 'session:time';
+  const decideWith = (hurt: (c: Chain) => void, at = DECIDE_AT, limit = true, wound: (u: ReturnType<typeof layout>) => void = () => {}) => {
+    const units = layout('difficult', seed).map((u) => ({ ...u }));
+    wound(units);
+    const chain = new Chain(chainSetup(units, seed, { player: 9, computer: 9 }).setup);
+    const session = new BattleSession(chain, 'difficult', seed, 2000);
+    session.timeLimit = limit;
+    let outcome: Outcome | null = null, overtime = 0;
+    session.onFinish = (o) => { outcome = o; };
+    session.onOvertime = () => { overtime++; };
+    hurt(chain);
+    (session as unknown as { startHeight: number }).startHeight = chain.height - (at - 1);
+    session.running = true;
+    session.update(2000);
+    return { outcome: outcome as Outcome | null, overtime, left: session.overtimeLeft() };
+  };
+  const cmd = (c: Chain, owner: string) => Object.values(c.structs).find((x) => x.owner === owner && c.isCommand(x))!;
+  const ot = decideWith(() => {}, OVERTIME_AT);
+  check(!ot.outcome && ot.overtime === 1 && ot.left === DECIDE_AT - OVERTIME_AT, `overtime called once at ${OVERTIME_AT} turns, ${ot.left} turns left`);
+  const off = decideWith(() => {}, DECIDE_AT, false);
+  check(!off.outcome && !off.overtime && off.left === null, 'no time limit: no overtime, no decision');
+  const cases: [string, (c: Chain) => void, Outcome['winner']][] = [
+    ['their flagship hurt', (c) => { cmd(c, CPU.id).health -= 1; }, 'you'],
+    ['your flagship hurt', (c) => { cmd(c, YOU.id).health -= 1; }, 'cpu'],
+    ['flagships even, their fleet hurt', (c) => { const x = Object.values(c.structs).find((s) => s.owner === CPU.id && !c.isCommand(s))!; x.health = 1; }, 'you'],
+    ['all even', () => {}, 'draw'],
+  ];
+  for (const [label, hurt, want] of cases) {
+    const r = decideWith(hurt);
+    check(r.outcome?.stalemate === 'time' && r.outcome.winner === want && !!r.outcome.hull, `decided on time (${label}): ${JSON.stringify(r.outcome)}`);
+  }
+  // Hull is counted from where each side began this fight (a gauntlet's carried damage, a battered daily):
+  // your flagship came in at 3 and took nothing, theirs lost 2 of 6: yours lost the smaller share.
+  const flag = (side: 'player' | 'computer') => (u: ReturnType<typeof layout>) => { const x = u.find((v) => v.side === side && TYPES_BY_ID[v.type].type === 'Command Ship'); if (x) x.health = 3; };
+  const w1 = decideWith((c) => { cmd(c, CPU.id).health -= 2; }, DECIDE_AT, true, flag('player'));
+  check(w1.outcome?.winner === 'you' && w1.outcome.hull?.you === 1, `decided on time from a wounded start: ${JSON.stringify(w1.outcome)}`);
+  // Your fleet came in battered and lost nothing; theirs lost a ship's worth: yours lost the smaller share.
+  const w2 = decideWith((c) => { const x = Object.values(c.structs).find((v) => v.owner === CPU.id && !c.isCommand(v))!; x.health = 1; }, DECIDE_AT, true,
+    (u) => { for (const v of u) if (v.side === 'player' && TYPES_BY_ID[v.type].type !== 'Command Ship') v.health = 1; });
+  check(w2.outcome?.winner === 'you', `decided on time from a battered fleet: ${JSON.stringify(w2.outcome)}`);
+  // A standoff (no damage for QUIET_BLOCKS turns) is decided on hull too: their flagship hurt, you win it.
+  {
+    const chain = new Chain(chainSetup(layout('difficult', seed), seed, { player: 9, computer: 9 }).setup);
+    const session = new BattleSession(chain, 'difficult', seed, 2000);
+    let outcome: Outcome | null = null;
+    session.onFinish = (o) => { outcome = o; };
+    cmd(chain, CPU.id).health -= 1;
+    (session as unknown as { lastHurt: number }).lastHurt = chain.height - (QUIET_BLOCKS - 1);
+    session.running = true;
+    session.update(2000);
+    const o = outcome as Outcome | null;
+    check(o?.stalemate === 'quiet' && o.winner === 'you' && !!o.hull, `a quiet standoff is decided on hull: ${JSON.stringify(o)}`);
+  }
+  // Replay links keep how a fight ended (older links, without it, still decode).
+  const rc = { units: layout('difficult', seed), seed, start: 1000, txs: [], title: 't', winner: 'you', end: 1120, stalemate: 'time' as const };
+  const back = decodeReplay(encodeReplay(rc));
+  check(back?.end === 1120 && back.stalemate === 'time', `replay keeps its end: ${back?.end} ${back?.stalemate}`);
+  const old = decodeReplay(encodeReplay({ ...rc, end: undefined, stalemate: undefined }));
+  check(!!old && old.end === undefined && old.stalemate === undefined, 'an older replay link decodes without an end');
 }
 
 // Daily engagements: valid every day, identical for everyone, and every twist shows up.

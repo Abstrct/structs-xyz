@@ -36,6 +36,10 @@
     "/academy": {
       "words": 90
     },
+    "/forge": {
+      "words": 90,
+      "why": "opens on Struct Attack, as /forge/MsgStructAttack does"
+    },
     "/forge/MsgStructAttack": {
       "words": 90,
       "why": "a real chain message as a form and as code"

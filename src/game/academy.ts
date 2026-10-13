@@ -152,9 +152,9 @@ class Academy {
     const t = trackOf(id);
     if (t && t.lessons.every((x) => this.isDone(x.id)) && record.award('badge:' + t.id, BADGE_XP)) {
       // After any promotion banner the XP just raised has had its moment.
-      const celebrate = () => { audio.stinger('secure', 0.7); banner(t.badge.toUpperCase(), `${t.label} badge earned · +${BADGE_XP} XP`, 'player', 3200); };
+      const celebrate = () => { audio.stinger('secure', 0.7); banner(t.badge.toUpperCase(), `${t.label} badge earned · +${BADGE_XP} XP`, 'player', 3200).classList.add('reward'); };
       // A badge's fanfare and banner together: at PRESS START both wait for the doors.
-      whenNoticesShow(() => { if (document.querySelector('.banner:not(.out)')) setTimeout(celebrate, 2900); else celebrate(); }, true);
+      whenRewardsShow(() => whenNoticesShow(() => { if (document.querySelector('.banner.reward:not(.out)')) setTimeout(celebrate, 2900); else celebrate(); }, true), true);
     }
     this.emit();
   }

@@ -12,7 +12,7 @@ import { store } from '../../chain/store';
 import { lcd } from '../../chain/lcd';
 import { cached } from '../../cache/idb';
 import { TYPES_BY_ID } from '../../data/catalogue';
-import { spriteDataUrl } from '../../gfx/pixelModel';
+import { structPortrait } from '../../gfx/hull/portrait';
 import { amountText, describe, statusChange, hrefFor, type Described, type Names, type Part, type Tone } from '../../grass/describe';
 import type { GrassEvent } from '../../grass/grass';
 import type { FeedItem } from '../../chain/store';
@@ -68,7 +68,7 @@ function fill(el: HTMLElement) {
     const type = t ? TYPES_BY_ID[t] : undefined;
     if (!type) { el.classList.add('unknown'); return; }
     const img = h('img', { alt: '' });
-    void spriteDataUrl(type.id).then((u) => { img.src = u; });
+    void structPortrait(type.id).then((u) => { img.src = u; });
     el.querySelector('.acard-sprite')?.replaceChildren(img);
     const name = el.querySelector('.acard-type');
     if (name) name.textContent = type.type;
@@ -89,7 +89,12 @@ function unit(id: string, named = true): HTMLElement {
 /* ── A card ──────────────────────────────────────────────────────────────── */
 
 /** What happened, as an icon and at most two words; `hot` cards (fights, raids) stand out. */
-interface Act { ico: string; word: string; tone: Tone; hot?: boolean; num?: string }
+/** `num`: what one event says. `sum`/`show`: an amount that adds up when a card collects several
+ * (alpha minted, power use's change, health repaired). `level`: `num` is a level (a shield's 75→100),
+ * true of one player only, so a card of several players leaves it out. */
+interface Act { ico: string; word: string; tone: Tone; hot?: boolean; num?: string; sum?: number; show?: (n: number) => string; level?: boolean }
+/** A power change, signed (a card's total: "+4.6 kW"). */
+const powerDelta = (x: number) => `${x >= 0 ? '+' : '−'}${formatPower(String(Math.abs(x)))}`;
 const HOT = new Set(['struct_attack', 'raid_status', 'block_raid_start', 'fleet_arrive']);
 
 function statusAct(now: number, old: number): Act {
@@ -107,7 +112,8 @@ function statusAct(now: number, old: number): Act {
   return { ico: 'build', word: 'changed', tone: c.tone };
 }
 
-interface Body { units: string[]; act: Act; key: string; place?: string; tail?: Part[] }
+/** `cp`: the other player of a transfer (named in `tail`). */
+interface Body { units: string[]; act: Act; key: string; place?: string; tail?: Part[]; cp?: string }
 const POWER_WORD: Record<string, string> = { structsLoad: 'power use', load: 'power use', capacity: 'capacity', connectionCapacity: 'capacity', fuel: 'fuel', power: 'power' };
 const INV_WORD: Record<string, string> = { sent: 'sent', received: 'got', mined: 'mined', refined: 'refined', seized: 'seized', forfeited: 'lost', infused: 'infused', minted: 'minted', burned: 'burned',
   defusion_started: 'defusing', defusion_completed: 'defused', defusion_cancelled: 'kept', migrated: 'moved', genesis: 'started with', diversion_started: 'diverting', diversion_completed: 'diverted' };
@@ -126,18 +132,19 @@ function bodyOf(e: GrassEvent): Body | null {
     if (attr === 'lastAction') return { units: [], act: { ico: 'charge', word: 'spent charge', tone: 'hint' }, key: attr, place };
     // Ore held: a player's store going up or down by so much; a planet's reserve, what is left.
     if (attr === 'ore') return place
-      ? { units: [], act: { ico: 'ore', word: 'ore left', tone: 'neutral', num: formatInt(n(v)) }, key: attr + ':planet', place }
-      : { units: [], act: { ico: 'ore', word: n(v) >= n(o) ? 'gained' : 'used', tone: n(v) >= n(o) ? 'neutral' : 'warn', num: `${formatInt(Math.abs(n(v) - n(o)))} ore` }, key: attr + (n(v) >= n(o) ? '+' : '-') };
-    if (POWER_WORD[attr]) return { units: [], act: { ico: 'power', word: POWER_WORD[attr], tone: 'hint', num: `${n(v) >= n(o) ? '▲' : '▼'} ${formatPower(String(v ?? 0))}` }, key: attr, place };
-    return { units: [], act: { ico: 'grid', word: humanize(attr).toLowerCase(), tone: 'hint', num: `${o ?? '?'}→${v ?? '?'}` }, key: attr, place };
+      ? { units: [], act: { ico: 'ore', word: 'ore left', tone: 'neutral', num: formatInt(n(v)), level: true }, key: attr + ':planet', place }
+      : { units: [], act: { ico: 'ore', word: n(v) >= n(o) ? 'gained' : 'used', tone: n(v) >= n(o) ? 'neutral' : 'warn', num: `${formatInt(Math.abs(n(v) - n(o)))} ore`, sum: Math.abs(n(v) - n(o)), show: (x) => `${formatInt(x)} ore` }, key: attr + (n(v) >= n(o) ? '+' : '-') };
+    if (POWER_WORD[attr]) return { units: [], act: { ico: 'power', word: POWER_WORD[attr], tone: 'hint', num: `${n(v) >= n(o) ? '▲' : '▼'} ${formatPower(String(v ?? 0))}`, sum: n(v) - n(o), show: powerDelta }, key: attr, place };
+    return { units: [], act: { ico: 'grid', word: humanize(attr).toLowerCase(), tone: 'hint', num: `${o ?? '?'}→${v ?? '?'}`, level: true }, key: attr, place };
   }
   if (e.kind === 'inventory') {
     const action = String(data.action || e.category);
     const denom = String(data.denom || '');
     const cp = data.counterparty_player_id && data.counterparty_player_id !== 'noPlayer' ? String(data.counterparty_player_id) : '';
     const tone: Tone = action === 'seized' ? 'enemy' : action === 'forfeited' ? 'warn' : action === 'refined' || action === 'received' ? 'player' : 'neutral';
-    return { units: [], act: { ico: denom === 'ore' ? 'ore' : 'alpha', word: INV_WORD[action] || humanize(action).toLowerCase(), tone, hot: action === 'seized', num: amountText(data.amount_p ?? data.amount, denom) }, key: action + ':' + denom,
-      tail: cp ? [{ text: action === 'received' ? ' from ' : action === 'sent' ? ' to ' : ' · ' }, { text: store.playerName(cp), id: cp }] : undefined };
+    return { units: [], act: { ico: denom === 'ore' ? 'ore' : 'alpha', word: INV_WORD[action] || humanize(action).toLowerCase(), tone, hot: action === 'seized', num: amountText(data.amount_p ?? data.amount, denom),
+      sum: Number(data.amount_p ?? data.amount ?? 0) || 0, show: (x) => amountText(String(x), denom) }, key: action + ':' + denom,
+      tail: cp ? [{ text: action === 'received' ? ' from ' : action === 'sent' ? ' to ' : ' · ' }, { text: store.playerName(cp), id: cp }] : undefined, cp: cp || undefined };
   }
   const sid = (k: string) => String(d[k] ?? '?');
   switch (e.category) {
@@ -145,8 +152,9 @@ function bodyOf(e: GrassEvent): Body | null {
     case 'struct_health': {
       const hp = n(d.health), old = n(d.health_old);
       if (old === 0 && hp > 0) return { units: [sid('struct_id')], act: { ico: 'build', word: 'building', tone: 'hint' }, key: 'building' };
-      if (hp < old) return { units: [sid('struct_id')], act: { ico: 'health', word: hp === 0 ? 'knocked out' : 'hit', tone: 'enemy', hot: true, num: `−${old - hp}` }, key: 'hit' };
-      return { units: [sid('struct_id')], act: { ico: 'health', word: 'repaired', tone: 'player', num: `+${hp - old}` }, key: 'repair' };
+      // Health to 0 is the struct going down: the same card as its "destroyed" (the chain says both).
+      if (hp < old) return { units: [sid('struct_id')], act: hp === 0 ? { ico: 'boom', word: 'destroyed', tone: 'enemy', hot: true } : { ico: 'health', word: 'hit', tone: 'enemy', hot: true, num: `−${old - hp}` }, key: 'hit' };
+      return { units: [sid('struct_id')], act: { ico: 'health', word: 'repaired', tone: 'player', num: `+${hp - old}`, sum: hp - old, show: (x) => `+${formatInt(x)}` }, key: 'repair' };
     }
     case 'struct_block_build_start': return { units: [sid('struct_id')], act: { ico: 'build', word: 'building', tone: 'hint' }, key: 'building' };
     case 'struct_move': return { units: [sid('struct_id')], act: { ico: 'send', word: 'moved', tone: 'hint' }, key: 'move' };
@@ -156,7 +164,7 @@ function bodyOf(e: GrassEvent): Body | null {
     case 'struct_block_ore_refine_start': return { units: [], act: { ico: 'ore', word: 'started refining', tone: 'neutral' }, key: 'refine', place: String(d.planet_id || e.planetId || '') || undefined };
     case 'shield_change': {
       const s = n(d.planetary_shield), o = n(d.planetary_shield_old);
-      return { units: [], act: { ico: 'shield', word: s < o ? 'shield down' : 'shield up', tone: s < o ? 'warn' : 'player', num: `${formatInt(o)}→${formatInt(s)}` }, key: s < o ? 'shield-' : 'shield+', place: e.planetId };
+      return { units: [], act: { ico: 'shield', word: s < o ? 'shield down' : 'shield up', tone: s < o ? 'warn' : 'player', num: `${formatInt(o)}→${formatInt(s)}`, level: true }, key: s < o ? 'shield-' : 'shield+', place: e.planetId };
     }
   }
   return null;
@@ -206,17 +214,27 @@ function famBody(f: Fam): Body {
 /** A card's key: consecutive events with the same key fold into one card. Fights never fold. */
 export function keyOf(e: GrassEvent): string {
   const f = famOf(e);
-  if (f) return `fam:${f.kind}:${f.pid}`;
+  if (f) return `fam:${f.kind}`;
   return plainKey(e);
 }
 
 /** An event's own key, mining families aside (an ore level's change, standing alone). */
 function plainKey(e: GrassEvent): string {
   const b = bodyOf(e);
+  // The same blow to the same player in a row (seven structs destroyed): one card, "destroyed ×7".
+  if (b?.act.hot && e.playerId && b.units[0]) return `hot:${e.playerId}:${b.act.word}`;
   if (b?.act.hot || HOT.has(e.category)) return e.category + ':' + e.n;
   // A player's own goings-on (a build starting, a machine coming online, the shield going up, their
   // power use moving): one card per player while they keep at it ("online · shield up · building 2").
-  if (b && e.playerId && (e.kind === 'planet' || e.kind === 'grid')) return `p:${e.playerId}`;
+  // (An ore level's change keeps a key of its own: it may only ever join a mining card.)
+  const oreLevel = e.kind === 'grid' && String(e.data?.attribute_type || e.category) === 'ore';
+  // Routine goings-on (guards set, shields up, machines online, builds starting, power use) batch by
+  // kind across every player: one card per kind that keeps counting ("9 commanders · guards ×12").
+  // Fights, raids, ships going down and new players keep cards of their own.
+  if (b && e.playerId && !oreLevel && (e.kind === 'planet' || e.kind === 'grid')) return `r:${b.act.word}`;
+  // The galaxy's own bookkeeping (alpha minted, then sent to whoever refined it): one card per kind too.
+  // (By action and denomination: a card only ever adds up amounts of one kind.)
+  if (b && e.kind === 'inventory' && !/^1-\d+$/.test(e.playerId || '')) return `r:galaxy:${b.key}`;
   if (b) return e.kind + ':' + e.category + ':' + b.key;
   return e.kind + ':' + e.category;
 }
@@ -256,12 +274,21 @@ function sentence(ctx: Pick<IntelCtx, 'navigate'>, parts: Part[]): Node[] {
   return out;
 }
 
+/** Cards that collect what happened as pills ("guards ×3 · shield up"): batches, a player's own run,
+ * a run of blows. */
+const tally = (key: string) => key.startsWith('r:') || key.startsWith('p:') || key.startsWith('hot:');
 export interface Card { el: HTMLElement; key: string; count: number; at: number; players: string[]; lines: string[]; fam?: Fam; units?: Set<string>; weakOre?: boolean;
+  /** When its first event happened (a batch only gathers within FOLD_MS of it). */
+  from?: number;
+  /** The amounts of its events added up (alpha sent, ore gained), for a card of several. */
+  total?: number;
+  /** The other players of its transfers (a run of sends to several: "to 3 players"). */
+  cps?: Set<string>;
   /** A player's card: each kind of thing that happened, how often, and its latest number. */
-  acts?: Map<string, { act: Act; n: number; structs: Set<string> }>; unit?: string }
+  acts?: Map<string, { act: Act; n: number; structs: Set<string>; dmg: number; sum: number }>; unit?: string }
 /** A player's card collects what happened (newest first) and the structs it happened to. */
 const noteUnit = (c: Card, b: Body | null) => {
-  if (!c.key.startsWith('p:') || !b) return;
+  if (!tally(c.key) || !b) return;
   if (b.units[0]) { (c.units ??= new Set()).add(b.units[0]); c.unit = b.units[0]; }
   const acts = (c.acts ??= new Map());
   const was = acts.get(b.act.word);
@@ -269,7 +296,9 @@ const noteUnit = (c: Card, b: Body | null) => {
   const structs = was?.structs || new Set<string>();
   if (b.units[0]) structs.add(b.units[0]);
   // How many: structs it happened to (a build's three events are one build), else times it happened.
-  acts.set(b.act.word, { act: b.act, n: (was?.n || 0) + 1, structs });
+  // Hits add up their damage.
+  const dmg = (was?.dmg || 0) + (b.act.word === 'hit' ? Number(/(\d+)/.exec(b.act.num || '')?.[1] || 0) : 0);
+  acts.set(b.act.word, { act: b.act, n: (was?.n || 0) + 1, structs, dmg, sum: (was?.sum || 0) + (b.act.sum || 0) });
 };
 
 const addFam = (c: Card, e: GrassEvent) => {
@@ -288,10 +317,32 @@ const startKey = (e: GrassEvent) => (famOf(e)?.weak ? plainKey(e) : keyOf(e));
  * builds, else only the newest; an ore level's change with no family card falls back to its own key. */
 export function foldTarget(cards: Card[], e: GrassEvent): Card | undefined {
   const key = keyOf(e);
-  const deep = key.startsWith('fam:') || key.startsWith('p:');
-  const near = (k: string, n: number) => cards.slice(0, n).find((c) => c.key === k && Math.abs(e.at - c.at) < FOLD_MS);
-  return near(key, deep ? LOOK_BACK : 1) || (famOf(e)?.weak ? near(plainKey(e), 1) : undefined);
+  const deep = key.startsWith('fam:') || key.startsWith('r:') || key.startsWith('hot:');
+  // A batch gathers for a short while from its first event (then the next one starts on top).
+  const span = (c: Card) => !isBatch(c.key) || Math.abs(e.at - (c.from ?? c.at)) < FOLD_MS;
+  // An ore level's change says nothing of why: it joins only a card its own player is already on
+  // (raid loot raising B's ore never lands in A's "mined" card).
+  const f = famOf(e), own = f?.weak ? f.pid : '';
+  const near = (k: string, pool: Card[]) => pool.find((c) => c.key === k && Math.abs(e.at - c.at) < FOLD_MS && span(c) && (!own || c.players.includes(own)));
+  return near(key, deep ? firstN(cards, LOOK_BACK) : cards.slice(0, 1)) || (own ? near(plainKey(e), cards.slice(0, 1)) : undefined) || run(cards[0], e, key);
 }
+/** The first `n` cards, not counting lone ore changes (a block's worth of them lands on top just
+ * before the mining they belong to, and must not push its card out of reach). */
+function firstN(cards: Card[], n: number): Card[] {
+  const out: Card[] = [];
+  for (const c of cards) { if (n <= 0) break; out.push(c); if (!c.weakOre) n--; }
+  return out;
+}
+/** A player's own burst (a build, its machine coming online, their shield going up) with no batch
+ * to join: one card for them, whatever the words, while it is on top and nobody else is on it. */
+function run(top: Card | undefined, e: GrassEvent, key: string): Card | undefined {
+  const pid = e.playerId || '';
+  if (!top || !key.startsWith('r:') || key.startsWith('r:galaxy:') || !/^1-\d+$/.test(pid) || Math.abs(e.at - top.at) >= FOLD_MS) return undefined;
+  return top.key === `p:${pid}` || (top.key.startsWith('r:') && !top.key.startsWith('r:galaxy:') && top.players.length === 1 && top.players[0] === pid) ? top : undefined;
+}
+/** Routine goings-on batched across players (and mining or refining): updated where they are, never
+ * moved back on top; only notable cards rise. */
+export const isBatch = (key: string) => key.startsWith('r:') || key.startsWith('fam:');
 
 const plain = (d: Described) => d.parts.map((p) => p.text).join('').replace(/\s+/g, ' ').trim();
 
@@ -303,9 +354,11 @@ export function newCard(ctx: Pick<IntelCtx, 'navigate'>, e: GrassEvent, names: N
   const hot = !!b?.act.hot || HOT.has(e.category) || (d.tone === 'enemy' && d.group === 'combat');
   const tone = b ? b.act.tone : d.tone;
   const el = h('div', { class: `acard tone-${tone} g-${d.group}${hot ? ' hot' : ''}${hist ? ' hist' : ''}` });
-  const card: Card = { el, key: startKey(e), count: 1, at: e.at, players: pid ? [pid] : [], lines: [], weakOre: !!famOf(e)?.weak };
+  const card: Card = { el, key: startKey(e), count: 1, at: e.at, from: e.at, players: pid ? [pid] : [], lines: [], weakOre: !!famOf(e)?.weak };
   addFam(card, e);
   noteUnit(card, b);
+  card.total = b?.act.sum || 0;
+  if (b?.cp) card.cps = new Set([b.cp]);
   if (card.fam) el.className = `acard tone-${card.fam.kind === 'mine' ? 'neutral' : 'player'} g-economy${hist ? ' hist' : ''}`;
   paint(ctx, card, e, d, card.fam ? famBody(card.fam) : b);
   return card;
@@ -314,31 +367,38 @@ export function newCard(ctx: Pick<IntelCtx, 'navigate'>, e: GrassEvent, names: N
 /** Fold one more event into a card (same key, the next one in time). */
 export function fold(ctx: Pick<IntelCtx, 'navigate'>, card: Card, e: GrassEvent, names: Names) {
   const pid = pidOf(e, names);
+  // A different kind of thing joining a one-player batch: it is that player's run now (no one else joins).
+  if (card.key.startsWith('r:') && keyOf(e) !== card.key && e.playerId && card.players.length === 1 && card.players[0] === e.playerId) card.key = `p:${e.playerId}`;
   card.count++;
   card.at = Math.max(card.at, e.at);
+  // Only a card of nothing but ore changes may be absorbed into a mining card later.
+  if (!famOf(e)?.weak) card.weakOre = false;
   if (pid) { card.players = [pid, ...card.players.filter((x) => x !== pid)]; }
   addFam(card, e);
   const b = bodyOf(e);
   noteUnit(card, b);
+  card.total = (card.total || 0) + (b?.act.sum || 0);
+  if (b?.cp) (card.cps ??= new Set()).add(b.cp);
   paint(ctx, card, e, describe(e, names), card.fam ? famBody(card.fam) : b);
 }
 
 /** How many cards back a mining or refining tick looks for its player's card (others fold only
  * into the card on top). */
 const LOOK_BACK = 8;
-/** Fold `e` into a card near the top of `box` (the top one, or for mining/refining one of the top
- * few, which then moves to the top); false when it starts a card of its own. */
-export function foldNear(ctx: Pick<IntelCtx, 'navigate'>, cards: WeakMap<HTMLElement, Card>, box: HTMLElement, e: GrassEvent, names: Names): boolean {
+/** Fold `e` into a card near the top of `box` (the top one, or for batches and runs one of the top
+ * few: a run of hits moves to the top, a batch counts up where it is); false when it starts a card
+ * of its own (else the card it joined). */
+export function foldNear(ctx: Pick<IntelCtx, 'navigate'>, cards: WeakMap<HTMLElement, Card>, box: HTMLElement, e: GrassEvent, names: Names): Card | undefined {
   const top: Card[] = [];
-  for (let el = box.firstElementChild as HTMLElement | null; el && top.length < LOOK_BACK; el = el.nextElementSibling as HTMLElement | null) {
+  for (let el = box.firstElementChild as HTMLElement | null, n = 0; el && n < LOOK_BACK; el = el.nextElementSibling as HTMLElement | null) {
     const c = cards.get(el);
-    if (c) top.push(c);
+    if (c) { top.push(c); if (!c.weakOre) n++; }
   }
   const c = foldTarget(top, e);
-  if (!c) return false;
+  if (!c) return undefined;
   fold(ctx, c, e, names);
-  if (c.el !== box.firstElementChild) box.prepend(c.el);
-  return true;
+  if (!isBatch(c.key) && c.el !== box.firstElementChild) box.prepend(c.el);
+  return c;
 }
 
 function paint(ctx: Pick<IntelCtx, 'navigate'>, card: Card, e: GrassEvent, d: Described, b: Body | null) {
@@ -353,27 +413,47 @@ function paint(ctx: Pick<IntelCtx, 'navigate'>, card: Card, e: GrassEvent, d: De
   // No player behind it (a mint, the galaxy's own bookkeeping): it is the galaxy's doing.
   const who = pid ? h('a', { class: 'id-link who acard-who', href: '/player/' + pid, title: pid, onclick: (ev: Event) => { ev.preventDefault(); audio.play('select'); ctx.navigate('/player/' + pid); } },
     p?.name || store.playerName(pid)) : e.kind === 'inventory' || e.kind === 'grid' ? h('span', { class: 'acard-who galaxy', title: 'No player: the galaxy itself' }, 'The galaxy') : null;
-  const others = card.players.length > 1 ? h('span', { class: 'acard-more', title: card.players.slice(1).map((x) => store.playerName(x)).join(', ') }, `+${card.players.length - 1}`) : null;
+  // A batch of many players' routine goings-on: how many commanders (their names are the hover).
+  const batch = (card.key.startsWith('r:') || card.key.startsWith('fam:')) && card.players.length > 1;
+  const crowd = batch ? h('span', { class: 'acard-who', title: card.players.slice(0, 20).map((x) => store.playerName(x)).join(', ') + (card.players.length > 20 ? ` and ${card.players.length - 20} more` : '') }, `${card.players.length} commanders`) : null;
+  const others = !batch && card.players.length > 1 ? h('span', { class: 'acard-more', title: card.players.slice(1).map((x) => store.playerName(x)).join(', ') }, `+${card.players.length - 1}`) : null;
   // A player's card: their latest struct (and how many more), then what happened, newest first.
   const pills = card.acts ? [...card.acts.values()].reverse().slice(0, 3) : [];
-  const main: (Node | null)[] = card.key.startsWith('p:') && pills.length
-    ? [who, others, card.unit ? unit(card.unit) : null, (card.units?.size || 0) > 1 ? h('span', { class: 'acard-more', title: `${card.units!.size} structs` }, `+${card.units!.size - 1}`) : null,
-      ...pills.map(({ act, n, structs }) => { const k = structs.size || n; return h('span', { class: 'acard-act tone-' + act.tone }, h('span', { class: 'acard-act-ico', html: icon(act.ico, 14) }), act.word, k > 1 ? h('b', null, ` ×${k}`) : null, act.num ? h('b', null, ` ${act.num}`) : null); }),
+  // A run of the same blow: its structs' sprites stacked, newest in front.
+  const stack = card.key.startsWith('hot:') && card.units && card.units.size > 1
+    ? h('span', { class: 'acard-stack' }, ...[...card.units].reverse().slice(0, 4).map((u) => unit(u, false))) : null;
+  const main: (Node | null)[] = tally(card.key) && pills.length
+    ? [crowd || who, others, stack || (card.unit ? unit(card.unit) : null), !stack && (card.units?.size || 0) > 1 ? h('span', { class: 'acard-more', title: `${card.units!.size} structs` }, `+${card.units!.size - 1}`) : null,
+      // How many: hits count every hit (and sum their damage); everything else counts the structs it
+      // happened to (a struct's going-down is two chain events, a build three: still one).
+      // Its number, for several: amounts add up (hits their damage, mints their alpha, power use its
+      // change); a level (a shield's 75→100) is one player's, so a card of several players leaves it out.
+      ...pills.map(({ act, n, structs, dmg, sum }) => {
+        const k = act.word === 'hit' ? n : Math.max(structs.size, structs.size ? 1 : n);
+        const num = act.word === 'hit' && dmg ? `−${dmg}` : n > 1 && act.show ? (sum ? act.show(sum) : undefined)
+          : n > 1 && act.level && card.players.length > 1 ? undefined : act.num;
+        return h('span', { class: 'acard-act tone-' + act.tone }, h('span', { class: 'acard-act-ico', html: icon(act.ico, 14) }), act.word, k > 1 ? h('b', null, ` ×${k}`) : null, num ? h('b', null, ` ${num}`) : null);
+      }),
       ...(b?.place && store.homeOf.get(b.place) !== pid ? sentence(ctx, [{ text: b.place, id: b.place }]) : [])]
     : b
-    ? [who, others, ...b.units.slice(0, 1).map((u) => unit(u)),
+    ? [crowd || who, others, ...b.units.slice(0, 1).map((u) => unit(u)),
       h('span', { class: 'acard-act' }, h('span', { class: 'acard-act-ico', html: icon(b.act.ico, 14) }), b.act.word),
       ...b.units.slice(1).map((u) => unit(u, false)),
-      b.act.num ? h('b', { class: 'acard-num' }, b.act.num) : null,
+      // Several in a row: their amounts added up; a level only while it is one player's.
+      ...[card.count > 1 && b.act.show ? (card.total ? b.act.show(card.total) : '') : card.count > 1 && b.act.level && card.players.length > 1 ? '' : b.act.num || '']
+        .map((x) => (x ? h('b', { class: 'acard-num' }, x) : null)),
       // The place, unless it is the card's own player's home (mining on your own world says nothing new).
-      ...(b.tail ? sentence(ctx, b.tail) : []), ...(b.place && store.homeOf.get(b.place) !== pid ? sentence(ctx, [{ text: b.place, id: b.place }]) : [])]
+      // Sends to several players add up, so they are named together ("to 3 players", the names the hover).
+      ...(b.tail && card.cps && card.cps.size > 1
+        ? [h('span', { class: 'acard-text', title: [...card.cps].slice(0, 20).map((x) => store.playerName(x)).join(', ') }, `${b.tail[0].text.trim()} ${card.cps.size} players`)]
+        : b.tail ? sentence(ctx, b.tail) : []), ...(b.place && store.homeOf.get(b.place) !== pid ? sentence(ctx, [{ text: b.place, id: b.place }]) : [])]
     // Kinds that read best as a sentence: describe()'s words with the ids as names and pictures.
     // A sentence that starts with the card's own player drops the name (it is already there).
-    : [who, others, h('span', { class: 'acard-text' }, ...sentence(ctx, pid && d.parts[0]?.id === pid ? d.parts.slice(1) : d.parts))];
+    : [crowd || who, others, h('span', { class: 'acard-text' }, ...sentence(ctx, pid && d.parts[0]?.id === pid ? d.parts.slice(1) : d.parts))];
   card.el.replaceChildren(...[
     faces,
     h('span', { class: 'acard-main' }, ...main.filter((x): x is Node => !!x)),
-    card.key.startsWith('p:') ? null : card.count > 1 ? h('span', { class: 'acard-n', title: `${card.count} in a row` }, `×${card.count}`) : null,
+    tally(card.key) || card.key.startsWith('fam:') ? null : card.count > 1 ? h('span', { class: 'acard-n', title: `${card.count} in a row` }, `×${card.count}`) : null,
     h('span', { class: 'acard-when', 'data-at': String(card.at) }, when(Date.now() - card.at)),
   ].filter((x): x is HTMLElement => !!x));
   card.el.title = card.lines.join('\n') + (card.count > card.lines.length ? `\n…and ${card.count - card.lines.length} more` : '');
@@ -406,7 +486,7 @@ export function cardFeed(ctx: Pick<IntelCtx, 'navigate' | 'cleanup'>, el: HTMLEl
     if (top && foldNear(ctx, cards, el, e, names)) return;
     const edge = (top ? null : el.lastElementChild) as HTMLElement | null;
     const c = edge ? cards.get(edge) : undefined;
-    if (c && c.key === keyOf(e) && Math.abs(e.at - c.at) < FOLD_MS) { fold(ctx, c, e, names); return; }
+    if (c && foldTarget([c], e) === c) { fold(ctx, c, e, names); return; }
     const n = newCard(ctx, e, names);
     cards.set(n.el, n);
     if (top) el.prepend(n.el); else el.appendChild(n.el);
@@ -424,6 +504,13 @@ export const FEED_HOT = new Set(['attack', 'raid', 'theft']);
 const MAX_EARLIER = 30;
 
 /** One card for a run of chain-history items (one item, or a player's mining in a row). */
+/** A world in words: its owner's (“Wendy’s world”) with its id, or the id alone. */
+function worldName(id?: string): HTMLElement | null {
+  if (!id || !/^2-\d+$/.test(id)) return null;
+  const owner = store.homeOf.get(id);
+  return h('span', { class: 'acard-text', title: `Planet ${id}` }, owner ? `${store.playerName(owner)}’s world ` : 'world ', h('span', { class: 'mono' }, id));
+}
+
 export function feedCard(ctx: Pick<IntelCtx, 'navigate'>, items: FeedItem[], lead = false): HTMLElement {
   const it = items[0];
   const pid = it.playerId && /^1-\d+$/.test(it.playerId) ? it.playerId : '';
@@ -449,10 +536,11 @@ export function feedCard(ctx: Pick<IntelCtx, 'navigate'>, items: FeedItem[], lea
     : it.kind === 'mine' || it.kind === 'refine'
     ? [h('span', { class: 'acard-act' }, h('span', { class: 'acard-act-ico', html: icon(FEED_ICO[it.kind], 14) }), FEED_WORD[it.kind]), ...(it.kind === 'mine' ? [h('b', { class: 'acard-num' }, `${formatInt(mined)} ore`)] : [])]
     // A world mined out: the planet and two words, no sentence.
-    : spent ? [h('span', { class: 'acard-act' }, h('span', { class: 'acard-act-ico', html: icon('planet', 14) }), 'world used up')]
+    : spent ? [h('span', { class: 'acard-act' }, h('span', { class: 'acard-act-ico', html: icon('planet', 14) }), 'world used up'), ...[worldName(it.planetId)].filter((x): x is HTMLElement => !!x)]
     : [h('span', { class: 'acard-act' }, h('span', { class: 'acard-act-ico', html: icon(FEED_ICO[it.kind] || 'news', 14) }), building ? 'building' : FEED_WORD[it.kind] || 'news'), h('span', { class: 'acard-text' }, what)];
   const go = (href: string) => (ev: Event) => { ev.preventDefault(); audio.play('select'); ctx.navigate(href); };
-  const place = it.planetId && /^2-\d+$/.test(it.planetId) && store.homeOf.get(it.planetId) !== pid
+  const place = spent && it.planetId ? h('a', { class: 'btn ghost mini acard-visit', href: '/planet/' + it.planetId, title: `Visit planet ${it.planetId}`, onclick: go('/planet/' + it.planetId) }, h('span', { html: icon('planet', 12) }), 'Visit')
+    : it.planetId && /^2-\d+$/.test(it.planetId) && store.homeOf.get(it.planetId) !== pid
     ? h('a', { class: 'acard-place', href: '/planet/' + it.planetId, title: `Planet ${it.planetId}`, 'aria-label': `planet ${it.planetId}`, onclick: go('/planet/' + it.planetId), html: icon('planet', 14) }) : null;
   const watch = it.kind === 'attack' && it.hash ? h('a', { class: 'acard-place', href: '/combat/' + it.hash, title: 'Watch this fight', 'aria-label': 'Watch this fight', onclick: go('/combat/' + it.hash), html: icon('play', 14) }) : null;
   const at = Math.max(...items.map((x) => x.at));
@@ -503,6 +591,21 @@ function buildCard(items: FeedItem[]): HTMLElement {
     h('span', { class: 'acard-when', 'data-at': String(at) }, when(Date.now() - at)));
 }
 
+/** Worlds used up (mined out) over the stretch, as one card: how many, and which (links to each). */
+function spentCard(ctx: Pick<IntelCtx, 'navigate'>, items: FeedItem[]): HTMLElement {
+  const go = (href: string) => (ev: Event) => { ev.preventDefault(); audio.play('select'); ctx.navigate(href); };
+  const ids = [...new Set(items.map((x) => x.planetId).filter((x): x is string => !!x && /^2-\d+$/.test(x)))];
+  const at = Math.max(...items.map((x) => x.at));
+  const name = (id: string) => { const o = store.homeOf.get(id); return o ? `${store.playerName(o)}’s world` : id; };
+  return h('div', { class: 'acard hist chain tone-warn summary', title: ids.map((id) => `${name(id)} (${id})`).join('\n') + '\n(read from the chain: before you opened News)' },
+    h('span', { class: 'acard-faces', 'aria-hidden': 'true' }, h('span', { class: 'acard-glyph', html: icon('planet', 16) })),
+    h('span', { class: 'acard-main' },
+      h('span', { class: 'acard-act' }, h('span', { class: 'acard-act-ico', html: icon('planet', 14) }), `${ids.length || items.length} worlds used up`),
+      ...ids.slice(0, 3).map((id) => h('a', { class: 'id-link', href: '/planet/' + id, title: `Visit planet ${id}`, onclick: go('/planet/' + id) }, name(id))),
+      ids.length > 3 ? h('span', { class: 'acard-more', title: ids.slice(3).map(name).join(', ') }, `+${ids.length - 3}`) : null),
+    h('span', { class: 'acard-when', 'data-at': String(at) }, when(Date.now() - at)));
+}
+
 /** What makes news, most first after fights: new players and guilds, worlds found, fleets on the
  * move; everything else (builds, the rest) after. */
 const NOTABLE = new Set(['player', 'guild', 'explore', 'fleet']);
@@ -527,6 +630,9 @@ export function feedCards(ctx: Pick<IntelCtx, 'navigate'>, items: FeedItem[]): {
     if (x.kind === 'build' && x.playerId) { const r = builds.get(x.playerId); if (r) r.push(x); else builds.set(x.playerId, [x]); continue; }
     other.push(x);
   }
+  // Worlds used up, one item per world (the chain can say so more than once for the same world).
+  const spentAll = other.filter((x) => /is spent/.test(x.text));
+  const spentOnes = spentAll.filter((x, i) => !x.planetId || spentAll.findIndex((y) => y.planetId === x.planetId) === i);
   // Building, the stretch's busiest kind of news: one summary card, then only the busiest builders
   // (three or more builds) by name, three at most.
   const all = [...builds.values()];
@@ -537,7 +643,10 @@ export function feedCards(ctx: Pick<IntelCtx, 'navigate'>, items: FeedItem[]): {
     fights: hot.filter((x) => x !== top).map((x) => feedCard(ctx, [x])),
     notable: notable.map((x) => feedCard(ctx, [x])),
     work: work.length ? workCard(work) : null,
-    rest: [...(flat.length ? [buildCard(flat)] : []), ...busy.map((r) => feedCard(ctx, r)), ...other.map((x) => feedCard(ctx, [x]))].slice(0, MAX_EARLIER),
+    // Worlds mined out over the stretch: one card that names them.
+    rest: [...(flat.length ? [buildCard(flat)] : []), ...busy.map((r) => feedCard(ctx, r)),
+      ...(spentOnes.length > 1 ? [spentCard(ctx, spentOnes)] : spentOnes.map((x) => feedCard(ctx, [x]))),
+      ...other.filter((x) => !spentAll.includes(x)).map((x) => feedCard(ctx, [x]))].slice(0, MAX_EARLIER),
   };
 }
 
@@ -566,32 +675,39 @@ export function attackCard(ctx: Pick<IntelCtx, 'navigate'>, r: CombatRecord): HT
     h('span', { class: 'acard-when plain', 'data-at': String(at), 'data-plain': '1' }, plainAgo(Date.now() - at)));
 }
 
-/** A mining or refining card just started: an ore change of the same player that arrived a moment
- * before it (and so stood alone) joins it now. `cards` are the cards below it, nearest first. */
+/** A mining or refining card just started (or a player just joined one): an ore change of the same
+ * player that arrived a moment before it (and so stood alone) joins it now. `below`: the cards near
+ * it, nearest first. */
 export function absorbOre(card: Card, below: Card[]): Card[] {
   if (!card.fam) return [];
   const pid = card.players[0];
-  return below.slice(0, LOOK_BACK).filter((c) => c.weakOre && c.players[0] === pid && Math.abs(c.at - card.at) < FOLD_MS);
+  return below.filter((c) => c !== card && c.weakOre && (c.players[0] === pid || card.players.includes(c.players[0])) && Math.abs(c.at - card.at) < FOLD_MS);
 }
 
 /** The galaxy right now, from the roster (read in well under a second): fleets out raiding and the
  * newest commanders. Shown while the chain's history is still on its way (its search takes ~5 s);
  * a state, not events, so it carries no time. */
-export function nowCards(ctx: Pick<IntelCtx, 'navigate'>): HTMLElement[] {
-  if (!store.coreLoaded) return [];
+export function nowCards(ctx: Pick<IntelCtx, 'navigate'>, show: { combat: boolean; people: boolean }): { cards: HTMLElement[]; combat: number; people: number } {
+  if (!store.coreLoaded) return { cards: [], combat: 0, people: 0 };
   const go = (href: string) => (ev: Event) => { ev.preventDefault(); audio.play('select'); ctx.navigate(href); };
   const out: HTMLElement[] = [];
-  const raiders = [...store.fleets.values()].filter((f) => f.status === 'away' && /^2-\d+$/.test(f.locationId || '')).map((f) => f.owner).filter((x) => /^1-\d+$/.test(x));
-  if (raiders.length) out.push(h('div', { class: 'acard chain now hot tone-enemy', title: `Fleets away from home, at other players’ worlds: ${raiders.slice(0, 12).map((x) => store.playerName(x)).join(', ')}` },
+  // Raiding: a fleet away from home, at a world that belongs to another player.
+  const raiders = [...store.fleets.values()].filter((f) => {
+    if (f.status !== 'away' || !/^2-\d+$/.test(f.locationId || '')) return false;
+    const owner = store.homeOf.get(f.locationId);
+    return !!owner && owner !== f.owner;
+  }).map((f) => f.owner).filter((x) => /^1-\d+$/.test(x));
+  if (show.combat && raiders.length) out.push(h('div', { class: 'acard chain now hot tone-enemy', title: `Fleets away from home, at other players’ worlds: ${raiders.slice(0, 12).map((x) => store.playerName(x)).join(', ')}` },
     h('span', { class: 'acard-faces' + (raiders.length > 1 ? ' many' : ''), 'aria-hidden': 'true' }, ...raiders.slice(0, 3).map((id) => portrait(store.players.get(id)?.pfpClientRenderAttributes, 'xs', id))),
     h('span', { class: 'acard-main' },
       h('span', { class: 'acard-act' }, h('span', { class: 'acard-act-ico', html: icon('ship', 14) }), `${raiders.length} ${raiders.length === 1 ? 'fleet' : 'fleets'} raiding`),
       h('a', { class: 'acard-place', href: '/intel/raids', title: 'Who is raiding whom', 'aria-label': 'Raids', onclick: go('/intel/raids'), html: icon('battle', 14) }))));
   const newest = [...store.players.values()].filter((p) => p.name).sort((a, b) => Number(b.index) - Number(a.index)).slice(0, 3);
-  if (newest.length) out.push(h('div', { class: 'acard chain now tone-player', title: 'The newest commanders in the galaxy' },
+  if (show.people && newest.length) out.push(h('div', { class: 'acard chain now tone-player', title: 'The newest commanders in the galaxy' },
     h('span', { class: 'acard-faces many', 'aria-hidden': 'true' }, ...newest.map((p) => portrait(p.pfpClientRenderAttributes, 'xs', p.id))),
     h('span', { class: 'acard-main' },
       h('span', { class: 'acard-act' }, h('span', { class: 'acard-act-ico', html: icon('team', 14) }), 'newest'),
       ...newest.map((p) => h('a', { class: 'id-link who', href: '/player/' + p.id, title: p.id, onclick: go('/player/' + p.id) }, p.name)))));
-  return out;
+  // Counted whether or not their chip is on, as the chain's own events are.
+  return { cards: out, combat: raiders.length, people: newest.length };
 }

@@ -193,7 +193,7 @@ export function partRows(attrs: PfpAttrs, onChange: (a: PfpAttrs) => void): { el
       v,
       h('button', { type: 'button', class: 'pr-step', 'aria-label': `Next ${PART_LABEL[p].toLowerCase()}`, onclick: () => step(p, 1), html: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>' }));
   });
-  const roll = h('button', { type: 'button', class: 'cw-btn pr-roll', onclick: () => { cur = rollAttrs(); audio.play('confirm', 0.7); paint(); onChange(cur); } }, h('span', { class: 'dc-face x' }, 'X'), 'Roll');
+  const roll = h('button', { type: 'button', class: 'cw-btn pr-roll', 'data-act': 'roll', onclick: () => { cur = rollAttrs(); audio.play('confirm', 0.7); paint(); onChange(cur); } }, h('span', { class: 'dc-face x' }, 'X'), 'Roll');
   const el = h('div', { class: 'pr' }, ...rows, roll);
   // Left/right on a row steps that part (a pad's d-pad, or arrow keys).
   el.addEventListener('keydown', (e) => {

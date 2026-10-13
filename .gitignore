@@ -4,3 +4,7 @@ dist
 *.log
 .claude/settings.local.json
 studio/reports
+
+# Local reference material (game discs, captures): never committed
+references/
+.idea/

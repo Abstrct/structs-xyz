@@ -84,14 +84,19 @@ export function mountActivity(ctx: IntelCtx) {
    * into the card above it with a count, so the feed reads as what is happening, not a log. */
   const cards = new WeakMap<HTMLElement, Card>();
   /** Put one event on top of the live list (oldest first, so the newest ends on top). */
+  /** Ore changes of a player that arrived just before their mining (or refining) itself join its card:
+   * a new one, or the batch they just joined (which stays where it is, so these may sit above it). */
+  const soak = (n: Card) => {
+    const near: Card[] = [];
+    for (let el = list.firstElementChild as HTMLElement | null; el && near.length < 24; el = el.nextElementSibling as HTMLElement | null) { const c = cards.get(el); if (c && c !== n) near.push(c); }
+    for (const c of absorbOre(n, near)) { c.el.remove(); n.count += c.count; }
+  };
   const add = (e: GrassEvent) => {
-    if (foldNear(ctx, cards, list, e, names)) return;
+    const into = foldNear(ctx, cards, list, e, names);
+    if (into) { if (into.fam) soak(into); return; }
     const n = newCard(ctx, e, names);
     cards.set(n.el, n);
-    // Ore changes of this player that arrived just before the mining (or refining) itself fold in.
-    const below: Card[] = [];
-    for (let el = list.firstElementChild as HTMLElement | null; el && below.length < 8; el = el.nextElementSibling as HTMLElement | null) { const c = cards.get(el); if (c) below.push(c); }
-    for (const c of absorbOre(n, below)) { c.el.remove(); n.count += c.count; }
+    soak(n);
     list.prepend(n.el);
   };
   /** Cards for a run of history (newest first), folded the same way. */
@@ -151,6 +156,8 @@ export function mountActivity(ctx: IntelCtx) {
   };
   /** The newest real attack on the testnet: pinned on top when the stretch has no fight of its own. */
   let pinned: CombatRecord | null = null;
+  /** The read of the newest fight hasn't come back yet (its place is held meanwhile). */
+  let pinWait = true;
   const PIN_FOR = 6 * 3_600_000;
 
   const paintEarlier = () => {
@@ -165,6 +172,9 @@ export function mountActivity(ctx: IntelCtx) {
   /* What happened on the chain before News opened (the LCD's recent blocks, read once for the whole
    * app): on screen at once, under the live cards and plainly marked as earlier, fights first. */
   const chainBox = h('div', { class: 'achain' });
+  /** Pinned above the live list (outside it), so routine updates never bury it: the latest real fight
+   * and the galaxy right now. */
+  const nowBox = h('div', { class: 'anow' });
   const feedGroup = (it: FeedItem): Group => it.kind === 'attack' || it.kind === 'raid' || it.kind === 'theft' ? 'combat' : it.kind === 'fleet' || it.kind === 'explore' ? 'fleet'
     : it.kind === 'build' ? 'struct' : it.kind === 'mine' || it.kind === 'refine' || it.kind === 'infuse' ? 'economy' : it.kind === 'player' || it.kind === 'guild' ? 'people' : 'other';
   const feedVisible = (it: FeedItem) => {
@@ -188,15 +198,35 @@ export function mountActivity(ctx: IntelCtx) {
     const divider = (ico: string, word: string, title: string) => h('div', { class: 'adivider t-label', title }, h('span', { html: icon(ico, 14) }), word);
     // One divider says it all: everything below is from before News opened, read from the chain (or
     // the last visit's read of it, with its age).
-    // Nothing from the chain yet (its search takes a few seconds): the galaxy as it stands right now.
-    const now = !cards.length && !query.value.trim() ? nowCards(ctx) : [];
+    // While the chain's read is still on its way (it takes a few seconds), and no last visit stands
+    // in for it: the galaxy as it stands right now. It goes once the read lands, or fails.
+    // "Right now" stays until the chain's own cards are on screen: while its read is on its way, after
+    // a quiet half hour, or when the read didn't come (its divider says which).
+    const read = store.feed.some((x) => x.replay);
+    // "Right now" (fleets raiding, the newest commanders) stays on top, above the chain's history,
+    // with its counts on the chips: it is the galaxy as it stands, whatever the last half hour held.
+    const nowRead = !query.value.trim() ? nowCards(ctx, { combat: !prefs.off.includes('combat'), people: !prefs.off.includes('people') }) : { cards: [], combat: 0, people: 0 };
+    const nowTitle = read ? 'The galaxy as it stands, from the roster'
+      : chainFailed ? 'The chain’s history didn’t come: the galaxy as it stands, from the roster'
+      : 'The galaxy as it stands, from the roster: the news of the last half hour is on its way';
+    // Until the roster lands, its slot is held by a placeholder card, so it fills in without moving the list.
+    // (The newest fight's likewise, while its read is out.)
+    const ghost = (tall = false) => h('div', { class: `acard chain now ghost dcp-sweep${tall ? ' tall' : ''}`, 'aria-hidden': 'true' });
+    const holding = !store.coreLoaded && !query.value.trim() && !prefs.off.includes('people');
+    // (Two: the newest commanders, and most of the time fleets out raiding.)
+    const now = nowRead.cards.length || !holding ? nowRead.cards : prefs.off.includes('combat') ? [ghost()] : [ghost(), ghost()];
+    const pinCard = pin || (pinWait && !items.some((x) => FEED_HOT.has(x.kind)) && !prefs.off.includes('combat') && !query.value.trim() ? ghost(true) : null);
+    nowBox.replaceChildren(
+      ...(pinCard ? [divider('battle', 'Latest fight', 'The newest real attack on the testnet, read from the chain: not live'), pinCard] : []),
+      ...(now.length ? [divider('planet', 'Right now', nowTitle), ...now] : []));
     chainBox.replaceChildren(
-      ...(pin ? [divider('battle', 'Latest fight', 'The newest real attack on the testnet, read from the chain: not live'), pin] : []),
-      ...(now.length ? [divider('planet', 'Right now', 'The galaxy as it stands, from the roster: the news of the last half hour is on its way'), ...now] : []),
       ...(cards.length ? [old && snap ? lastVisit(snap.at) : divider('clock', 'Earlier', 'The last half hour or so, read from the chain: not live')] : []), ...cards);
     // The chips count what this visit read (the last visit's cards are not today's news).
     chainCounts.clear();
     if (!old) for (const it of source) { const g = feedGroup(it); chainCounts.set(g, (chainCounts.get(g) || 0) + 1); }
+    // What "Right now" shows counts on its chips too (fleets raiding: Combat; newest commanders: People).
+    if (nowRead.combat) chainCounts.set('combat', (chainCounts.get('combat') || 0) + nowRead.combat);
+    if (nowRead.people) chainCounts.set('people', (chainCounts.get('people') || 0) + nowRead.people);
     // This visit's read, kept for the next visit's first paint (at most every 30 s).
     if (!old && source.length && Date.now() - savedAt > 30_000) { savedAt = Date.now(); void cache.set('chain', { at: Date.now(), items: source.slice(-80) }, 7 * 86_400_000, 'news').catch(() => { /* memory only */ }); }
     paintChips();
@@ -207,7 +237,7 @@ export function mountActivity(ctx: IntelCtx) {
   /** The history boxes, newest stretch first: the chain's last half hour, the last visit, the indexer's pages. */
   const appendHistory = () => list.append(chainBox, earlierBox, histBox);
   /** History actually in the list (cards, not just a divider). */
-  const hasHistory = () => [chainBox, earlierBox, histBox].some((b) => list.contains(b) && !!b.querySelector('.acard'));
+  const hasHistory = () => !!nowBox.querySelector('.acard') || [chainBox, earlierBox, histBox].some((b) => list.contains(b) && !!b.querySelector('.acard'));
   /** The empty live list's line, chosen from what the list really holds: none with live cards, a slim
    * "listening" line over history, the big well over nothing. */
   const settleEmpty = () => {
@@ -307,7 +337,7 @@ export function mountActivity(ctx: IntelCtx) {
   const bar = h('div', { class: 'abar' + (arg ? ' searching' : '') },
     h('div', { class: 'atoolbar' }, h('div', { class: 'row wrap', style: 'gap:8px' }, status, rate), h('div', { class: 'row atools', style: 'gap:6px' }, query, searchBtn, pauseBtn, clearBtn)),
     chips);
-  ctx.body.replaceChildren(bar, list, history);
+  ctx.body.replaceChildren(bar, nowBox, list, history);
   for (const e of grass.recent()) { const g = groupOf(e); counts.set(g, (counts.get(g) || 0) + 1); }
   paintChips(); paintStatus(); paintRate(); rebuild();
   void grass.earlier().then((v) => {
@@ -366,8 +396,8 @@ export function mountActivity(ctx: IntelCtx) {
     if (!store.feed.some((x) => x.replay)) paintChain();
   }, () => { /* no cache */ });
   // (The app's shared read of the newest attacks, cached for two minutes: no search per visit.)
-  void latestAttacks().then((r) => { if (!ctx.alive()) return; pinned = r[0] || null; if (pinned) paintChain(); }, () => { /* no pin */ });
+  void latestAttacks().then((r) => { pinWait = false; if (!ctx.alive()) return; pinned = r[0] || null; paintChain(); }, () => { pinWait = false; if (ctx.alive()) paintChain(); });
   // This visit's read of the chain hasn't landed in 15 s: the last visit's cards say they couldn't be refreshed.
-  const staleTimer = setTimeout(() => { if (!ctx.alive() || store.feed.some((x) => x.replay)) return; chainFailed = true; if (snap) paintChain(); }, 15_000);
+  const staleTimer = setTimeout(() => { if (!ctx.alive() || store.feed.some((x) => x.replay)) return; chainFailed = true; paintChain(); }, 15_000);
   ctx.cleanup.push(() => clearTimeout(staleTimer));
 }

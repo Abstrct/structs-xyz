@@ -407,7 +407,7 @@
 .screen.codex .cx-face { appearance: none; position: relative; width: 38px; height: 38px; padding: 0; overflow: hidden; cursor: pointer; border-radius: 12px; border: 2px solid rgba(41, 224, 255, 0.5); background: rgba(41, 224, 255, 0.1); }
 .screen.codex .cx-face.enemy { border-color: rgba(255, 61, 90, 0.55); background: rgba(255, 61, 90, 0.12); }
 .screen.codex .cx-face:hover, .screen.codex .cx-face:focus-visible { border-color: #fff; transform: translateY(-2px); }
-.screen.codex .cx-face img { position: absolute; width: 68px; height: 68px; left: -17px; top: -17px; image-rendering: pixelated; }
+.screen.codex .cx-face img { position: absolute; width: 68px; height: 68px; left: -17px; top: -17px; }
 .screen.codex .cx-sec { display: flex; align-items: center; gap: 6px; color: var(--text-hint); }
 .screen.codex .cx-sec > span:first-child { display: inline-flex; }
 .screen.codex .field-record { display: flex; flex-direction: column; gap: 6px; }
@@ -552,7 +552,7 @@
 :is(.screen.academy) .ac-mx-cell.right { justify-content: flex-end; }
 :is(.screen.academy) .ac-mx-unit { position: relative; flex: none; width: 46px; height: 46px; overflow: hidden; border-radius: 14px; border: 2px solid rgba(41, 224, 255, 0.7); background: rgba(41, 224, 255, 0.12); }
 :is(.screen.academy) .ac-mx-unit.enemy { border-color: rgba(255, 61, 90, 0.75); background: rgba(255, 61, 90, 0.12); }
-:is(.screen.academy) .ac-mx-unit img { position: absolute; width: 84px; height: 84px; left: -19px; top: -19px; image-rendering: pixelated; }
+:is(.screen.academy) .ac-mx-unit img { position: absolute; width: 84px; height: 84px; left: -19px; top: -19px; }
 :is(.screen.academy) .ac-mx-unit.enemy img { transform: scaleX(-1); }
 :is(.screen.academy) .ac-mx-verdict { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex: none; border-radius: 50%; font-family: var(--font-chrome); font-weight: 900; font-size: 15px; }
 :is(.screen.academy) .ac-mx-verdict.yes { background: var(--dc-y); color: #fff; }
@@ -582,8 +582,10 @@
 /* A box the move needs: an orange dot after its name while it is empty. */
 .screen.forge .fg-field.req > .fg-label .t-label::after { content: ''; display: inline-block; width: 7px; height: 7px; margin-left: 6px; vertical-align: middle; border-radius: 50%; background: transparent; }
 .screen.forge .fg-field.req.need > .fg-label .t-label::after { background: var(--dc-accent); }
-.screen.forge .fg-field.need .input { border-color: color-mix(in srgb, var(--dc-accent) 55%, rgba(120, 150, 255, 0.45)); }
+/* Its border turns only once a send was tried with it empty; before that the status line just says what's next. */
+.screen.forge .fg-field.need.warn .input { border-color: color-mix(in srgb, var(--dc-accent) 55%, rgba(120, 150, 255, 0.45)); }
 .screen.forge .fg-status.c-warn { color: var(--dc-x); }
+.screen.forge .fg-status.next { color: color-mix(in srgb, var(--hub, var(--accent-primary)) 70%, #fff); font-weight: 800; }
 .screen.forge .fg-status.flash { animation: fg-flash 0.5s steps(2) 2; }
 @keyframes fg-flash { 50% { color: #fff; } }
 /* Dry run without a commander: plainly off (its title says why); still focusable and hoverable. */
@@ -652,7 +654,7 @@
 .screen.codex .mx-who:hover, .screen.codex .mx-who:focus-visible { background: rgba(41, 224, 255, 0.15); }
 .screen.codex .mx-targets { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 5px; }
 .screen.codex .mx-sprite { position: relative; display: inline-block; flex: none; width: 36px; height: 36px; overflow: hidden; border-radius: 10px; background: rgba(255, 255, 255, 0.08); }
-.screen.codex .mx-sprite img { position: absolute; width: 66px; height: 66px; left: -15px; top: -15px; image-rendering: pixelated; }
+.screen.codex .mx-sprite img { position: absolute; width: 66px; height: 66px; left: -15px; top: -15px; }
 .screen.codex .mx-sprite.att { border: 2px solid rgba(41, 224, 255, 0.7); }
 .screen.codex .mx-t { position: relative; display: grid; place-items: center; height: 44px; border-radius: 12px; cursor: help; border: 2px solid transparent; }
 .screen.codex .mx-t .mx-sprite { width: 34px; height: 34px; background: none; }
@@ -727,3 +729,8 @@
 @media (hover: none) {
   body:not(.pad) .screen.academy .ac-choice-n { display: none; }
 }
+.screen.forge .fg-gh-chain { font-family: var(--font-ticker, monospace); font-size: 11px; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--text-hint); }
+/* Expert's chain names can be long (PlayerUpdatePfpClientRenderAttributes): they break, never overflow. */
+.screen.forge .fg-gh-chain { overflow-wrap: anywhere; word-break: break-word; }
+.screen.forge .fg-item > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.screen.forge .fg-head .fg-head-code { font-size: 13px; align-self: center; }

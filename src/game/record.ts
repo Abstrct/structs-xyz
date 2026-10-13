@@ -1,7 +1,7 @@
 /* Service record: every move of yours that lands earns experience, and experience earns
  * rank. Kept per browser (it counts what this client did), across all your players. */
 import { txq, type TxJob } from '../wallet/queue';
-import { banner, whenNoticesShow } from '../core/dom';
+import { banner, whenNoticesShow, whenRewardsShow } from '../core/dom';
 import { audio } from '../core/audio';
 import { safeEach } from '../core/util';
 
@@ -70,7 +70,7 @@ class ServiceRecord {
     this.r.xp += xp;
     this.save();
     // The fanfare and its banner together (at PRESS START both wait for the doors).
-    if (this.rank > before) { const rank = RANKS[this.rank]; whenNoticesShow(() => { audio.stinger('secure', 0.8); banner(rank.toUpperCase(), 'PROMOTED', 'player', 2800); }, true); }
+    if (this.rank > before) { const rank = RANKS[this.rank]; whenRewardsShow(() => whenNoticesShow(() => { audio.stinger('secure', 0.8); banner(rank.toUpperCase(), 'PROMOTED', 'player', 2800).classList.add('reward'); }, true), true); }
     safeEach(this.listeners, (f) => f(this.r));
   }
 
@@ -104,7 +104,7 @@ class ServiceRecord {
     this.r.xp += xp;
     this.save();
     const after = this.rank;
-    if (after > before) { const rank = RANKS[after]; whenNoticesShow(() => { audio.stinger('secure', 0.8); banner(rank.toUpperCase(), 'PROMOTED', 'player', 2800); }, true); }
+    if (after > before) { const rank = RANKS[after]; whenRewardsShow(() => whenNoticesShow(() => { audio.stinger('secure', 0.8); banner(rank.toUpperCase(), 'PROMOTED', 'player', 2800).classList.add('reward'); }, true), true); }
     safeEach(this.listeners, (f) => f(this.r));
   }
 }

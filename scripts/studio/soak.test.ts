@@ -26,7 +26,7 @@ import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Chain, STATUS, STRUCT_SWEEP_DELAY, type Block, type Msg } from '../../src/sim/chain';
 import { Ai, type Difficulty } from '../../src/sim/ai';
-import { BattleSession, type Outcome } from '../../src/screens/battle/session';
+import { BattleSession, DECIDE_AT, type Outcome } from '../../src/screens/battle/session';
 import {
   chainSetup, CPU, dailyScenario, decodeReplay, encodeReplay, fits, GAUNTLET_ROUNDS, gauntletEnemy, layout, MAX_CHARGE,
   mirrorUnits, type Preset, reinforcementOffers, type Unit, unitId, validate, YOU,
@@ -302,9 +302,19 @@ class Checker {
     const c = this.chain, left = c.fleetsAtBattle();
     const youIn = left.includes(YOU.fleetId), cpuIn = left.includes(CPU.fleetId);
     if (o.height !== c.height) this.fail(`outcome at h${o.height}, chain at h${c.height}`);
-    if (o.winner === 'you' && !(youIn && !cpuIn)) this.fail(`outcome "you" with fleets ${left.join(',') || 'none'} at battle`);
+    // Decided on hull (time, or a standoff): both fleets still in (at DECIDE_AT for time), and the winner
+    // is the one with more hull (Command Ship fraction, then the fleet's; even on both, a draw).
+    if (o.stalemate) {
+      const hl = o.hull;
+      const by = (a: number, b: number) => (a > b + 1e-9 ? 'you' : b > a + 1e-9 ? 'cpu' : null);
+      if (!(youIn && cpuIn)) this.fail(`decided on hull (${o.stalemate}) with fleets ${left.join(',') || 'none'} at battle`);
+      else if (o.stalemate === 'time' && o.height - session.startHeight !== DECIDE_AT) this.fail(`decided on time after ${o.height - session.startHeight} turns, not ${DECIDE_AT}`);
+      else if (!hl) this.fail('decided on time with no hull figures');
+      else if ((by(hl.you, hl.cpu) || by(hl.fleetYou, hl.fleetCpu) || 'draw') !== o.winner) this.fail(`decided on hull (${o.stalemate}) for "${o.winner}" with hull ${JSON.stringify(hl)}`);
+    }
+    else if (o.winner === 'you' && !(youIn && !cpuIn)) this.fail(`outcome "you" with fleets ${left.join(',') || 'none'} at battle`);
     else if (o.winner === 'cpu' && !(cpuIn && !youIn)) this.fail(`outcome "cpu" with fleets ${left.join(',') || 'none'} at battle`);
-    else if (o.winner === 'draw' && !(o.stalemate ? youIn && cpuIn : left.length === 0)) this.fail(`a draw with no stalemate rule and no mutual kill (fleets ${left.join(',')})`);
+    else if (o.winner === 'draw' && left.length !== 0) this.fail(`a draw with no hull decision and no mutual kill (fleets ${left.join(',')})`);
     else if (!['you', 'cpu', 'draw'].includes(o.winner)) this.fail(`unknown winner ${o.winner}`);
     const kills = session.kills.map((k) => k.structId).sort().join(), deaths = [...this.dead.keys()].sort().join();
     if (kills !== deaths) this.fail(`debrief tallies ${session.kills.length} kills, the chain destroyed ${this.dead.size}`);
@@ -604,7 +614,7 @@ async function main() {
   const scenarioOrder = ['preset:easy', 'preset:difficult', 'preset:hard', 'preset:random', 'daily', 'gauntlet', 'mirror', 'fuzz', 'chaos'];
   const matchOrder = DIFFS.flatMap((c) => [...DIFFS, 'monkey'].map((y) => `${c} vs ${y}`));
   const all = agg(), byScenario = new Map<string, Agg>(), byMatchup = new Map<string, Agg>(), byCell = new Map<string, Agg>(), byTwist = new Map<string, Agg>();
-  const failedTx: Record<string, number> = {}, okTx: Record<string, number> = {}, stalemates: Record<string, number> = {};
+  const failedTx: Record<string, number> = {}, okTx: Record<string, number> = {}, stalemates: Record<string, number> = {}, onTime: Record<string, number> = {};
   for (const r of recs) {
     bump(all, r);
     add(byScenario, r.scenario, r);
@@ -614,6 +624,7 @@ async function main() {
     for (const [k, v] of Object.entries(r.failedTx)) failedTx[k] = (failedTx[k] || 0) + v;
     for (const [k, v] of Object.entries(r.okTx)) okTx[k] = (okTx[k] || 0) + v;
     if (r.winner === 'draw') { const k = r.stalemate || 'mutual kill'; stalemates[k] = (stalemates[k] || 0) + 1; }
+    if (r.stalemate) onTime[r.stalemate + ':' + r.winner] = (onTime[r.stalemate + ':' + r.winner] || 0) + 1;
   }
   const gauntletRuns = results.filter((r) => r.gauntletWon != null).map((r) => r.gauntletWon!);
   const gauntletWon: Record<string, number> = {};
@@ -648,6 +659,7 @@ async function main() {
   if (gauntletRuns.length) console.log(`gauntlet runs: ${gauntletRuns.length} · rounds won ${Object.entries(gauntletWon).map(([k, v]) => `${k}:${v}`).join(' ')}`);
   const list = (o: Record<string, number>) => Object.entries(o).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(' · ') || 'none';
   console.log(`draws: ${list(stalemates)}`);
+  console.log(`decided on hull (time at ${DECIDE_AT} turns, or a standoff): ${list(onTime)}`);
   console.log(`executed orders: ${list(okTx)}`);
   console.log(`reverted orders: ${list(failedTx)}`);
 
@@ -672,6 +684,7 @@ async function main() {
     dailyTwists: toObj(byTwist),
     gauntlet: { runs: gauntletRuns.length, roundsWon: gauntletWon },
     draws: stalemates,
+    decidedOnHull: onTime,
     executedTxs: okTx,
     revertedTxs: failedTx,
     warnings: [...warnings, ...cellWarnings],

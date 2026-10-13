@@ -49,6 +49,8 @@
 .cw-btn.ghost { background: transparent; border-color: var(--cw-inner); color: #B9D3E6; font-family: 'DC Text', sans-serif; font-style: normal; font-weight: 700; }
 .cw-btn:disabled { opacity: 0.45; cursor: default; outline: none; }
 .cw-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px; }
+/* The Start button's badge: a pill, as on the pad. */
+.dc-face.start { width: auto; height: 22px; padding: 0 8px; border-radius: 999px; background: #3A4A63; color: #EAF6FF; font: italic 900 11px 'DC Display', sans-serif; letter-spacing: 0.08em; }
 
 /* The ring menu */
 .cw-win.cw-ring { background: transparent; border: 0; box-shadow: none; padding: 0; min-width: 0; overflow: visible; }
@@ -85,7 +87,30 @@
 /* ── The lobby HUD ──────────────────────────────────────────────────────── */
 .screen.lobby .lh, .screen.lobby .cl-tags, .screen.lobby .su { position: absolute; inset: 0; pointer-events: none; }
 .screen.lobby .lh > *, .screen.lobby .su > * { pointer-events: auto; }
-.lh-deck { position: absolute; left: 16px; top: 60px; height: 52px; display: flex; align-items: center; gap: 10px; padding: 0 16px; cursor: pointer; }
+/* My plate: aura gem, name in the old lobbies' gold italic, power and charge bars. */
+.lh-me { position: absolute; left: 16px; top: 60px; display: flex; align-items: center; gap: 10px; padding: 8px 14px 8px 10px; min-width: 220px; pointer-events: none !important; }
+.lh-gem { --gem: #79D3F2; flex: none; width: 26px; height: 30px; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  background: linear-gradient(155deg, #FFFFFF 0%, var(--gem) 38%, color-mix(in srgb, var(--gem) 50%, #04101F) 100%); }
+.lh-me-text { display: grid; gap: 4px; min-width: 0; flex: 1; }
+.lh-me-name { font: italic 900 18px 'DC Display', sans-serif; color: #FFC23A; text-transform: uppercase; letter-spacing: 0.02em; text-shadow: 0 2px 0 #071629;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+.lh-bars { display: grid; gap: 3px; }
+.lh-bar { display: grid; grid-template-columns: 32px 1fr; align-items: center; gap: 6px; font: italic 900 11px 'DC Display', sans-serif; color: #B8ECFF; pointer-events: auto; }
+.lh-bar[hidden] { display: none; }
+.lh-bar b { font-weight: 900; }
+.lh-track { height: 8px; border-radius: 2px; background: rgba(4, 16, 32, 0.75); border: 1px solid rgba(121, 211, 242, 0.45); overflow: hidden; }
+.lh-track i { display: block; height: 100%; width: 0; background: linear-gradient(#9DFFB0, #2FB45A); transition: width 0.4s; }
+.lh-bar.warn .lh-track i { background: linear-gradient(#FFE08A, #E39B1E); }
+.lh-bar.off .lh-track i { width: 100% !important; background: linear-gradient(#FF8A8A, #C8323C); }
+.lh-bar.chg .lh-track i { background: linear-gradient(#B8F0FF, #2C9BD6); }
+/* Who's near, under the map, like a party list. */
+.lh-near { position: absolute; right: 16px; top: 204px; display: grid; gap: 4px; width: 170px; }
+.lh-near-row { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 12px 0 8px; cursor: pointer; font: 700 13px 'DC Text', sans-serif; text-align: left; }
+.lh-near-row .lh-gem { width: 14px; height: 16px; }
+@media (pointer: coarse) { .lh-near-row { min-height: 40px; } }
+.lh-near-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lh-near-row:hover, .lh-near-row:focus-visible { background: var(--cw-lit); outline: 2px solid var(--dc-accent, #FF6A13); outline-offset: 1px; }
+.lh-deck { position: absolute; left: 16px; top: 132px; height: 40px; display: flex; align-items: center; gap: 10px; padding: 0 14px; cursor: pointer; }
 .lh-deck:focus-visible { outline: 2px solid var(--dc-accent, #FF6A13); outline-offset: 2px; }
 .lh-deck-n { font: italic 900 19px 'DC Display', sans-serif; color: #FF8A45; }
 .lh-deck-name { font: 700 15px 'DC Text', sans-serif; max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -157,6 +182,7 @@ body.pad .lh-act-ico { display: none; }
 .cb-edge-face.pfp { width: 32px; height: 32px; border-radius: 6px; }
 @keyframes ct-bob { 0%, 100% { transform: translateY(0); opacity: 0.5; } 50% { transform: translateY(-3px); opacity: 1; } }
 @keyframes cw-pop { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes lh-pop-r { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 /* ── Player setup (the hangar) ──────────────────────────────────────────── */
 .su { font-family: 'DC Text', system-ui, sans-serif; color: var(--cw-text); }
@@ -200,7 +226,11 @@ body.pad .lh-act-ico { display: none; }
   .cl-logwin { padding: 6px 12px; }
   .cl-log { min-height: 0; max-height: 62px; font-size: 14px; }
   .lh-map { width: 96px; height: 96px; }
-  .lh-prompt { bottom: auto; top: 118px; }
+  .lh-near { display: none; }
+  .lh-me { min-width: 0; max-width: calc(100% - 140px); padding: 6px 10px 6px 8px; }
+  .lh-me-name { font-size: 15px; }
+  /* Up by the map, clear of my plate and my droid. */
+  .lh-prompt { bottom: auto; top: 118px; left: auto; right: 124px; transform: none; animation-name: lh-pop-r; }
   .su-right { display: none; }
   .su-parts { width: min(340px, calc(100% - 48px)); }
 }
@@ -216,7 +246,7 @@ body.pad .lh-act-ico { display: none; }
   .cl-chat { left: 8px; bottom: 8px; width: calc(100% - 96px); }
   .lh-act { min-width: 44px; justify-content: center; }
   .lh-act-word { display: none; }
-  .lh-prompt { bottom: auto; top: 128px; }
+  .lh-prompt { bottom: auto; top: 186px; left: 50%; right: auto; transform: translateX(-50%); animation-name: cw-pop; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ct i, .su-step.now .su-dot, .lh-prompt { animation: none; }

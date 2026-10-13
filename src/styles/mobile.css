@@ -145,6 +145,8 @@ body > .ops-dock { margin-bottom: calc(var(--sa-b) + var(--tabbar-h)); }
   /* A hub's menu rises from the bar as a sheet. (hubs.ts places it under its button: not here.) */
   body > .hub-menu { top: auto; left: 8px !important; right: 8px; width: auto; margin-top: 0;
     bottom: calc(var(--tabbar-h) + var(--sa-b) + 8px); max-height: calc(var(--vh) - var(--tabbar-h) - var(--sa-b) - var(--sa-t) - 64px); }
+  /* While news is up in the top band, the sheet leaves it room. */
+  body:has(> .toasts > .toast) > .hub-menu { max-height: calc(var(--vh) - var(--tabbar-h) - var(--sa-b) - var(--sa-t) - 128px); }
   /* In a fight the battlefield gets the whole screen; so does PRESS START (dc-nav.css hides the bars). */
   body:has(.screen.battle .battle-top), body.press-start { --tabbar-h: 0px; }
   html body:has(.screen.battle .battle-top) .shell .topbar .hubs { display: none; }
@@ -163,3 +165,8 @@ body > .ops-dock { margin-bottom: calc(var(--sa-b) + var(--tabbar-h)); }
  * screen's width to fill, so on a phone every toast wrapped to three or four lines. */
 body > .toasts { width: max-content; max-width: calc(100vw - 24px - var(--sa-l) - var(--sa-r)); }
 body > .toasts > .toast { max-width: 100%; }
+/* A hub's sheet fills the bottom of an upright phone: news waits in the top band meanwhile, clear of its tiles. */
+@media (max-width: 760px) and (pointer: coarse) and (min-height: 561px) {
+  body:has(> .hub-menu) > .toasts { top: calc(var(--sa-t) + 54px); bottom: auto; margin-bottom: 0; }
+  body:has(> .hub-menu) > .toasts > .toast:not(:last-child) { display: none; }
+}

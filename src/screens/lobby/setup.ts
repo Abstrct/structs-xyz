@@ -17,6 +17,12 @@ import { partRows } from './menus';
 
 export type SetupStep = 'droid' | 'name' | 'guild' | 'arrival' | 'locked';
 
+/** Out to the live galaxy to watch: the galaxy skips its title once (`structs.watch`). */
+export function watchGalaxy(navigate: (path: string) => void) {
+  try { sessionStorage.setItem('structs.watch', '1'); } catch { /* the title shows; Watch is a door there */ }
+  navigate('/galaxy');
+}
+
 export interface SetupHooks {
   /** The droid on the lift changed. */
   preview(a: PfpAttrs): void;
@@ -65,6 +71,22 @@ export class Setup {
         if (next === null) this.hooks.rise(); else if (next !== 'locked') this.go(next);
       } else if (this.step === 'arrival') this.paint();
     }));
+    // A pad (or a keyboard) has the setup's verbs anywhere in it: X rolls, B goes back a step,
+    // Start goes on. Space on a focused button still presses that button.
+    const key = (e: KeyboardEvent) => {
+      if (!this.el.isConnected || document.querySelector('.modal-back')) return;
+      const t = e.target as HTMLElement | null;
+      if (t?.closest?.('.topbar, .hub-menu, .more-menu, .tabbar')) return;
+      const act = (a: string) => { const b = this.el.querySelector<HTMLButtonElement>(`[data-act="${a}"]:not([disabled])`); if (!b) return; e.preventDefault(); e.stopImmediatePropagation(); b.click(); };
+      if (e.key === 'Escape') { act('back'); return; }
+      if (t?.matches?.('input, textarea')) return;
+      if (e.key === ' ' && (!e.isTrusted || !t?.matches?.('button, a, input'))) act('next');
+      else if (e.key === 'g' || e.key === 'x' || e.key === 'X') act('roll');
+    };
+    window.addEventListener('keydown', key);
+    this.stop.push(() => window.removeEventListener('keydown', key));
+    // One decision less: a game name is ready, and a tap on Random or a few letters changes it.
+    if (!this.draft.name) { this.draft.name = randomName(); saveDraft(this.draft); }
     this.hooks.preview(this.draft.attrs);
     this.paint();
   }
@@ -87,9 +109,9 @@ export class Setup {
 
   private side(): HTMLElement {
     return h('div', { class: 'su-side' },
-      h('button', { type: 'button', class: 'cw-btn ghost', onclick: () => openVault(), title: 'Already a commander? Bring it back with your recovery phrase' }, 'Restore'),
+      h('button', { type: 'button', class: 'cw-btn ghost', onclick: () => openVault('restore'), title: 'Already a commander? Bring it back with your recovery phrase' }, 'Restore'),
       h('button', { type: 'button', class: 'cw-btn ghost', onclick: () => this.hooks.navigate('/sim'), title: 'A training battle: no account needed' }, 'Practice'),
-      h('button', { type: 'button', class: 'cw-btn ghost', onclick: () => this.hooks.navigate('/galaxy'), title: 'Watch the live galaxy' }, 'Watch'));
+      h('button', { type: 'button', class: 'cw-btn ghost', onclick: () => watchGalaxy(this.hooks.navigate), title: 'Watch the live galaxy' }, 'Watch'));
   }
 
   private droid(): Node[] {
@@ -105,7 +127,7 @@ export class Setup {
       h('div', { class: 'su-right' },
         h('div', { class: 'cw su-card' }, h('span', { class: 'cw-tab' }, 'Your PFP'), h('div', { class: 'su-card-in' }, card, h('span', { class: 'su-cap' }, 'The same droid on every card'))),
       ),
-      h('div', { class: 'su-foot' }, this.side(), h('button', { type: 'button', class: 'cw-btn primary', onclick: () => this.go('name') }, h('span', { class: 'dc-face a' }, 'A'), 'Next: Name')),
+      h('div', { class: 'su-foot' }, this.side(), h('button', { type: 'button', class: 'cw-btn primary', 'data-act': 'next', onclick: () => this.go('name') }, h('span', { class: 'dc-face start' }, 'START'), 'Next: Name')),
     ];
   }
 
@@ -118,7 +140,7 @@ export class Setup {
   private name(): Node[] {
     const input = h('input', { id: 'su-name', class: 'su-input', maxlength: 20, spellcheck: false, autocomplete: 'off', value: this.draft.name, placeholder: 'commander name', 'data-first': '' }) as HTMLInputElement;
     const err = h('div', { class: 'su-err', role: 'alert' });
-    const next = h('button', { type: 'button', class: 'cw-btn primary', onclick: () => submit() }, h('span', { class: 'dc-face a' }, 'A'), 'Next: Guild') as HTMLButtonElement;
+    const next = h('button', { type: 'button', class: 'cw-btn primary', 'data-act': 'next', onclick: () => submit() }, h('span', { class: 'dc-face start' }, 'START'), 'Next: Guild') as HTMLButtonElement;
     const submit = () => {
       const nm = input.value.trim();
       if (!/^[A-Za-z0-9 _.-]{2,20}$/.test(nm)) { err.textContent = 'Names are 2–20 letters, digits, spaces, _ . -'; audio.play('deny'); return; }
@@ -132,7 +154,7 @@ export class Setup {
         h('label', { class: 'su-label', for: 'su-name', title: 'Everyone in the galaxy will see it' }, 'A game name, never your real name'),
         h('div', { class: 'su-namerow' }, input, h('button', { type: 'button', class: 'cw-btn', onclick: () => { input.value = randomName(); input.dispatchEvent(new Event('input')); audio.play('tick'); } }, 'Random')),
         err),
-      h('div', { class: 'su-foot' }, this.side(), h('div', { class: 'su-go' }, h('button', { type: 'button', class: 'cw-btn', onclick: () => this.go('droid') }, h('span', { class: 'dc-face b' }, 'B'), 'Back'), next)),
+      h('div', { class: 'su-foot' }, this.side(), h('div', { class: 'su-go' }, h('button', { type: 'button', class: 'cw-btn', 'data-act': 'back', onclick: () => this.go('droid') }, h('span', { class: 'dc-face b' }, 'B'), 'Back'), next)),
     ];
   }
 
@@ -141,7 +163,7 @@ export class Setup {
     const err = h('div', { class: 'su-err', role: 'alert' });
     const insecure = insecurePage();
     if (insecure) err.textContent = insecure;
-    const launch = h('button', { type: 'button', class: 'cw-btn primary', disabled: true, onclick: () => void go() }, h('span', { class: 'dc-face a' }, 'A'), 'Launch') as HTMLButtonElement;
+    const launch = h('button', { type: 'button', class: 'cw-btn primary', 'data-act': 'next', disabled: true, onclick: () => void go() }, h('span', { class: 'dc-face start' }, 'START'), 'Launch') as HTMLButtonElement;
     const paint = () => {
       const usable = this.guilds.filter((g) => g.services?.guild_api && reachableNow(g.id) !== false).sort((a, b) => store.members(b.id) - store.members(a.id));
       if (!usable.length) { list.replaceChildren(h('div', { class: 'su-err' }, this.guilds.length ? 'No guild is taking new players on this site yet. Practice and the Academy work without one.' : 'Reading the guilds…')); return; }
@@ -177,7 +199,7 @@ export class Setup {
     if (this.guilds.length) queueMicrotask(paint);
     return [
       h('div', { class: 'cw su-guildwin' }, h('span', { class: 'cw-tab' }, 'Guild'), list, err),
-      h('div', { class: 'su-foot' }, this.side(), h('div', { class: 'su-go' }, h('button', { type: 'button', class: 'cw-btn', onclick: () => this.go('name') }, h('span', { class: 'dc-face b' }, 'B'), 'Back'), launch)),
+      h('div', { class: 'su-foot' }, this.side(), h('div', { class: 'su-go' }, h('button', { type: 'button', class: 'cw-btn', 'data-act': 'back', onclick: () => this.go('name') }, h('span', { class: 'dc-face b' }, 'B'), 'Back'), launch)),
     ];
   }
 
@@ -194,7 +216,7 @@ export class Setup {
       return h('li', { class: `su-step${done ? ' done' : ''}${now ? ' now' : ''}` }, h('span', { class: 'su-dot', 'aria-hidden': 'true' }, done ? '✓' : ''), s);
     });
     items.push(h('li', { class: `su-step${landed ? ' now' : ''}` }, h('span', { class: 'su-dot', 'aria-hidden': 'true' }), 'Up the lift'));
-    const rise = h('button', { type: 'button', class: 'cw-btn primary su-rise', disabled: !landed, 'data-first': '', onclick: () => this.hooks.rise() }, h('span', { class: 'dc-face a' }, 'A'), landed ? 'Rise to the Concourse' : 'Ready soon') as HTMLButtonElement;
+    const rise = h('button', { type: 'button', class: 'cw-btn primary su-rise', 'data-act': 'next', disabled: !landed, 'data-first': '', onclick: () => this.hooks.rise() }, h('span', { class: 'dc-face start' }, 'START'), landed ? 'Rise to the Concourse' : 'Ready soon') as HTMLButtonElement;
     if (landed && !this.announced) { this.announced = true; audio.play('confirm'); toast('Your commander is in. The lift is ready.', 'player', 4000); }
     return [
       h('div', { class: 'cw su-arrive' }, h('span', { class: 'cw-tab' }, failed ? 'Stalled' : 'Arriving'),

@@ -264,7 +264,7 @@
 .intel .acard-more { padding: 0 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.1); color: var(--text-hint); font-family: var(--font-chrome); font-weight: 900; font-size: 12px; }
 .intel .acard-unit { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
 .intel .acard-sprite { position: relative; display: inline-flex; align-items: center; justify-content: center; flex: none; width: 28px; height: 28px; overflow: hidden; border-radius: 9px; background: rgba(255, 255, 255, 0.08); color: var(--text-hint); }
-.intel .acard-sprite img { position: absolute; width: 52px; height: 52px; left: -12px; top: -12px; image-rendering: pixelated; }
+.intel .acard-sprite img { position: absolute; width: 52px; height: 52px; left: -12px; top: -12px; }
 .intel .acard-type { font-weight: 800; color: #DCE6FF; }
 .intel .acard-act { display: inline-flex; align-items: center; gap: 4px; padding: 1px 9px 1px 6px; border-radius: 999px; color: var(--t); background: color-mix(in srgb, var(--t) 16%, transparent);
   font-family: var(--font-chrome); font-weight: 900; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
@@ -330,3 +330,29 @@
 .intel .acard-act.tone-hint { --t: var(--accent-secondary); }
 .intel .acard-act > b { font-weight: 900; }
 .intel .acard.now .acard-main > a.id-link + a.id-link::before { content: '·'; margin-right: 6px; color: var(--text-hint); }
+/* A run of the same blow: the structs' sprites overlap a little, newest in front. */
+.intel .acard-stack { display: inline-flex; align-items: center; }
+.intel .acard-stack > .acard-unit + .acard-unit { margin-left: -12px; }
+.intel .acard-stack .acard-sprite { box-shadow: -2px 0 0 rgba(7, 11, 44, 0.9); }
+.intel .acard .acard-visit { min-height: 26px; padding: 2px 10px; gap: 4px; }
+@media (pointer: coarse) { .intel .acard .acard-visit { min-height: 40px; } }
+/* "Right now" and the latest fight, pinned above the live list (routine updates scroll below it). */
+.intel .anow { display: flex; flex-direction: column; gap: 6px; }
+.intel .anow:empty { display: none; }
+/* Its placeholder while the roster loads (the same height as the card it holds the place of). */
+.intel .acard.ghost { position: relative; overflow: hidden; min-height: 52px; border-style: dashed; background: rgba(255, 255, 255, 0.03); animation: none; }
+.intel .acard.ghost.tall { min-height: 60px; }
+@media (pointer: coarse) { .intel .acard.ghost { min-height: 58px; } }
+/* An upright phone: the fight's card runs to three lines. */
+@media (max-width: 560px) and (pointer: coarse) and (min-height: 561px) { .intel .acard.ghost.tall { min-height: 148px; } }
+/* Short screens (the TV, a phone on its side): one row of cards that scrolls sideways, so the live list
+   stays on screen. The labels stay for screen readers; the cards say what they are. */
+@media (max-height: 560px) {
+  .intel .anow { position: relative; flex-direction: row; align-items: stretch; min-height: 52px; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: none; }
+  .intel .anow::-webkit-scrollbar { display: none; }
+  .intel .anow > .adivider { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .intel .anow > .acard, .intel .anow > .acard.hot, .intel .anow > .acard.ghost.tall { flex: 0 0 auto; max-width: 86%; min-height: 46px; scroll-snap-align: start; }
+  .intel .anow > .acard .acard-main { flex-wrap: nowrap; white-space: nowrap; overflow: hidden; }
+  .intel .anow > .acard .acard-main > * { flex-shrink: 0; }
+  .intel .anow > .acard.ghost { flex: 1 1 auto; max-width: none; }
+}

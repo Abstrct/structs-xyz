@@ -9,7 +9,7 @@ import { LOOK } from '../../core/engine';
 import { easeInOutCubic, easeOutBack, easeOutCubic } from '../../core/util';
 import { type Ambit, AMBIT_COLOR, COMMAND_SHIP_ID, TYPES_BY_ID } from '../../data/catalogue';
 import { Effects } from '../../gfx/fx';
-import { getPixelModel, pixelMaterial, type PixelModel, type PixelUniforms } from '../../gfx/pixelModel';
+import { getHullModel, hullFxMaterial, type HullModel, type HullUniforms } from '../../gfx/hull/model';
 import { BattleSet, compactBoost, FIELD, type SetOptions, slotStagger, slotX } from './env';
 import type { AttackDetail, Block, Chain, ChainEvent, ShotRow, SimStruct } from '../../sim/chain';
 
@@ -129,6 +129,9 @@ function reticleMaterial() {
   });
 }
 
+/** Depth only, drawn just before a see-through hull's colour (same queue, same object). */
+const PREPASS = new THREE.MeshBasicMaterial({ colorWrite: false, transparent: true });
+
 /* ── Tweens on the view clock (pauses and time-scales with the board) ───── */
 interface Tween { t: number; dur: number; fn: (k: number) => void; ease: (k: number) => number; resolve: () => void }
 
@@ -139,12 +142,12 @@ export class UnitView {
   readonly command: boolean;
   mesh!: THREE.Mesh;
   material!: THREE.MeshStandardMaterial;
-  base!: PixelModel;
-  dmg!: PixelModel;
+  base!: HullModel;
+  dmg!: HullModel;
   /** The pad under the hull: shadow, team ring, selection and target marks. */
   ring!: THREE.Mesh;
   ringMat!: THREE.ShaderMaterial;
-  private px!: PixelUniforms;
+  private px!: HullUniforms;
   private cloak = 0;
   private holo = 0;
   /** False until the first frame: stealth and construction start at their state instead of easing in. */
@@ -184,9 +187,10 @@ export class UnitView {
 
   async load() {
     const faction = this.side === 'player' ? 'player' : 'enemy';
-    [this.base, this.dmg] = await Promise.all([getPixelModel(this.typeId, faction, 'base'), getPixelModel(this.typeId, faction, 'dmg')]);
-    this.material = pixelMaterial(this.base);
-    this.px = this.material.userData.pixel as PixelUniforms;
+    this.base = getHullModel(this.typeId, faction, 'base');
+    this.dmg = getHullModel(this.typeId, faction, 'dmg');
+    this.material = hullFxMaterial(this.base);
+    this.px = this.material.userData.hull as HullUniforms;
     this.px.uBounce.value.copy(BOUNCE[this.ambit]);
     this.bounceNow.copy(BOUNCE[this.ambit]);
     this.mesh = new THREE.Mesh(this.base.geometry, this.material);
@@ -200,7 +204,7 @@ export class UnitView {
     this.ring = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.ringMat);
     this.ring.rotation.x = -Math.PI / 2;
     this.ring.position.y = -this.base.height * k * 0.5 - 0.05;
-    this.padSize = Math.max(2.9, this.base.width * k * 1.2);
+    this.padSize = Math.max(2.9, this.base.padWidth * k * 1.2);
     this.ring.scale.set(this.padSize, 2.4, 1);
     this.root.add(this.ring);
     // Generous pick volume.
@@ -241,7 +245,6 @@ export class UnitView {
       this.mesh.geometry = m.geometry;
       this.material.map = m.map;
       this.material.emissiveMap = m.emissiveMap;
-      this.px.uBevelMap.value = m.normalMap;
       this.material.needsUpdate = true;
     }
     this.renderPips();
@@ -317,8 +320,10 @@ export class UnitView {
     u.uCloak.value = this.cloak; u.uHolo.value = this.holo;
     const a = (this.dimmed ? 0.4 : 1) * (this.online ? 1 : 0.85);
     const transparent = a < 0.99 || this.cloak > 0.01 || this.holo > 0.01;
-    // OPAQUE is compiled into the program: switching it needs a (cached) program swap.
-    if (m.transparent !== transparent) { m.transparent = transparent; m.needsUpdate = true; }
+    // OPAQUE is compiled into the program: switching it needs a (cached) program swap. A see-through
+    // hull lays down its depth first (the geometry's first group), so only its nearest surface
+    // shows: wings never show through the fuselage.
+    if (m.transparent !== transparent) { m.transparent = transparent; m.needsUpdate = true; this.mesh.material = transparent ? [PREPASS, m] : m; }
     m.opacity = a;
     // Opacity scales alpha before the alpha test; scale the test with it.
     m.alphaTest = Math.min(0.5, a * 0.5);
@@ -349,7 +354,7 @@ export class UnitView {
 /* ── Floaters (DOM numbers and words over the board) ────────────────────── */
 /** A floater's centre x, kept so the whole word stays on screen (8 px from either edge). */
 const clampX = (x: number, half: number) => Math.min(window.innerWidth - half - 8, Math.max(half + 8, x));
-interface Floater { el: HTMLElement; pos: THREE.Vector3; age: number; life: number; rise: number; half?: number }
+interface Floater { el: HTMLElement; pos: THREE.Vector3; age: number; life: number; rise: number; half?: number; halfH?: number; under?: Floater; minY?: number }
 
 export class BattleView {
   readonly group = new THREE.Group();
@@ -360,6 +365,8 @@ export class BattleView {
   units = new Map<string, UnitView>();
   private tweens: Tween[] = [];
   private floaters: Floater[] = [];
+  /** Screen y the floating words keep below (the battle screen's HUD cards; 0: none). */
+  floorY = 0;
   private queue: (() => Promise<void>)[] = [];
   private running = false;
   private tethers = new Map<string, { mesh: THREE.Mesh; mat: THREE.ShaderMaterial; from: string; to: string; t: number; dying: boolean }>();
@@ -401,7 +408,8 @@ export class BattleView {
     // The compact deck's staggered line (env.ts): every other slot a step back and up. When the decks
     // stand further apart (a phone's fight), the step aloft grows with them, a rank to each half-deck.
     const [lift0, depth] = this.xFor === fieldX ? slotStagger(slot, command, ambit) : [0, 0];
-    const lift = ambit === 'space' || ambit === 'air' ? lift0 * this.set.stretch * this.set.stretch : lift0;
+    const k = Math.min(this.set.stretch, 1.7);
+    const lift = ambit === 'space' || ambit === 'air' ? lift0 * k * k : lift0;
     // Command Ships sit a little back so they read as the flagship.
     return new THREE.Vector3(x, y + lift, (command ? -0.6 : 0) + depth);
   }
@@ -578,16 +586,19 @@ export class BattleView {
   floater(pos: THREE.Vector3, text: string, cls: string, life = 1.3) {
     // Words born on the same spot (COUNTERED, then DESTROYED) stack upward instead of printing over each other.
     pos = pos.clone();
-    for (const f of this.floaters) if (f.age < 0.7 && Math.abs(f.pos.x - pos.x) < 2.6 && Math.abs(f.pos.y - pos.y) < 0.8) pos.y = f.pos.y + 0.9;
+    let under: Floater | undefined;
+    for (const f of this.floaters) if (f.age < 0.7 && Math.abs(f.pos.x - pos.x) < 2.6 && Math.abs(f.pos.y - pos.y) < 0.8) { pos.y = f.pos.y + 0.9; under = f; }
     const el = h('div', { class: 'floater ' + cls }, text);
     // Place it now: floaters are often born between frames (after an await) and
     // would otherwise sit in the corner until the next overlay pass.
     const v = pos.clone().project(this.camera);
     this.layer.appendChild(el);
     // Kept whole on screen: a flagship at the deck's edge put "ALPHA DRIFT" half off a phone.
-    const half = el.offsetWidth / 2;
-    el.style.transform = `translate(${clampX(((v.x + 1) / 2) * window.innerWidth, half)}px, ${((1 - v.y) / 2) * window.innerHeight}px) translate(-50%, -50%) scale(0.6)`;
-    this.floaters.push({ el, pos: pos.clone(), age: 0, life, rise: 1.2, half });
+    // And below the HUD's cards: words born at the top of the field print under them, not behind them.
+    const half = el.offsetWidth / 2, halfH = el.offsetHeight / 2;
+    const f: Floater = { el, pos: pos.clone(), age: 0, life, rise: 1.2, half, halfH, under };
+    el.style.transform = `translate(${clampX(((v.x + 1) / 2) * window.innerWidth, half)}px, ${Math.max(this.floorOf(f), ((1 - v.y) / 2) * window.innerHeight)}px) translate(-50%, -50%) scale(0.6)`;
+    this.floaters.push(f);
   }
 
   /* ── Tethers: defender → ward ─────────────────────────────────────────── */
@@ -950,7 +961,7 @@ export class BattleView {
     const c = u.center();
     const big = u.command ? 2.2 : 1;
     this.fx.explosion(c, big, u.side === 'player' ? 0x43cdb6 : 0xff7a50);
-    this.fx.debris.shatter(u.mesh.geometry === u.dmg.geometry ? u.dmg : u.base, u.mesh.matrixWorld, c.clone().add(new THREE.Vector3(0, -0.2, -0.5)), u.command ? 9 : 6, this.set.tiers[u.ambit] - 2.0);
+    this.fx.debris.shatter(u.material.map === u.dmg.map ? u.dmg : u.base, u.mesh.matrixWorld, c.clone().add(new THREE.Vector3(0, -0.2, -0.5)), u.command ? 9 : 6, this.set.tiers[u.ambit] - 2.0);
     audio.play('explosion', big);
     this.onShake(u.command ? 1.1 : 0.45);
     this.onFlash(u.command ? 0.35 : 0.08, u.side === 'player' ? 0xee7d69 : 0xffffff);
@@ -1092,6 +1103,11 @@ export class BattleView {
     if (this.markMat) this.markMat.uniforms.uTime.value = this.reduceMotion ? 0.26 : t;
   }
 
+  /** The highest a floater's centre may sit: under the HUD's cards (floorY; 0, none). */
+  private floorOf(f: Floater) {
+    return this.floorY ? this.floorY + (f.halfH || 0) : -Infinity;
+  }
+
   private updateOverlay(dt: number) {
     const w = window.innerWidth, hgt = window.innerHeight;
     const v = this.tmp;
@@ -1109,7 +1125,13 @@ export class BattleView {
       if (k >= 1) { f.el.remove(); this.floaters.splice(i, 1); continue; }
       v.copy(f.pos); v.y += easeOutCubic(Math.min(1, k * 1.6)) * f.rise;
       v.project(this.camera);
-      f.el.style.transform = `translate(${clampX(((v.x + 1) / 2) * w, f.half || 0)}px, ${((1 - v.y) / 2) * hgt}px) translate(-50%, -50%) scale(${k < 0.12 ? 0.6 + k * 4 : 1})`;
+      // (Newest first: a word stacked on an older one keeps it a full line below, as 0.9 units is under a
+      // line on a phone and the HUD's floor can press a stack together. The older word gives way, downward.)
+      const y = Math.max(this.floorOf(f), ((1 - v.y) / 2) * hgt, f.minY ?? -Infinity);
+      f.minY = undefined;
+      const u = f.under;
+      if (u?.el.isConnected) u.minY = Math.max(u.minY ?? -Infinity, y + (f.halfH || 0) + (u.halfH || 0) + 2);
+      f.el.style.transform = `translate(${clampX(((v.x + 1) / 2) * w, f.half || 0)}px, ${y}px) translate(-50%, -50%) scale(${k < 0.12 ? 0.6 + k * 4 : 1})`;
       f.el.style.opacity = String(k > 0.7 ? 1 - (k - 0.7) / 0.3 : 1);
     }
   }

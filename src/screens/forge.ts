@@ -26,22 +26,54 @@ import { humanize } from '../core/util';
 /** Groups, in the order a commander reaches for them: a picture and a word each (the full name on
  * hover). Inside a group a message drops the group's own word ("Struct Attack" is "Attack" under Structs). */
 interface Group { label: string; full: string; re: RegExp; ico: string; strip: string }
+/* Each group named in plain words; the chain's own name for it (the message type prefix) is its
+ * hover, and shows beside the word in Expert mode. */
 const GROUPS: Group[] = [
-  { label: 'Structs', full: 'Structs', re: /^MsgStruct/, ico: 'build', strip: 'Struct ' }, { label: 'Fleet', full: 'Fleet', re: /^MsgFleet/, ico: 'ship', strip: 'Fleet ' },
-  { label: 'Planet', full: 'Planet', re: /^MsgPlanet/, ico: 'planet', strip: 'Planet ' }, { label: 'Player', full: 'Player', re: /^MsgPlayer/, ico: 'base', strip: 'Player ' },
-  { label: 'Bank', full: 'Guild bank', re: /^MsgGuildBank/, ico: 'bank', strip: 'Guild Bank ' }, { label: 'Members', full: 'Guild membership', re: /^MsgGuildMembership/, ico: 'team', strip: 'Guild Membership ' },
-  { label: 'Guild', full: 'Guild', re: /^MsgGuild/, ico: 'flag', strip: 'Guild ' },
-  { label: 'Reactors', full: 'Energy: reactors', re: /^MsgReactor/, ico: 'power', strip: 'Reactor ' }, { label: 'Substations', full: 'Energy: substations', re: /^MsgSubstation/, ico: 'grid', strip: 'Substation ' },
-  { label: 'Allocations', full: 'Energy: allocations', re: /^MsgAllocation/, ico: 'send', strip: 'Allocation ' },
-  { label: 'Providers', full: 'Energy market: providers', re: /^MsgProvider/, ico: 'market', strip: 'Provider ' }, { label: 'Agreements', full: 'Energy market: agreements', re: /^MsgAgreement/, ico: 'rules', strip: 'Agreement ' },
-  { label: 'Permissions', full: 'Permissions', re: /^MsgPermission/, ico: 'lock', strip: 'Permission ' }, { label: 'Addresses', full: 'Addresses', re: /^MsgAddress/, ico: 'key', strip: 'Address ' },
-  { label: 'Governance', full: 'Governance', re: /^MsgUpdateParams/, ico: 'gear', strip: '' },
+  { label: 'Units', full: 'Your ships and buildings', re: /^MsgStruct/, ico: 'build', strip: 'Struct ' }, { label: 'Fleet', full: 'Your fleet', re: /^MsgFleet/, ico: 'ship', strip: 'Fleet ' },
+  { label: 'Planet', full: 'Your planet', re: /^MsgPlanet/, ico: 'planet', strip: 'Planet ' }, { label: 'Commander', full: 'You, the commander', re: /^MsgPlayer/, ico: 'base', strip: 'Player ' },
+  { label: 'Guild bank', full: 'Guild bank: tokens and their alpha', re: /^MsgGuildBank/, ico: 'bank', strip: 'Guild Bank ' }, { label: 'Team members', full: 'Joining and leaving a guild', re: /^MsgGuildMembership/, ico: 'team', strip: 'Guild Membership ' },
+  { label: 'Guild', full: 'Running a guild', re: /^MsgGuild/, ico: 'flag', strip: 'Guild ' },
+  { label: 'Power plants', full: 'Energy: reactors', re: /^MsgReactor/, ico: 'power', strip: 'Reactor ' }, { label: 'Power hubs', full: 'Energy: substations', re: /^MsgSubstation/, ico: 'grid', strip: 'Substation ' },
+  { label: 'Power links', full: 'Energy: allocations', re: /^MsgAllocation/, ico: 'send', strip: 'Allocation ' },
+  { label: 'Power sellers', full: 'Energy market: providers', re: /^MsgProvider/, ico: 'market', strip: 'Provider ' }, { label: 'Power deals', full: 'Energy market: agreements', re: /^MsgAgreement/, ico: 'rules', strip: 'Agreement ' },
+  { label: 'Permissions', full: 'Who may act for you', re: /^MsgPermission/, ico: 'lock', strip: 'Permission ' }, { label: 'Keys', full: 'Keys that act as you', re: /^MsgAddress/, ico: 'key', strip: 'Address ' },
+  { label: 'Game rules', full: 'The game’s own settings', re: /^MsgUpdateParams/, ico: 'gear', strip: '' },
 ];
+/** The chain's name for a group: its message type prefix (MsgStruct…, MsgGuildBank…). */
+const chainName = (g: Group) => g.re.source.replace(/^\^/, '') + '…';
+/** The message Code Lab opens on: the everyday move the Academy's lesson looks inside. */
+const FIRST = 'MsgStructAttack';
 const EVERYDAY = 'Everyday';
 
 const START_HERE = ['MsgStructAttack', 'MsgStructBuildInitiate', 'MsgFleetMove', 'MsgPlanetExplore', 'MsgStructDefenseSet', 'MsgPlayerSend'];
 
 const human = (n: string) => n.replace(/^Msg/, '').replace(/([a-z])([A-Z])/g, '$1 $2');
+
+/* Each message in a player's words, for the list (the chain's own name is the row's hover, and shows
+ * beside it in Expert mode). Messages not named here keep their chain name, made readable. */
+const PLAIN: Record<string, string> = {
+  MsgStructAttack: 'Attack', MsgStructBuildInitiate: 'Build', MsgStructBuildComplete: 'Finish a build', MsgStructBuildCancel: 'Cancel a build',
+  MsgStructDefenseSet: 'Guard', MsgStructDefenseClear: 'Unguard', MsgStructMove: 'Move', MsgStructStealthActivate: 'Stealth on', MsgStructStealthDeactivate: 'Stealth off',
+  MsgStructActivate: 'Switch on', MsgStructDeactivate: 'Switch off', MsgStructDeactivateBatch: 'Switch off many', MsgStructTrash: 'Scrap',
+  MsgStructGeneratorInfuse: 'Fuel a generator', MsgStructOreMinerComplete: 'Finish mining', MsgStructOreRefineryComplete: 'Finish refining',
+  MsgFleetMove: 'Fly', MsgPlanetExplore: 'Explore', MsgPlanetRaidComplete: 'Finish a raid', MsgPlanetUpdateName: 'Name it',
+  MsgPlayerSend: 'Send alpha', MsgPlayerUpdateName: 'Your name', MsgPlayerUpdatePfp: 'Your picture', MsgPlayerUpdatePfpClientRenderAttributes: 'Your face',
+  MsgPlayerUpdatePrimaryAddress: 'Main key', MsgPlayerUpdateGuildRank: 'Set a rank',
+  MsgGuildCreate: 'Start a guild', MsgGuildUpdateName: 'Name it', MsgGuildUpdatePfp: 'Its picture', MsgGuildUpdateOwnerId: 'New leader', MsgGuildUpdateEndpoint: 'Its web address',
+  MsgGuildMembershipJoin: 'Join', MsgGuildMembershipRequest: 'Ask to join', MsgGuildMembershipInvite: 'Invite', MsgGuildMembershipKick: 'Remove a member',
+  MsgGuildMembershipInviteApprove: 'Accept an invite', MsgGuildMembershipInviteDeny: 'Turn down an invite', MsgGuildMembershipInviteRevoke: 'Take back an invite',
+  MsgGuildMembershipRequestApprove: 'Let them in', MsgGuildMembershipRequestDeny: 'Say no', MsgGuildMembershipRequestRevoke: 'Take back a request',
+  MsgGuildBankMint: 'Make tokens', MsgGuildBankRedeem: 'Cash in tokens', MsgGuildBankConvert: 'Alpha to tokens', MsgGuildBankConvertToken: 'Tokens to alpha',
+  MsgReactorInfuse: 'Put in alpha', MsgReactorDefuse: 'Take out alpha', MsgReactorCancelDefusion: 'Keep it in', MsgReactorBeginMigration: 'Move to another plant', MsgReactorRestart: 'Restart',
+  MsgSubstationCreate: 'New hub', MsgSubstationDelete: 'Remove a hub', MsgSubstationPlayerConnect: 'Plug a player in', MsgSubstationPlayerDisconnect: 'Unplug a player', MsgSubstationPlayerMigrate: 'Move players',
+  MsgSubstationAllocationConnect: 'Plug a link in', MsgSubstationAllocationDisconnect: 'Unplug a link', MsgSubstationUpdateName: 'Name it', MsgSubstationUpdatePfp: 'Its picture',
+  MsgAllocationCreate: 'New link', MsgAllocationDelete: 'Remove a link', MsgAllocationUpdate: 'Change a link', MsgAllocationTransfer: 'Give a link away',
+  MsgProviderCreate: 'Sell power', MsgProviderDelete: 'Stop selling', MsgProviderWithdrawBalance: 'Collect earnings', MsgProviderUpdateAccessPolicy: 'Who can buy',
+  MsgAgreementOpen: 'Rent power', MsgAgreementClose: 'End a rental', MsgAgreementCapacityIncrease: 'Rent more', MsgAgreementCapacityDecrease: 'Rent less', MsgAgreementDurationIncrease: 'Rent longer',
+  MsgAddressRegister: 'Add a key', MsgAddressRevoke: 'Remove a key', MsgUpdateParams: 'Game settings',
+};
+/** A message's name in the list: plain words where there are some, its chain name made readable elsewhere. */
+const listName = (n: string, strip: string) => PLAIN[n] || (strip && human(n).startsWith(strip) ? human(n).slice(strip.length) : human(n));
 
 /* ── Fields in plain words ────────────────────────────────────────────────
  * Each box gets a name a player would use ("Your ship", "Targets"); the field's real name (the one
@@ -150,7 +182,16 @@ export class ForgeScreen extends PanelScreen {
       h('main', { class: 'fg-main panel player' }, this.form));
     this.root.append(this.frame);
     // Own names only: /forge/constructor must not find Object.prototype's.
-    this.current = params.msg && Object.hasOwn(MSGS, params.msg) ? params.msg : null;
+    // No message named: open on a real one (Struct Attack) with its example filled in, so the move,
+    // its plain form and its code all show at once.
+    // A name the game doesn't know shows as that, never as some other move.
+    const named = params.msg && Object.hasOwn(MSGS, params.msg) ? params.msg : null;
+    this.missing = params.msg && !named ? params.msg.slice(0, 60) : '';
+    this.current = named || (this.missing ? null : Object.hasOwn(MSGS, FIRST) ? FIRST : null);
+    // Opening fresh on the first move (bare /forge, or its own link: a reload, a share, back and
+    // forward) fills its example in, so the screen shows a real move at once.
+    this.exampleOnce = !!this.current && this.current === FIRST;
+    if (!named && this.current) replaceRoute('/forge/' + this.current);
     // The message on show opens its own group; with none, the everyday moves.
     this.openGroup = this.current ? (GROUPS.find((g) => g.re.test(this.current!))?.label ?? EVERYDAY) : EVERYDAY;
     this.paintList();
@@ -168,13 +209,15 @@ export class ForgeScreen extends PanelScreen {
 
   private paintList() {
     const seen = new Set<string>();
-    const match = (n: string) => !this.filter || n.toLowerCase().includes(this.filter) || human(n).toLowerCase().includes(this.filter) || MSGS[n].doc.toLowerCase().includes(this.filter);
+    const match = (n: string) => !this.filter || n.toLowerCase().includes(this.filter) || human(n).toLowerCase().includes(this.filter) || (PLAIN[n] || '').toLowerCase().includes(this.filter) || MSGS[n].doc.toLowerCase().includes(this.filter);
     // The moves every commander makes come first (shown again in their own group below).
     const start = this.filter ? [] : START_HERE.filter((n) => MSGS[n]);
     const groups: { g: Group; names: string[] }[] = [
       ...(start.length ? [{ g: { label: EVERYDAY, full: 'Start here: everyday moves', re: /^$/, ico: 'star', strip: '' }, names: start }] : []),
       ...GROUPS.map((g) => {
-        const names = Object.keys(MSGS).filter((n) => g.re.test(n) && !seen.has(n) && match(n));
+        // A search for the group itself ("units", "power plant") shows the whole group.
+        const whole = !!this.filter && (g.label.toLowerCase().includes(this.filter) || g.full.toLowerCase().includes(this.filter));
+        const names = Object.keys(MSGS).filter((n) => g.re.test(n) && !seen.has(n) && (whole || match(n)));
         for (const n of names) seen.add(n);
         return { g, names };
       })].filter(({ names }) => names.length);
@@ -183,11 +226,11 @@ export class ForgeScreen extends PanelScreen {
       // A search opens every group with a hit; otherwise one group at a time.
       const open = !!this.filter || this.openGroup === g.label;
       return h('div', { class: 'fg-group' + (open ? ' open' : '') },
-        h('button', { class: 'fg-gh', 'aria-expanded': open ? 'true' : 'false', title: g.full,
+        h('button', { class: 'fg-gh', 'aria-expanded': open ? 'true' : 'false', title: g.re.source === '^$' ? g.full : `${g.full} · ${chainName(g)}`,
           onclick: () => { audio.play('select'); this.openGroup = this.openGroup === g.label ? null : g.label; this.paintList(); } },
-        h('span', { class: 'fg-gh-ico', html: icon(g.ico, 18) }), h('span', { class: 'fg-gh-word' }, g.label), h('span', { class: 'fg-gh-n' }, String(names.length))),
-        ...(open ? names.map((n) => h('button', { class: 'fg-item' + (n === this.current ? ' on' : ''), title: human(n) + (CHARGED.has(n) ? ' · spends charge' : ''), onclick: (ev: MouseEvent) => { audio.play('select'); this.current = n; replaceRoute('/forge/' + n); this.paintList(); this.paintForm(); this.showForm(ev.detail === 0); } },
-          h('span', null, g.strip && human(n).startsWith(g.strip) ? human(n).slice(g.strip.length) : human(n)), CHARGED.has(n) ? h('span', { class: 'fg-charge', 'aria-label': 'spends charge', html: icon('charge', 12) }) : null)) : []));
+        h('span', { class: 'fg-gh-ico', html: icon(g.ico, 18) }), h('span', { class: 'fg-gh-word' }, g.label, g.re.source === '^$' ? null : h('span', { class: 'fg-gh-chain x-only' }, ` ${chainName(g)}`)), h('span', { class: 'fg-gh-n' }, String(names.length))),
+        ...(open ? names.map((n) => h('button', { class: 'fg-item' + (n === this.current ? ' on' : ''), title: `${PLAIN[n] ? `${PLAIN[n]} · ` : ''}${n}` + (CHARGED.has(n) ? ' · spends charge' : ''), onclick: (ev: MouseEvent) => { audio.play('select'); this.current = n; replaceRoute('/forge/' + n); this.paintList(); this.paintForm(); this.showForm(ev.detail === 0); } },
+          h('span', null, listName(n, g.strip), PLAIN[n] ? h('span', { class: 'fg-gh-chain x-only' }, ` ${n.replace(/^Msg/, '')}`) : null), CHARGED.has(n) ? h('span', { class: 'fg-charge', 'aria-label': 'spends charge', html: icon('charge', 12) }) : null)) : []));
     })));
   }
 
@@ -202,9 +245,23 @@ export class ForgeScreen extends PanelScreen {
     }
   }
 
+  /** The next form painted fills its example in (the screen opened with no message named). */
+  private exampleOnce = false;
+  /** A message name in the route that the game doesn't have. */
+  private missing = '';
+
   private paintForm() {
     const name = this.current;
     this.formSync = null;
+    if (!name && this.missing) {
+      this.form.replaceChildren(h('div', { class: 'fg-hero', title: `The game has no message called ${this.missing}.` },
+        h('span', { class: 'fg-hero-ico', html: icon('find', 64) }),
+        h('div', { class: 't-display c-enemy' }, 'No such message'),
+        h('div', { class: 'mono c-hint' }, this.missing),
+        h('button', { class: 'btn solid', onclick: () => { audio.play('select'); this.missing = ''; this.current = FIRST; this.exampleOnce = true; replaceRoute('/forge/' + FIRST); this.paintList(); this.paintForm(); } },
+          h('span', { html: icon('code', 14) }), human(FIRST))));
+      return;
+    }
     if (!name) {
       this.form.replaceChildren(h('div', { class: 'fg-hero', title: 'Every move in the game is a message: a command with named details, just like calling a function in code.' },
         h('span', { class: 'fg-hero-ico', html: icon('code', 64) }),
@@ -226,6 +283,9 @@ export class ForgeScreen extends PanelScreen {
     const missing = () => fields.filter((f) => isRequired(f) && isEmpty(values[f.name]));
     const setters = new Map<string, (v: string) => void>();
     const boxes = new Map<string, HTMLElement>();
+    /** Queue or Dry run was pressed with boxes still empty: from then on the empty ones are a warning.
+     * Before that they are only what comes next (a form that opens half-filled is not a mistake). */
+    let tried = false;
     const refresh = () => {
       const msg = this.build(name, spec, values);
       // Drafting without a vault is fine; only the signer is missing.
@@ -235,11 +295,13 @@ export class ForgeScreen extends PanelScreen {
       try { bytes = encodeMsg(msg).length; } catch { /* reported by validate */ }
       out.textContent = JSON.stringify({ '@type': msg.typeUrl, ...msg.value }, null, 2);
       code.textContent = callFor(name, fields.map((f) => f.name), values);
-      for (const [k, el] of boxes) el.classList.toggle('need', need.some((f) => f.name === k));
+      for (const [k, el] of boxes) { const n = need.some((f) => f.name === k); el.classList.toggle('need', n); el.classList.toggle('warn', n && tried); }
       // Valid only when the move is whole: every box it needs is filled and the chain's encoder takes it.
-      status.className = 't-tiny fg-status ' + (errs.length ? 'c-enemy' : need.length ? 'c-warn' : 'c-player');
+      const labels = need.map((f) => labelFor(name, f)).join(', ');
+      status.className = 't-tiny fg-status ' + (errs.length ? 'c-enemy' : need.length ? (tried ? 'c-warn' : 'c-hint next') : 'c-player');
+      status.title = need.length && !tried ? 'Fill in these boxes, then Queue it or try a Dry run' : '';
       status.replaceChildren(...(errs.length ? [errs.join(' · ')]
-        : need.length ? [h('span', { html: icon('help', 14) }), `Fill in: ${need.map((f) => labelFor(name, f)).join(', ')}`]
+        : need.length ? (tried ? [h('span', { html: icon('help', 14) }), `Fill in: ${labels}`] : [h('span', { html: icon('target', 14) }), `Next: ${labels}`])
         : [h('span', { html: icon('check', 14) }), 'Ready', h('span', { class: 'x-only' }, ` · ${bytes} bytes on the wire`)]));
     };
     const inputs = fields.map((f) => { const el = this.field(name, f, values, refresh, setters); boxes.set(f.name, el); return el; });
@@ -256,6 +318,7 @@ export class ForgeScreen extends PanelScreen {
     /** Pressed with boxes still empty: say which, and nothing else happens. */
     const blocked = () => {
       if (!missing().length) return false;
+      tried = true;
       audio.play('deny'); refresh();
       status.classList.remove('flash'); void status.offsetWidth; status.classList.add('flash');
       return true;
@@ -317,7 +380,9 @@ export class ForgeScreen extends PanelScreen {
     this.formSync = () => { paintSigner(); paintButtons(); refresh(); };
     this.form.replaceChildren(...kids(
       h('div', { class: 'fg-head' },
-        h('div', { class: 't-display c-player', title: spec.doc || human(name) }, human(name)),
+        // The move in plain words, its name in the code small beside it (as each box has).
+        h('div', { class: 't-display c-player', title: spec.doc || human(name) }, PLAIN[name] || human(name)),
+        h('span', { class: 'fg-code-name mono fg-head-code', title: `${name} in the code` }, name.replace(/^Msg/, '')),
         h('div', { class: 'row wrap' },
           CHARGED.has(name) ? h('span', { class: 'chip warn fg-chip', title: 'Spends charge: it waits until you have enough' }, h('span', { html: icon('charge', 12) }), 'Charge') : null,
           h('span', { class: 'chip x-only' }, typeUrlOf(name)), h('span', { class: 'chip neutral x-only' }, `rpc ${spec.rpc}`),
@@ -338,6 +403,9 @@ export class ForgeScreen extends PanelScreen {
       h('div', { class: 'fg-actions row wrap' }, queue, sim, example),
       status, out));
     refresh();
+    // The opening example is only an example: the target stays empty (its box says what goes there),
+    // so it reads "Next: Targets" and can't be sent as it stands.
+    if (this.exampleOnce) { this.exampleOnce = false; for (const f of fields) { if (f.name === 'targetStructId') continue; const v = exampleFor(name, f); const set = setters.get(f.name); if (v && set) set(v); } refresh(); }
   }
 
   private build(name: string, spec: MsgSpec, values: Record<string, unknown>): Msg {

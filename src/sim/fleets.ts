@@ -232,7 +232,9 @@ export function reinforcementOffers(fleet: Unit[], seed: string): { type: number
 }
 
 /* ── Replays: layout + seed + executed transactions reproduce a battle ──── */
-export interface ReplayCode { units: Unit[]; seed: string; start: number; txs: { height: number; signer: string; msg: Msg }[]; title?: string; winner?: string }
+/** `end` and `stalemate` (optional; older links have neither): the height the fight was decided at, and
+ * the rule that decided it when no flagship fell ('time' is a decision on hull). */
+export interface ReplayCode { units: Unit[]; seed: string; start: number; txs: { height: number; signer: string; msg: Msg }[]; title?: string; winner?: string; end?: number; stalemate?: 'moves' | 'quiet' | 'time' }
 
 const MSG_KEYS: Record<string, string[]> = {
   '/structs.structs.MsgStructAttack': ['operatingStructId', 'targetStructId', 'weaponSystem'],
@@ -250,7 +252,7 @@ const STRUCT_ID = /^5-\d{1,9}$/;
 export function encodeReplay(r: ReplayCode): string {
   const o = {
     u: r.units.map((u) => [u.id, u.type, u.ambit, u.slot, u.protects, u.health ?? null]),
-    s: r.seed, h: r.start, t: r.title, w: r.winner,
+    s: r.seed, h: r.start, t: r.title, w: r.winner, e: r.end != null ? r.end - r.start : undefined, k: r.stalemate,
     x: r.txs.map((tx) => [tx.height - r.start, tx.signer === YOU.id ? 0 : 1, TYPE_LIST.indexOf(tx.msg['@type']), ...MSG_KEYS[tx.msg['@type']].map((k) => (tx.msg as unknown as Record<string, unknown>)[k])]),
   };
   return 'R' + btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -295,7 +297,9 @@ export function decodeReplay(code: string): ReplayCode | null {
       if (Array.isArray(msg.targetStructId) && msg.targetStructId.includes(msg.operatingStructId)) throw new Error('self-target');
       return { height: o.h + Number(row[0]), signer: row[1] === 0 ? YOU.id : CPU.id, msg: msg as unknown as Msg };
     });
-    return { units, seed: o.s, start: o.h, txs, title: typeof o.t === 'string' ? o.t.slice(0, 80) : undefined, winner: o.w };
+    const end = Number.isInteger(o.e) && o.e >= 0 && o.e <= 100000 ? o.h + o.e : undefined;
+    const stalemate = o.k === 'moves' || o.k === 'quiet' || o.k === 'time' ? o.k : undefined;
+    return { units, seed: o.s, start: o.h, txs, title: typeof o.t === 'string' ? o.t.slice(0, 80) : undefined, winner: o.w, end, stalemate };
   } catch { return null; }
 }
 
