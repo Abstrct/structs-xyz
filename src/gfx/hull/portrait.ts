@@ -51,7 +51,7 @@ const SS = 2;
  * there's no GL to render with right now. `sprite` framing puts the hull at its footprint inside
  * the frame, as the old 128 px art sat (the UI's thumbnail crops expect it); otherwise the hull
  * fills the frame. */
-export function hullPortrait(typeId: number, faction: Faction = 'player', size = 256, outline = true, variant: Variant = 'base', sprite = false): HTMLCanvasElement | null | undefined {
+export function hullPortrait(typeId: number, faction: Faction = 'player', size = 256, shadow = true, variant: Variant = 'base', sprite = false): HTMLCanvasElement | null | undefined {
   const geo = hullGeometry(typeId);
   if (!geo) return null;
   const r0 = getRig();
@@ -77,7 +77,7 @@ export function hullPortrait(typeId: number, faction: Faction = 'player', size =
     // World units per art pixel, so the hull spans its footprint (of 128) and no more.
     const [fw, fh] = FOOTPRINT[typeId] ?? [64, 64];
     r = Math.max(w / fw, h / fh) * 64;
-  } else r = Math.max(w, h) / 2 * (outline ? 1.1 : 1.04);
+  } else r = Math.max(w, h) / 2 * (shadow ? 1.1 : 1.04);
   Object.assign(camera, { left: cx - r, right: cx + r, top: cy + r, bottom: cy - r });
   camera.updateProjectionMatrix();
   renderer.setSize(size * SS, size * SS, false);
@@ -91,19 +91,11 @@ export function hullPortrait(typeId: number, faction: Faction = 'player', size =
   const ag = art.getContext('2d')!;
   ag.imageSmoothingQuality = 'high';
   ag.drawImage(renderer.domElement, 0, 0, size, size);
-  if (outline) {
-    // A dark keyline round the silhouette, so a struct still reads at 26 px on any background.
-    const k = Math.max(1, Math.round(size / 96));
-    const sil = document.createElement('canvas');
-    sil.width = sil.height = size;
-    const sg = sil.getContext('2d')!;
-    sg.drawImage(art, 0, 0);
-    sg.globalCompositeOperation = 'source-in';
-    sg.fillStyle = '#0B1424';
-    sg.fillRect(0, 0, size, size);
-    for (const [rad, n] of [[k, 12], [k / 2, 8]] as const) {
-      for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2; g.drawImage(sil, Math.cos(a) * rad, Math.sin(a) * rad); }
-    }
+  if (shadow) {
+    // A soft shadow under the hull (no hard edge), so a struct still lifts off a light background.
+    g.shadowColor = 'rgba(4, 10, 24, 0.5)';
+    g.shadowBlur = size / 40;
+    g.shadowOffsetY = size / 160;
   }
   g.drawImage(art, 0, 0);
   return out;

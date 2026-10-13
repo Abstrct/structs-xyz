@@ -6,7 +6,7 @@
  *   ?cam=board  today's framing, straight on (the default)
  *   ?cam=arena  a free three-quarter camera over the same decks */
 import * as THREE from 'three';
-import { getHullModel, hullFxMaterial, hullOutline, type HullUniforms } from '../gfx/hull/model';
+import { getHullModel, hullFxMaterial, type HullUniforms } from '../gfx/hull/model';
 import { slotX, tiersFor, TIER_STRETCH } from '../screens/battle/env';
 
 const cam = new URLSearchParams(location.search).get('cam') === 'arena' ? 'arena' : 'board';
@@ -178,7 +178,6 @@ for (const s of lineup) {
   const m = getHullModel(s.id, s.side, 'base', frame);
   const mat = hullFxMaterial(m);
   const mesh = new THREE.Mesh(m.geometry, mat);
-  mesh.add(hullOutline(m));
   const k = UNIT * (s.command ? 1.15 : 1);
   mesh.scale.setScalar(k);
   if (s.side === 'enemy') { if (frame === 'board') mesh.scale.x *= -1; else mesh.rotation.y = Math.PI; }
