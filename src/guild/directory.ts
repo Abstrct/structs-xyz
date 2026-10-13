@@ -3,7 +3,7 @@
  * The page reads each guild.json itself, which works for every guild that serves it with CORS;
  * the file must name the same guild as the chain. Cached for 10 minutes, served stale while
  * it refreshes. If nothing answers, the chain's own list stands in, unnamed. */
-import { cached } from '../cache/idb';
+import { cache, cached } from '../cache/idb';
 import { lcd, LCD_URL, type RawGuild } from '../chain/lcd';
 import { store } from '../chain/store';
 import { wallet } from '../wallet/wallet';
@@ -113,25 +113,46 @@ function noteRefusal(endpoint: string, refused: boolean) {
   } catch { /* storage refused: just ask again next time */ }
 }
 
+/* A guild.json host that didn't answer (down, a link that went nowhere) is skipped for a minute, so
+ * one dead host doesn't cost every screen that reads the directory another wait. A host is only
+ * marked dead on its second miss in a row (a slow first answer on a cold phone connection isn't
+ * death), the marks expire after a minute, and coming back online clears them all. A fresh read
+ * (opts.fresh) asks every host again. */
+const DEAD_FOR = 60_000;
+/** endpoint → misses in a row, and when it was marked dead (0: not dead yet). */
+const misses = new Map<string, { n: number; at: number }>();
+const isDead = (url: string) => { const m = misses.get(url); return !!m && m.at > 0 && Date.now() - m.at < DEAD_FOR; };
+const miss = (url: string) => { const m = misses.get(url) || { n: 0, at: 0 }; m.n++; if (m.n >= 2) m.at = Date.now(); misses.set(url, m); };
+if (typeof window !== 'undefined') window.addEventListener('online', () => misses.clear());
+/** How long a guild.json gets to answer. A live host answers in well under a second. */
+const GUILD_JSON_TIMEOUT = 2500;
+
 /** The directory: the chain's list, then each guild's own file. */
 async function fromDirect(fresh: boolean): Promise<GuildEntry[]> {
   const list = store.guilds.size ? [...store.guilds.values()] : await lcd.list<RawGuild>('guild', 'Guild');
   const refused = refusals();
-  return Promise.all(list.slice(0, 80).map(async (g): Promise<GuildEntry> => {
+  return Promise.all(list.slice(0, 80).map((g) => readOne(g, fresh, refused)));
+}
+
+/** One guild's directory entry, from its own guild.json. */
+async function readOne(g: RawGuild, fresh: boolean, refused: Record<string, number>): Promise<GuildEntry> {
     const entry: GuildEntry = { id: g.id, chain: g, meta: null, services: null, error: null };
     if (!okUrl(g.endpoint)) return { ...entry, error: 'no endpoint' };
     if (!fresh && Date.now() - (refused[g.endpoint] || 0) < REFUSED_FOR) return { ...entry, error: NOT_SHARED };
+    if (!fresh && isDead(g.endpoint)) return { ...entry, error: UNREACHABLE };
     let doc: Record<string, unknown> | undefined;
     let r: Response;
     try {
-      r = await fetch(g.endpoint, { credentials: 'omit', redirect: 'error', headers: { accept: 'application/json' }, signal: AbortSignal.timeout(8000) });
+      r = await fetch(g.endpoint, { credentials: 'omit', redirect: 'error', headers: { accept: 'application/json' }, signal: AbortSignal.timeout(GUILD_JSON_TIMEOUT) });
     } catch (e) {
       // A CORS refusal, a redirect and an unreachable host all look the same here (a TypeError):
       // only a host that answers a no-cors request has refused us, and only that is remembered.
       if (e instanceof TypeError && await answers(g.endpoint)) { noteRefusal(g.endpoint, true); return { ...entry, error: NOT_SHARED }; }
+      miss(g.endpoint);
       return { ...entry, error: UNREACHABLE };
     }
     if (refused[g.endpoint]) noteRefusal(g.endpoint, false);
+    misses.delete(g.endpoint);
     try { doc = r.ok ? (JSON.parse(await readCapped(r, GUILD_JSON_MAX)) as { guild?: Record<string, unknown> })?.guild : undefined; } catch { doc = undefined; }
     if (!doc || typeof doc !== 'object') return { ...entry, error: 'guild.json unreadable' };
     if (doc.id !== g.id) return { ...entry, error: 'guild.json names another guild' };
@@ -148,7 +169,6 @@ async function fromDirect(fresh: boolean): Promise<GuildEntry[]> {
         explorer: okUrl(sv.explorer) ? sv.explorer : null,
       },
     });
-  }));
 }
 
 /** Whatever arrives is still a third party's self-description: keep strings strings. */
@@ -168,6 +188,23 @@ export function safeUrl(u: string): string {
   try { const x = new URL(u); return x.protocol === 'https:' || x.protocol === 'http:' ? x.toString() : ''; } catch { return ''; }
 }
 
+/* A cached directory can hold guilds whose host missed once (a slow phone connection): they are
+ * asked again in the background (only those, and not while marked dead), and a host that answers
+ * now updates the list and the cache. At most every 20 s. */
+let retryAt = 0;
+async function retryUnreachable(list: GuildEntry[]) {
+  const again = list.filter((g) => g.error === UNREACHABLE && okUrl(g.chain?.endpoint) && !isDead(g.chain.endpoint));
+  if (!again.length || Date.now() - retryAt < 20_000) return;
+  retryAt = Date.now();
+  const refused = refusals();
+  const got = await Promise.all(again.map((g) => readOne(g.chain, false, refused)));
+  const better = new Map(got.filter((e) => e.error !== UNREACHABLE).map((e) => [e.id, e]));
+  if (!better.size) return;
+  const next = list.map((e) => better.get(e.id) || e);
+  publish(next);
+  void cache.set('guilds-direct', next, TTL, 'directory').catch(() => { /* memory only */ });
+}
+
 /** Every guild on chain with its directory entry. */
 export async function guilds(opts: { fresh?: boolean } = {}): Promise<GuildEntry[]> {
   try {
@@ -177,6 +214,7 @@ export async function guilds(opts: { fresh?: boolean } = {}): Promise<GuildEntry
       keep: (v) => v.length > 0 && !v.every((g) => g.error === UNREACHABLE || g.error === 'no endpoint'),
     });
     publish(list);
+    void retryUnreachable(list).catch(() => { /* next time */ });
     return list;
   } catch {
     const list = await fromChain();

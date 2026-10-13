@@ -56,7 +56,7 @@ export function applySettings(engine: Engine, s: Settings) {
 }
 
 export function openSettings(engine: Engine) {
-  if (document.querySelector('.settings-back')) { document.querySelector('.settings-back')!.remove(); return; }
+  if (document.querySelector('.settings-back')) { document.querySelector<HTMLElement>('.settings-back .panel-head button')?.click(); return; }
   const s = loadSettings();
   const commit = () => { save(s); applySettings(engine, s); };
   const slider = (label: string, key: 'volume' | 'music') => {
@@ -73,9 +73,16 @@ export function openSettings(engine: Engine) {
     return h('div', { class: 'set-row', title: hint }, h('span', { class: 't-label c-hint' }, label), h('div', { class: 'grow' }), b);
   };
   const tipsRow = toggle('Screen tips', () => tipsOn(), () => { setTips(!tipsOn()); }, 'A short guide the first time you open each screen (? brings it back any time)');
-  const back = h('div', { class: 'modal-back settings-back', onclick: (e: Event) => { if (e.target === back) back.remove(); } },
-    h('div', { class: 'modal panel player', style: 'width:min(420px, calc(100vw - 32px))' },
-      h('div', { class: 'panel-head' }, h('span', { class: 't-label' }, 'Settings'), h('button', { class: 'btn ghost icon', 'aria-label': 'Close', onclick: () => back.remove() }, '×')),
+  // Where the cursor was: closing hands it back there.
+  const opener = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
+  const close = () => {
+    back.remove();
+    window.removeEventListener('keydown', keys, true);
+    if (opener?.isConnected) opener.focus({ preventScroll: true, focusVisible: document.body.classList.contains('pad') } as FocusOptions);
+  };
+  const back = h('div', { class: 'modal-back settings-back', onclick: (e: Event) => { if (e.target === back) close(); } },
+    h('div', { class: 'modal panel player', role: 'dialog', 'aria-label': 'Settings', style: 'width:min(420px, calc(100vw - 32px))' },
+      h('div', { class: 'panel-head' }, h('span', { class: 't-label' }, 'Settings'), h('button', { class: 'btn ghost icon', 'aria-label': 'Close', title: 'Close (Esc / B)', onclick: () => close() }, '×')),
       h('div', { class: 'panel-body col scroll', style: 'gap:10px; max-height: calc(var(--vh, 100vh) - 140px)' },
         head('Sound & picture'),
         slider('Sound', 'volume'),
@@ -121,4 +128,32 @@ export function openSettings(engine: Engine) {
         })(),
       )));
   document.body.appendChild(back);
+  /* Keys while Settings is the window on top (a pad's buttons arrive as these keys): Escape (B)
+   * closes it; up and down walk every control in order, sliders included; left and right move a
+   * slider in focus (and stay on it); A presses the button in focus (the pad clicks it). */
+  const controls = () => [...back.querySelectorAll<HTMLElement>('.panel-body button, .panel-body input, .panel-head button')]
+    .filter((el) => el.getClientRects().length && !(el as HTMLButtonElement).disabled);
+  const go = (el: HTMLElement | undefined) => { if (!el) return; el.focus({ focusVisible: true } as FocusOptions); el.scrollIntoView({ block: 'nearest' }); audio.play('hover', 0.6); };
+  function keys(e: KeyboardEvent) {
+    if (!back.isConnected) { window.removeEventListener('keydown', keys, true); return; }
+    const backs = document.querySelectorAll('.modal-back');
+    if (backs[backs.length - 1] !== back || e.metaKey || e.ctrlKey || e.altKey) return;   // a window above it (Start over's confirm) keeps its keys
+    const a = document.activeElement as HTMLElement | null;
+    if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); close(); return; }
+    if (!/^Arrow(Up|Down|Left|Right)$/.test(e.key)) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (a instanceof HTMLInputElement && a.type === 'range' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      const v = Math.max(0, Math.min(100, Number(a.value) + (e.key === 'ArrowRight' ? 5 : -5)));
+      if (String(v) !== a.value) { a.value = String(v); a.dispatchEvent(new Event('input', { bubbles: true })); audio.play('tick', 0.5); }
+      return;
+    }
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') return;
+    const list = [...controls().filter((el) => !el.closest('.panel-head')), ...controls().filter((el) => el.closest('.panel-head'))];
+    // The × sits last in the walk (it is up in the head): down from the last row reaches it, up from it comes back.
+    const i = a ? list.indexOf(a) : -1;
+    go(list[i < 0 ? 0 : (i + (e.key === 'ArrowDown' ? 1 : -1) + list.length) % list.length]);
+  }
+  window.addEventListener('keydown', keys, true);
+  // The cursor starts on the first control (the Sound slider), so a pad can begin at once.
+  requestAnimationFrame(() => controls().find((el) => !el.closest('.panel-head'))?.focus({ preventScroll: true, focusVisible: document.body.classList.contains('pad') } as FocusOptions));
 }

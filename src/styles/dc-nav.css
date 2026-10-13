@@ -81,3 +81,6 @@ body:not(.expert) .shell .topbar .tb-conn.ok { display: none; }
 @media (max-width: 640px) and (pointer: fine) {
   body .shell .topbar .wallet-chip.empty:has(.nm) { padding: 0 14px 0 10px !important; gap: 6px; }
 }
+
+/* The More menu takes focus itself when its gaps are clicked (main.ts): no ring for that. */
+body > .more-menu:focus { outline: none; }

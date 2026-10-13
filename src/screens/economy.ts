@@ -71,6 +71,8 @@ export class EconomyScreen extends PanelScreen {
   /** A pointer is pressed inside the body: a repaint now would swap the button under it. */
   private pressing = false;
   private gen = 0;
+  /** The tab (and whether the galaxy was in) on screen at the last paint. */
+  private painted = '';
   /** The last visit's tiles per tab (undefined: not asked yet; null: none kept). */
   private last = new Map<string, TabSnap | null>();
   /** What was last written per key, so an unchanged repaint writes nothing. */
@@ -126,7 +128,7 @@ export class EconomyScreen extends PanelScreen {
     this.paint();
   }
 
-  protected unmount() { clearTimeout(this.timer); this.timer = 0; dismissConfirms(); }
+  protected unmount() { clearTimeout(this.timer); this.timer = 0; this.painted = ''; dismissConfirms(); }
 
   private go(tab: Tab, arg?: string) {
     if (tab === this.tab && arg === this.arg) return;
@@ -219,7 +221,11 @@ export class EconomyScreen extends PanelScreen {
     if (tab.lesson) this.nav.appendChild(h('a', { class: 'dct-learn', 'data-k': 'learn', href: '/academy/economics/' + tab.lesson, title: `${tab.plain} Learn it in the Academy.` }, h('span', { html: icon('academy', 18) }), h('span', null, 'Learn')));
     this.alert.replaceChildren(...[lockedNote()].filter((x): x is HTMLElement => !!x));
     const top = this.scroller.scrollTop;
-    const host = h('div', { class: 'eco-tab tab-' + this.tab });
+    // The tab fades in when it is new on screen (a switch, the first read landing), never on a
+    // repaint of the same tab (the chain repaints it every few seconds).
+    const fresh = `${this.tab}:${!!eco.galaxy}` !== this.painted;
+    this.painted = `${this.tab}:${!!eco.galaxy}`;
+    const host = h('div', { class: 'eco-tab tab-' + this.tab + (fresh ? ' enter' : '') });
     host.dataset.gen = String(++this.gen);
     // Said once per change, never per repaint.
     const said = !eco.galaxy && eco.loading ? 'Reading the testnet…' : !eco.galaxy && eco.galaxyError ? 'Galaxy not answering' : '';

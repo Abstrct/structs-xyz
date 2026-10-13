@@ -36,7 +36,9 @@
 
 .economy .eco-scroll { flex: 0 1 auto; min-height: 0; padding: 14px 16px 28px; }
 .economy .eco-alerthost:not(:empty) { margin-bottom: 12px; }
-.economy .eco-tab { display: flex; flex-direction: column; gap: 14px; animation: ecoFade .3s ease; }
+.economy .eco-tab { display: flex; flex-direction: column; gap: 14px; }
+/* Only a tab new on screen fades in (economy.ts adds .enter): a repaint never blinks. */
+.economy .eco-tab.enter { animation: ecoFade .3s ease; }
 @keyframes ecoFade { from { opacity: 0; transform: translateY(4px); } }
 .economy .eco-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
 .economy .eco-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
@@ -186,7 +188,7 @@
 .economy .eco-cta-mark { font-size: 34px; color: var(--text-neutral-primary); text-shadow: 0 0 18px rgba(235,170,73,.5); line-height: 1; }
 
 @media (prefers-reduced-motion: reduce) {
-  .economy .eco-frame, .economy .eco-tab, .economy .eco-form { animation: none; }
+  .economy .eco-frame, .economy .eco-tab, .economy .eco-tab.enter, .economy .eco-form { animation: none; }
   .economy .eco-hero.enemy { animation: none; }
   .economy .eco-meter > i { transition: none; }
 }

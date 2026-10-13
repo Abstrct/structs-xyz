@@ -387,18 +387,24 @@ async function snap() {
 }
 
 /** The More menu: help, the glossary, the tour, settings, sound, a picture of the view. */
+/** Closes the open More menu (and its listeners); `back` hands focus to ⋯. */
+let closeMore: ((back: boolean) => void) | null = null;
 function toggleMore(anchor: HTMLElement) {
   const open = document.querySelector('.more-menu');
-  if (open) { open.remove(); return; }
+  if (open) { if (closeMore) closeMore(true); else open.remove(); return; }
   audio.play('select');
   // A picture and a name per row; what each does is in its title. A key shortcut shows as a cap.
-  const item = (ico: string, label: string, hint: string, run: () => void, key = '') => h('button', { class: 'mm-item', role: 'menuitem', title: hint, onclick: () => { menu.remove(); run(); } },
+  // A row closes the menu and hands focus back to ⋯ first, so a pad's next press starts there (a
+  // window the row opens takes focus for itself).
+  const item = (ico: string, label: string, hint: string, run: () => void, key = '') => h('button', { class: 'mm-item', role: 'menuitem', title: hint, onclick: () => { close(true); run(); } },
     h('span', { class: 'mm-ico', html: icon(ico, 18) }), h('span', { class: 'mm-label' }, label), key ? h('kbd', { class: 'mm-hint' }, key) : h('span'));
   const phoneOnly = (el: HTMLElement) => { el.classList.add('phone-only'); return el; };
   // A switch reads as a switch: the name, then an on/off pill (the state, not the action).
-  const toggleItem = (ico: string, label: string, on: boolean, hint: string, run: () => void) => h('button', { class: 'mm-item', role: 'menuitemcheckbox', 'aria-checked': String(on), title: hint, onclick: () => { menu.remove(); run(); } },
+  const toggleItem = (ico: string, label: string, on: boolean, hint: string, run: () => void) => h('button', { class: 'mm-item', role: 'menuitemcheckbox', 'aria-checked': String(on), title: hint, onclick: () => { close(true); run(); } },
     h('span', { class: 'mm-ico', html: icon(ico, 18) }), h('span', { class: 'mm-label' }, label), h('span', { class: 'mm-switch' + (on ? ' on' : '') }, on ? 'On' : 'Off'));
-  const menu = h('div', { class: 'more-menu panel', role: 'menu' },
+  // tabindex -1: a click on the menu's own gaps or separators focuses the menu, not the page, so
+  // the focus-leaving check below doesn't take it for a click away.
+  const menu = h('div', { class: 'more-menu panel', role: 'menu', tabindex: -1 },
     // On a phone the top bar keeps only the hubs, the vault and More: the Academy and chat come here.
     phoneOnly(item('academy', 'Academy', 'Lessons on strategy, economics and technology', () => navigate('/academy'))),
     phoneOnly(item('chat', 'Chat', 'Talk with your guild', () => navigate('/comms'))),
@@ -421,8 +427,49 @@ function toggleMore(anchor: HTMLElement) {
   document.body.appendChild(menu);
   const r = anchor.getBoundingClientRect();
   menu.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
-  const away = (e: Event) => { if (!menu.contains(e.target as Node) && !anchor.contains(e.target as Node)) { menu.remove(); document.removeEventListener('pointerdown', away, true); } };
+  const away = (e: Event) => { if (!menu.contains(e.target as Node) && !anchor.contains(e.target as Node)) close(false); };
   document.addEventListener('pointerdown', away, true);
+  // Keys and the pad stay inside: focus starts on the first row, the arrows (the d-pad) step to the
+  // nearest row that way (across too, where a short screen lays it out in two columns) and wrap at
+  // the ends, Escape (B) closes it and hands focus back to ⋯, and focus leaving it closes it.
+  const rows = () => [...menu.querySelectorAll<HTMLElement>('.mm-item')].filter((el) => el.offsetParent !== null);
+  const close = (back: boolean) => {
+    if (closeMore === close) closeMore = null;
+    const had = menu.isConnected;
+    menu.remove(); document.removeEventListener('pointerdown', away, true);
+    if (back && had) anchor.focus({ preventScroll: true });
+  };
+  closeMore = close;
+  menu.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(true); return; }
+    const dir = ({ ArrowDown: [0, 1], ArrowUp: [0, -1], ArrowRight: [1, 0], ArrowLeft: [-1, 0] } as Record<string, [number, number]>)[e.key];
+    if (!dir) return;
+    e.preventDefault(); e.stopPropagation();
+    const all = rows(), cur = document.activeElement as HTMLElement;
+    if (!all.includes(cur)) { all[0]?.focus(); return; }
+    const a = cur.getBoundingClientRect(), [dx, dy] = dir;
+    let best: HTMLElement | null = null, bestScore = Infinity;
+    for (const el of all) {
+      if (el === cur) continue;
+      const b = el.getBoundingClientRect();
+      const x = b.left + b.width / 2 - (a.left + a.width / 2), y = b.top + b.height / 2 - (a.top + a.height / 2);
+      const along = x * dx + y * dy, across = Math.abs(x * dy) + Math.abs(y * dx);
+      if (along <= 4) continue;
+      const score = along + across * 2;
+      if (score < bestScore) { bestScore = score; best = el; }
+    }
+    // Off an end: down wraps to the top, up to the bottom; across stays put.
+    (best || (dy > 0 ? all[0] : dy < 0 ? all[all.length - 1] : cur)).focus();
+    audio.play('hover', 0.5);
+  });
+  // Focus leaving for somewhere else closes it; leaving for nowhere (Tab past the last row) is
+  // checked a frame later, once the browser has decided where focus went.
+  menu.addEventListener('focusout', (e) => {
+    const to = (e as FocusEvent).relatedTarget as Node | null;
+    if (to) { if (!menu.contains(to) && !anchor.contains(to)) close(false); return; }
+    requestAnimationFrame(() => { const at = document.activeElement; if (menu.isConnected && !menu.contains(at) && !anchor.contains(at)) close(false); });
+  });
+  rows()[0]?.focus({ preventScroll: true });
 }
 
 /** Help for where you are: the screen's guide card (the manual for anything without one). */

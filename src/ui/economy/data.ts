@@ -6,7 +6,7 @@
 import { LCD_URL, lcd, type Grid, type PlayerFull, type RawAllocation, type RawGuild, type RawInfusion, type RawPlayer, type RawProvider, type RawReactor, type RawSubstation } from '../../chain/lcd';
 import { live } from '../../chain/live';
 import { store } from '../../chain/store';
-import { guilds, guildLabel, type GuildEntry } from '../../guild/directory';
+import { guilds, guildsNow, onGuilds, guildLabel, type GuildEntry } from '../../guild/directory';
 import { wallet } from '../../wallet/wallet';
 import { txq } from '../../wallet/queue';
 import { safeEach } from '../../core/util';
@@ -79,13 +79,26 @@ async function measureBlockTime(): Promise<{ seconds: number; height: number }> 
   } catch { return { seconds: 6, height: live.height || 0 }; }
 }
 
+/** A guild bank's name, tag and token unit: from the guild's own guild.json when it is known, else the chain's. */
+function bankLabels(guildId: string, directory: GuildEntry[]): Pick<BankRow, 'name' | 'tag' | 'unit'> {
+  const entry = directory.find((d) => d.id === guildId);
+  const label = guildLabel(guildId);
+  const unitName = entry?.meta?.denom?.['6'] || entry?.meta?.denom?.['0'] || '';
+  return { name: entry?.meta?.name || label.name, tag: entry?.meta?.tag || label.tag, unit: unitName ? unitName.toUpperCase() : (entry?.meta?.tag || label.tag) };
+}
+
 async function loadGalaxy(): Promise<Galaxy> {
   type RawProviderFull = RawProvider & { creator: string; providerCancellationPenalty: string; consumerCancellationPenalty: string };
   type RawAgreement = { id: string; providerId: string; allocationId: string; capacity: string; startBlock: string; endBlock: string; creator: string; owner: string };
   type RawVal = { operator_address: string; jailed: boolean; status: string; tokens: string; description: { moniker: string; website: string }; commission: { commission_rates: { rate: string } } };
   type RawGuildFull = RawGuild & { bankConvertInFee?: string; bankConvertOutFee?: string };
 
-  const [reactors, subs, allocs, providers, agreements, infusions, guildList, vals, bankAddrs, clock, directory, staking] = await Promise.all([
+  // The guild directory (each guild's own guild.json: names, tags, token units) is never waited on:
+  // one slow host would hold the whole screen. What is already known labels the banks now; the
+  // rest fills in when it arrives (EconomyData.relabel).
+  const directory = guildsNow() || [];
+  void guilds().catch(() => { /* the chain's names stand */ });
+  const [reactors, subs, allocs, providers, agreements, infusions, guildList, vals, bankAddrs, clock, staking] = await Promise.all([
     lcd.list<RawReactor>('reactor', 'Reactor'),
     lcd.list<RawSubstation>('substation', 'Substation'),
     lcd.list<RawAllocation & { creator: string }>('allocation', 'Allocation'),
@@ -96,7 +109,6 @@ async function loadGalaxy(): Promise<Galaxy> {
     getJson<{ validators: RawVal[] }>('/cosmos/staking/v1beta1/validators?pagination.limit=500').then((r) => r.validators || []).catch(() => [] as RawVal[]),
     getJson<{ internalAddressAssociation: { address: string; objectId: string }[] }>('/structs/guild_bank_collateral_address?pagination.limit=500').then((r) => r.internalAddressAssociation || []).catch(() => []),
     measureBlockTime(),
-    guilds().catch(() => [] as GuildEntry[]),
     getJson<{ params: { unbonding_time: string } }>('/cosmos/staking/v1beta1/params').then((r) => parseInt(r.params?.unbonding_time || '', 10) || 345_600).catch(() => 345_600),
   ]);
 
@@ -131,12 +143,8 @@ async function loadGalaxy(): Promise<Galaxy> {
   });
   const banks: BankRow[] = bankAddrs.map((b, i) => {
     const g = guildList.find((x) => x.id === b.objectId);
-    const entry = directory.find((d) => d.id === b.objectId);
-    const label = guildLabel(b.objectId);
-    const unitName = entry?.meta?.denom?.['6'] || entry?.meta?.denom?.['0'] || '';
     return {
-      guildId: b.objectId, address: b.address, denom: `uguild.${b.objectId}`, name: entry?.meta?.name || label.name, tag: entry?.meta?.tag || label.tag,
-      unit: unitName ? unitName.toUpperCase() : (entry?.meta?.tag || label.tag), owner: g?.owner || '',
+      guildId: b.objectId, address: b.address, denom: `uguild.${b.objectId}`, ...bankLabels(b.objectId, directory), owner: g?.owner || '',
       collateral: supplies[i].coll, supply: supplies[i].supply, inFee: decOf(g?.bankConvertInFee), outFee: decOf(g?.bankConvertOutFee),
     };
   });
@@ -206,6 +214,18 @@ class EconomyData {
     return () => { if (this.listeners.delete(f) && !this.listeners.size) { this.unbind?.(); this.unbind = null; } };
   }
   private emit() { safeEach(this.listeners, (f) => f()); }
+  /** The directory arrived (or changed): the banks take its names and units; nothing is re-read. */
+  private relabel = (list: GuildEntry[]) => {
+    const g = this.galaxy;
+    if (!g || !list.length) return;
+    let changed = false;
+    for (const b of g.banks) {
+      const l = bankLabels(b.guildId, list);
+      if (l.name !== b.name || l.tag !== b.tag || l.unit !== b.unit) { Object.assign(b, l); changed = true; }
+    }
+    if (changed) this.emit();
+  };
+  private unGuilds: Fn | null = null;
 
   /** Live triggers, bound while a screen listens (the full economy is a dozen LCD lists: not for nobody). */
   private bind() {
@@ -245,7 +265,8 @@ class EconomyData {
     if (this.gp) return this.gp;
     this.loading = true;
     this.gp = (async () => {
-      try { this.galaxy = await loadGalaxy(); this.galaxyError = ''; }
+      // The directory may have changed while the chain was read: label the new banks from the latest.
+      try { this.galaxy = await loadGalaxy(); this.galaxyError = ''; this.relabel(guildsNow() || []); this.unGuilds ??= onGuilds(this.relabel); }
       catch (e) { this.galaxyError = (e as Error).message || 'LCD unreachable'; }
       finally { this.loading = false; this.gp = null; this.emit(); }
     })();

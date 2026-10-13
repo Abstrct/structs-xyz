@@ -186,9 +186,20 @@ export class ForgeScreen extends PanelScreen {
         h('button', { class: 'fg-gh', 'aria-expanded': open ? 'true' : 'false', title: g.full,
           onclick: () => { audio.play('select'); this.openGroup = this.openGroup === g.label ? null : g.label; this.paintList(); } },
         h('span', { class: 'fg-gh-ico', html: icon(g.ico, 18) }), h('span', { class: 'fg-gh-word' }, g.label), h('span', { class: 'fg-gh-n' }, String(names.length))),
-        ...(open ? names.map((n) => h('button', { class: 'fg-item' + (n === this.current ? ' on' : ''), title: human(n) + (CHARGED.has(n) ? ' · spends charge' : ''), onclick: () => { audio.play('select'); this.current = n; replaceRoute('/forge/' + n); this.paintList(); this.paintForm(); } },
+        ...(open ? names.map((n) => h('button', { class: 'fg-item' + (n === this.current ? ' on' : ''), title: human(n) + (CHARGED.has(n) ? ' · spends charge' : ''), onclick: (ev: MouseEvent) => { audio.play('select'); this.current = n; replaceRoute('/forge/' + n); this.paintList(); this.paintForm(); this.showForm(ev.detail === 0); } },
           h('span', null, g.strip && human(n).startsWith(g.strip) ? human(n).slice(g.strip.length) : human(n)), CHARGED.has(n) ? h('span', { class: 'fg-charge', 'aria-label': 'spends charge', html: icon('charge', 12) }) : null)) : []));
     })));
+  }
+
+  /** After a pick: on a phone (one scroll, the form above the list) the page goes back up to the form.
+   * A pad or keyboard pick (`keys`) also puts the cursor in the form's first box; a finger's doesn't
+   * (that would open the on-screen keyboard over the form). */
+  private showForm(keys: boolean) {
+    if (matchMedia('(max-width: 559px)').matches) this.frame.scrollTo({ top: 0, behavior: this.engine.reduceMotion ? 'auto' : 'smooth' });
+    if (keys || document.body.classList.contains('pad')) {
+      const first = this.form.querySelector<HTMLElement>('.fg-fields :is(input, select, textarea)');
+      first?.focus({ preventScroll: true, focusVisible: true } as FocusOptions);
+    }
   }
 
   private paintForm() {
@@ -315,11 +326,16 @@ export class ForgeScreen extends PanelScreen {
       signerNote,
       h('div', { class: 'fg-fields' }, ...inputs),
       h('div', { class: 'fg-code', title: 'A move is a command plus named details, just like calling a function. Fill in the boxes and watch it change.' },
-        h('span', { class: 'fg-code-k' }, h('span', { html: icon('code', 14) }), h('span', { class: 't-label c-hint' }, 'As code')), code,
+        // The code's own tools ride in its head: copy it as a terminal command, or as JSON.
+        h('div', { class: 'fg-code-head' },
+          h('span', { class: 'fg-code-k' }, h('span', { html: icon('code', 14) }), h('span', { class: 't-label c-hint' }, 'As code')),
+          h('span', { class: 'fg-copies' },
+            h('button', { class: 'btn ghost mini fg-copy', title: 'Copy as a structsd command', 'aria-label': 'Copy as a structsd command', onclick: () => copyText(cliFor(spec, values), 'structsd command copied') }, h('span', { html: icon('terminal', 14) }), h('span', { class: 'fg-copy-word' }, 'structsd')),
+            h('button', { class: 'btn ghost mini fg-copy', title: 'Copy the JSON', 'aria-label': 'Copy the JSON', onclick: () => copyText(out.textContent || '', 'JSON copied') }, h('span', { html: icon('copy', 14) }), h('span', { class: 'fg-copy-word' }, 'JSON')))),
+        code,
         h('span', { class: 't-tiny c-hint dc-hint' }, 'A move is a command plus named details, just like calling a function. Fill in the boxes and watch it change.')),
-      h('div', { class: 'fg-actions row wrap' }, queue, sim, example,
-        h('button', { class: 'btn ghost', title: 'Copy as a structsd command', onclick: () => copyText(cliFor(spec, values), 'structsd command copied') }, h('span', { html: icon('terminal', 14) }), 'structsd'),
-        h('button', { class: 'btn ghost', title: 'Copy the JSON', onclick: () => copyText(out.textContent || '', 'JSON copied') }, h('span', { html: icon('copy', 14) }), 'JSON')),
+      // The verbs: always all on screen (on a phone they ride along the bottom edge).
+      h('div', { class: 'fg-actions row wrap' }, queue, sim, example),
       status, out));
     refresh();
   }
