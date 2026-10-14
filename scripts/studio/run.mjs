@@ -9,6 +9,7 @@
  *   playtest  a bot with a virtual controller plays from the title to a finished battle
  *   padtour   the same bot reaches every hub tile with the d-pad, A and Back only
  *   smoke     (--smoke) the full online/offline/recovery check against the live testnet
+ *   personas  (--personas) twenty player profiles score stability, playability, fun, accessibility, beauty
  *
  * usage: pnpm studio                full run (smoke excluded: it needs the testnet and ~4 min)
  *        pnpm studio --quick        lint, unit, a short soak, a desktop-only cert, playtest
@@ -74,6 +75,9 @@ const STAGES = [
   // A controller reaches every screen: d-pad, A and Back only, from the title to each hub tile.
   { id: 'padtour', skipQuick: true, run: () => sh('node', ['scripts/studio/padtour.mjs'], { STUDIO_DIST: dist }) },
   { id: 'smoke', optIn: true, run: () => sh('node', ['scripts/smoke.mjs']) },
+  // Opt-in (--personas): twenty players put the five pillars to the test (scripts/studio/personas, docs/PERSONAS.md).
+  // Six with --quick. Fails on a blocker or a pillar fallen below the saved baseline.
+  { id: 'personas', optIn: true, run: () => sh('node', ['scripts/studio/personas/run.mjs', ...(quick ? ['--quick'] : [])], { STUDIO_DIST: dist }) },
   // Opt-in, local: the desktop and TV frames haven't moved since the saved baseline (layout.mjs --save).
   // Not in CI: a Linux runner's fonts measure differently from the machine that saved it.
   { id: 'layout', optIn: true, run: async () => {
@@ -87,7 +91,7 @@ const t0 = Date.now();
 for (const st of STAGES) {
   if (only.length ? !only.includes(st.id) : (st.optIn && !args.includes('--' + st.id)) || (quick && st.skipQuick)) continue;
   // Stages that serve the build need it, even when --only skips the build stage itself.
-  if (['cert', 'playtest', 'padtour'].includes(st.id) && !existsSync(join(dist, 'index.html'))) {
+  if (['cert', 'playtest', 'padtour', 'personas'].includes(st.id) && !existsSync(join(dist, 'index.html'))) {
     console.log('▸ build (needed by ' + st.id + ')');
     const b = await bundle();
     if (b.code) { results.push({ id: 'build', ok: false, s: 0, tail: b.tail }); break; }
@@ -126,6 +130,6 @@ ${play ? `<div><div class="big">${play.firstShotSeconds ?? '–'} s</div><div cl
 </div>
 <div class="grid">${results.map((r) => `<div class="card ${r.ok ? 'ok' : 'fail'}"><b>${r.ok ? '✓' : '✗'} ${r.id}</b><span class="dim">${r.s} s</span><pre>${esc(r.tail)}</pre></div>`).join('')}</div>
 ${play ? `<div class="grid">${['', '-tv', '-phone'].flatMap((t) => [`playtest-battle${t}.jpg`, `playtest-debrief${t}.jpg`]).filter((f) => existsSync(join(REPORTS, f))).map((f) => `<img src="${f}" alt="${f}" style="width:100%;border-radius:14px">`).join('')}</div>` : ''}
-<p><a href="cert/index.html">Cert contact sheet</a> · <a href="soak.json">soak.json</a> · <a href="playtest.json">playtest.json</a></p>`);
+<p>${ran.has('personas') ? '<a href="personas/index.html">Persona lab</a> · ' : ''}<a href="cert/index.html">Cert contact sheet</a> · <a href="soak.json">soak.json</a> · <a href="playtest.json">playtest.json</a></p>`);
 console.log(`\nstudio: ${failed.length ? '✗ ' + failed.map((r) => r.id).join(', ') + ' failed' : '✓ all gates passed'} · ${Math.round((Date.now() - t0) / 1000)} s · studio/reports/index.html`);
 process.exit(failed.length ? 1 : 0);

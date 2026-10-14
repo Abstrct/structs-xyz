@@ -47,7 +47,7 @@ export async function serveSite() {
 
 /**
  * Open a browser at a viewport. Returns { send, evaluate, shot, problems, close }.
- * view: { w, h, mobile?, dpr? }. opts.flags: extra Chrome flags. opts.reducedMotion (default true).
+ * view: { w, h, mobile?, dpr? }. opts.flags: extra Chrome flags. opts.reducedMotion (default true). opts.gl: 'metal' | 'swiftshader'.
  * opts.siteBase: only resource errors from this origin count as problems (third-party failures are
  * the network's business, not the build's).
  */
@@ -66,7 +66,8 @@ async function launch(view, opts) {
   if (!chromePath) throw new Error('no Chrome or Chromium found (set CHROME=/path/to/the/binary)');
   const problems = [];
   const profile = mkdtempSync(join(tmpdir(), 'structs-studio-'));
-  const gl = GL === 'metal'
+  // opts.gl: one browser on another GPU path (a persona on an old laptop draws in software).
+  const gl = (opts.gl || GL) === 'metal'
     ? ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist']
     : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'];
   const args = ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check',

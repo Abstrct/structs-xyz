@@ -18,6 +18,8 @@
     "cert": "node scripts/studio/cert.mjs",
     "playtest": "node scripts/studio/playtest.mjs",
     "padtour": "node scripts/studio/padtour.mjs",
+    "personas": "node scripts/studio/personas/run.mjs",
+    "personas:quick": "node scripts/studio/personas/run.mjs --quick",
     "layout": "node scripts/studio/layout.mjs",
     "soak": "tsx scripts/studio/soak.test.ts",
     "shoot": "node scripts/studio/shoot.mjs",
