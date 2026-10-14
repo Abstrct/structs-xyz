@@ -1,11 +1,11 @@
 /* The Guild API: each guild's indexer over Postgres — rosters, leaderboards, ledgers, planet
  * activity history, time series — far richer than the LCD. Calls go straight to the guild
- * (src/guild/transport.ts), without cookies. Public routes (the clock, guild info, player lookups)
- * work wherever a guild allows this site (CORS). Members-only routes answer 401: the guild's
- * sign-in (`LOGIN_GUILD{g}ADDRESS{addr}DATETIME{ts}`, signed by a member's address) opens a
- * session cookie, which a site the guild allows with `Access-Control-Allow-Origin: *` can't use.
- * Those calls fail as 'blocked', in plain words, without signing anything. */
-import { guildFetch, GuildBlockedError } from './transport';
+ * (src/guild/transport.ts). Public routes (the clock, guild info, player lookups) work wherever a
+ * guild allows this site (CORS). Everything else is members-only: the guild's sign-in
+ * (`LOGIN_GUILD{g}ADDRESS{addr}DATETIME{ts}`, signed by a member's address) opens a session
+ * cookie, which src/guild/session.ts holds for the commander's own guild. Without one those calls
+ * fail as 'blocked' (401), and the session hears about it. */
+import { guildFetch, GuildBlockedError, noteUnauthorized } from './transport';
 import { cached } from '../cache/idb';
 
 export interface Envelope<T> { success: boolean; errors: Record<string, string> | unknown[]; data: T; total?: number; meta?: { height?: number } }
@@ -117,7 +117,7 @@ export class GuildApi {
   /** GET/POST a path. Returns the whole envelope; a members-only route (401) is 'blocked'. */
   async call<T>(path: string, init: RequestInit = {}): Promise<Envelope<T>> {
     const res = await this.raw<T>(path, init);
-    if (res.status === 401) throw membersOnly(res.body);
+    if (res.status === 401) { noteUnauthorized(this.guildId); throw membersOnly(res.body); }
     const b = res.body;
     if (!b) throw new GuildApiError(`Guild API ${res.status}: not JSON`, res.status >= 500 ? 'server' : 'http', res.status);
     if (res.status >= 400 || !b.success) {
@@ -141,15 +141,17 @@ export class GuildApi {
     return this.call<T[]>(`${path.replace(/\/+$/, '')}/page/${page}${qs(q)}`);
   }
 
-  /** Walk a paged route until a short page (or maxRows). */
+  /** Walk a paged route until a short page (or maxRows). Short means shorter than the FIRST page:
+   * the server clamps `limit` to its own maximum, so a full page can be smaller than asked for. */
   async *pages<T>(path: string, q: ListQuery = {}, maxRows = 10_000): AsyncGenerator<T[]> {
     const limit = q.limit ?? 100;
-    let seen = 0;
+    let seen = 0, full = 0;
     for (let p = 1; p < 1000 && seen < maxRows; p++) {
       const rows = (await this.page<T>(path, p, { ...q, limit })).data || [];
+      if (p === 1) full = rows.length;
       seen += rows.length;
       yield rows;
-      if (rows.length < limit) return;
+      if (!rows.length || rows.length < full) return;
     }
   }
 
@@ -298,10 +300,10 @@ export class GuildApi {
   bannedWords() { return this.cachedGet<{ value: string }[]>('banned-word/all', 3_600_000); }
 }
 
-/** Members-only data: the guild's session is a cookie, and this site can't use it. */
+/** Members-only data, without a session on this guild. */
 function membersOnly(body: Envelope<unknown> | null): GuildApiError {
-  return new GuildApiError('This guild’s members-only data can’t be opened from this website yet.', 'blocked', 401,
-    { ...errs(body), detail: 'its sign-in is a session cookie, which a site it allows with Access-Control-Allow-Origin: * can’t use (that needs credentials allowed for this origin and a SameSite=None cookie, or a token)' });
+  return new GuildApiError('Members only: sign in with a commander of this guild to open it.', 'blocked', 401,
+    { ...errs(body), detail: 'the guild answered 401: no session for this browser (src/guild/session.ts holds one for your commander’s own guild)' });
 }
 
 function errs(b: Envelope<unknown> | null): Record<string, string> {

@@ -15,6 +15,7 @@ import { h, hideTooltip, showTooltip, toast } from '../core/dom';
 import { audio } from '../core/audio';
 import { clamp, damp, easeInOutCubic, formatAlpha, formatInt, formatPower, hash32, idIndex, idType, mulberry } from '../core/util';
 import { lcd, big, gridRecord, type Grid, type RawAllocation, type RawInfusion, type RawProvider, type RawReactor, type RawSubstation } from '../chain/lcd';
+import { gridsFor } from '../chain/reader';
 import { store } from '../chain/store';
 import { live } from '../chain/live';
 import { commander } from '../chain/commander';
@@ -808,10 +809,17 @@ export class GridScreen implements Screen {
         lcd.list<RawInfusion>('infusion', 'Infusion'),
       ]);
       if (token !== this.token) return;
-      // Grid attributes (capacity, load, connections, fuel, power) come one entity at a time.
+      // Grid attributes (capacity, load, connections, fuel, power): one guild read per attribute with
+      // a session (src/chain/reader.ts), else one LCD read per entity.
       const grids = new Map<string, Grid>();
+      const bulk = await Promise.all([
+        gridsFor('reactor', reactors.map((r) => r.id), ['fuel', 'capacity', 'load', 'power']),
+        gridsFor('substation', subs.map((s) => s.id), ['capacity', 'load', 'connectionCount', 'connectionCapacity']),
+        gridsFor('allocation', allocs.map((a) => a.id), ['power']),
+      ]);
       const ids = [...reactors.map((r) => ['reactor', r.id]), ...subs.map((s) => ['substation', s.id]), ...allocs.map((a) => ['allocation', a.id])];
-      await pooled(ids, 8, async ([kind, id]) => {
+      for (const m of bulk) if (m) for (const [id, g] of m) grids.set(id, g);
+      await pooled(ids.filter(([, id]) => !grids.has(id)), 8, async ([kind, id]) => {
         try { const r = await lcd.entity<{ gridAttributes?: Grid }>(kind, id); grids.set(id, r.gridAttributes || {}); } catch { grids.set(id, {}); }
       });
       if (token !== this.token) return;

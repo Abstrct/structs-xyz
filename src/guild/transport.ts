@@ -1,11 +1,11 @@
-/* How the page reaches a guild's API: straight to the API its guild.json names. That works for a
- * guild that answers this site with CORS, as the live guilds do (Access-Control-Allow-Origin: *).
- * Requests carry no cookies: a wildcard CORS answer is refused by the browser for any request that
- * does, and the guilds' session cookie is SameSite=Lax anyway. So public routes (the clock, guild
- * info, player lookups, signup) work; members-only routes need a session this site can't hold,
- * which the Guild API client reports in plain words. A guild that won't answer this site is a
- * GuildBlockedError; a network that's down is a plain Error that says so. Redirects are refused:
- * the page can't check where they lead. */
+/* How the page reaches a guild's API: straight to the API its guild.json names, with CORS.
+ *
+ * Cookies go only to the one guild this browser holds a session with (src/guild/session.ts): the
+ * guild's sign-in is a session cookie, so its members-only routes need them. Every other guild is
+ * called without: a guild that answers `Access-Control-Allow-Origin: *` (some still do) refuses any
+ * request that carries credentials. A guild that won't answer this site is a GuildBlockedError; a
+ * network that's down is a plain Error that says so. Redirects are refused: the page can't check
+ * where they lead. */
 import { guildEntry, guildsNow, answers, NOT_SHARED, type GuildEntry } from './directory';
 import { store } from '../chain/store';
 
@@ -20,13 +20,21 @@ export class GuildBlockedError extends Error {
   }
 }
 
+/** Guilds that get this browser's cookies (set by the session while it signs in or holds one). */
+const credentialed = new Set<string>();
+export function sendCookies(guildId: string, on: boolean) { if (on) credentialed.add(guildId); else credentialed.delete(guildId); }
+/** Told when a guild answers 401: the session it held (if any) is gone. */
+let unauthorized: ((guildId: string) => void) | null = null;
+export function onUnauthorized(f: (guildId: string) => void) { unauthorized = f; }
+export function noteUnauthorized(guildId: string) { if (credentialed.has(guildId)) unauthorized?.(guildId); }
+
 /** The directory entry in hand, read without re-reading (and re-announcing) the directory. */
 async function entry(guildId: string): Promise<GuildEntry | null> {
   return guildsNow()?.find((g) => g.id === guildId) ?? guildEntry(guildId).catch(() => null);
 }
 
 /** The Guild API base (…/api) for a guild, from its guild.json, or why there is none. */
-async function apiBase(guildId: string): Promise<string> {
+export async function apiBase(guildId: string): Promise<string> {
   const e = await entry(guildId);
   const api = e?.services?.guild_api;
   if (api) return api.replace(/\/+$/, '').replace(/(\/api)?$/, '/api');
@@ -35,12 +43,13 @@ async function apiBase(guildId: string): Promise<string> {
 
 /** A request to `<guild api>/<path>`. Resolves with the Response (any status); rejects when nothing came back. */
 export async function guildFetch(guildId: string, path: string, init: RequestInit = {}): Promise<Response> {
+  const credentials: RequestCredentials = init.credentials ?? (credentialed.has(guildId) ? 'include' : 'omit');
   const rel = path.replace(/^\/+/, '');
   const base = await apiBase(guildId);
   const headers = new Headers(init.headers || {});
   if (!headers.has('accept')) headers.set('accept', 'application/json');
   try {
-    return await fetch(`${base}/${rel}`, { ...init, headers, mode: 'cors', credentials: 'omit', redirect: 'error' });
+    return await fetch(`${base}/${rel}`, { ...init, headers, mode: 'cors', credentials, redirect: 'error' });
   } catch (e) {
     if ((e as Error).name === 'AbortError') throw e;
     // Refused (the host answers, just not to us) or unreachable (offline, down): different news.

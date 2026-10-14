@@ -23,6 +23,7 @@ import { openVault } from './ui/vault';
 import { resumeEnlist } from './game/enlist';
 import { opsDock, narrateJobs, kids, fmtRate } from './ui/opsDock';
 import { togglePalette } from './ui/palette';
+import { session } from './guild/session';
 import { grass } from './grass/grass';
 import { mountCommsDock } from './ui/comms/dock';
 import { onGuilds, guilds } from './guild/directory';
@@ -507,10 +508,13 @@ async function boot() {
   void guilds().catch(() => { /* names fall back to ids */ });
   const grassOn = (import.meta as { env?: Record<string, string | undefined> }).env?.VITE_GRASS_URL !== 'off';
   if (grassOn) grass.start();
-  // The guild indexer often hears about our objects before the next periodic read: refresh on it.
-  // Debounced per player: a burst of indexer events is one re-read, not one each.
+  // The guild indexer often hears about our objects before the next periodic read. A value it
+  // carries (ore, power, a struct's health or status) is patched in place; anything else, or a
+  // value that doesn't follow from ours, re-reads the player. Debounced per player: a burst of
+  // indexer events is one re-read, not one each.
   const grassTimers = new Map<string, number>();
   if (grassOn) grass.on(undefined, (e) => {
+    if (empire.applyGrass(e)) return;
     for (const id of [e.playerId, e.planetId, e.objectId]) if (id && empire.isMine(id)) {
       const p = empire.ownerOf(id) || empire.players.get(id);
       if (p && !grassTimers.has(p.playerId)) grassTimers.set(p.playerId, window.setTimeout(() => { grassTimers.delete(p.playerId); void empire.refresh(p.playerId); }, 2500));
@@ -518,6 +522,8 @@ async function boot() {
     }
   });
   live.start();
+  // The guild session: members-only Guild API reads (src/chain/reader.ts), behind the scenes.
+  session.start();
   narrateJobs();
   startAlerts();
   startMissions();
@@ -526,6 +532,7 @@ async function boot() {
     // The session id an older version kept for its guild relay, if any.
     try { localStorage.removeItem('structs.relay.session'); } catch { /* ignore */ }
     void cache.clear('guild-api');
+    void session.signOut();
     try { for (const k of Object.keys(sessionStorage)) if (k.startsWith('structs.guild.session')) sessionStorage.removeItem(k); } catch { /* ignore */ }
     void comms.forget();
     pow.resetForVault();

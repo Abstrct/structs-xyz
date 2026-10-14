@@ -4,6 +4,7 @@
  * balances and defusing stake. One shared snapshot; tabs render from it and ask for a reload
  * after their own transactions land or when the chain says something economic moved. */
 import { LCD_URL, lcd, type Grid, type PlayerFull, type RawAllocation, type RawGuild, type RawInfusion, type RawPlayer, type RawProvider, type RawReactor, type RawSubstation } from '../../chain/lcd';
+import { gridsFor } from '../../chain/reader';
 import { live } from '../../chain/live';
 import { store } from '../../chain/store';
 import { guilds, guildsNow, onGuilds, guildLabel, type GuildEntry } from '../../guild/directory';
@@ -118,12 +119,17 @@ async function loadGalaxy(): Promise<Galaxy> {
     tokens: big0(v.tokens), commission: decOf(v.commission?.commission_rates?.rate), website: v.description?.website || '',
   });
 
-  // Grid attributes come per entity; a few dozen reads, six at a time.
+  // Grid attributes: one guild read per attribute with a session (src/chain/reader.ts), else one
+  // LCD read per entity, six at a time.
+  const gridsOf = async (kind: string, rows: { id: string }[], fields: (keyof Grid)[]): Promise<Grid[]> => {
+    const bulk = await gridsFor(kind, rows.map((r) => r.id), fields);
+    return bulk ? rows.map((r) => bulk.get(r.id) || {}) : pooled(rows, 6, (r) => gridOf(kind, r.id));
+  };
   const [rGrids, sGrids, aGrids, pGrids] = await Promise.all([
-    pooled(reactors, 6, (r) => gridOf('reactor', r.id)),
-    pooled(subs, 6, (s) => gridOf('substation', s.id)),
-    pooled(allocs, 6, (a) => gridOf('allocation', a.id)),
-    pooled(providers, 6, (p) => gridOf('provider', p.id)),
+    gridsOf('reactor', reactors, ['fuel', 'capacity']),
+    gridsOf('substation', subs, ['capacity', 'load', 'connectionCount', 'connectionCapacity']),
+    gridsOf('allocation', allocs, ['power']),
+    gridsOf('provider', providers, ['load']),
   ]);
 
   const subMap = new Map<string, SubRow>();

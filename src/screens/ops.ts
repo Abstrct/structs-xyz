@@ -22,7 +22,7 @@ import { academy } from '../game/academy';
 import { live } from '../chain/live';
 import { jobRow, taskRow, kids, fmtRate } from '../ui/opsDock';
 import { openVault } from '../ui/vault';
-import { formatAlpha } from '../core/util';
+import { formatAlpha, formatInt } from '../core/util';
 import { typeOf } from '../data/catalogue';
 import { store } from '../chain/store';
 import { LCD_URL } from '../chain/lcd';
@@ -30,6 +30,9 @@ import { grass } from '../grass/grass';
 import { comms } from '../chat/matrix';
 import { guilds as loadDirectory } from '../guild/directory';
 import { canReach } from '../guild/transport';
+import { session } from '../guild/session';
+import { indexedHeight, reads } from '../chain/reader';
+import { galaxy } from '../chain/galaxy';
 import { replaceRoute } from '../core/nav';
 import { icon } from '../ui/icons';
 import { HUBS, hubFor } from '../data/learn';
@@ -81,7 +84,7 @@ export class OpsScreen extends PanelScreen {
     // The proof engine chatters; only its own tab follows it, at most once a second.
     let powTimer = 0;
     const powPaint = () => { if (this.tab === 'proofs' && !powTimer) powTimer = window.setTimeout(() => { powTimer = 0; this.paint(); }, 1000); };
-    this.cleanup.push(txq.onChange(paint), pow.onChange(powPaint), wallet.onChange(paint), empire.onChange(paint), replicants.onChange(paint), live.onBlock(paint), () => clearTimeout(powTimer));
+    this.cleanup.push(galaxy.onChange(paint), session.onChange(paint), txq.onChange(paint), pow.onChange(powPaint), wallet.onChange(paint), empire.onChange(paint), replicants.onChange(paint), live.onBlock(paint), () => clearTimeout(powTimer));
     this.paint();
   }
   protected unmount() { clearTimeout(this.timer); this.timer = 0; }
@@ -341,7 +344,7 @@ export class OpsScreen extends PanelScreen {
     // Each link by a plain word and a picture, the real name beside it in expert mode (this is the Lab:
     // learning the real names is the point), and the detail on hover.
     const PLAIN: Record<string, [string, string, string]> = { 'Chain link': ['Chain', 'explore', 'Game connection'], LCD: ['Data', 'chip', 'Game data'], GRASS: ['News', 'news', 'Live news'], Guilds: ['Guilds', 'flag', 'Guild servers'],
-      Comms: ['Chat', 'chat', 'Chat'], Vault: ['Key', 'key', 'Your key'], 'Signing (1 h)': ['Moves', 'send', 'Moves sent (1 h)'], 'Proof engine': ['Solver', 'hash', 'Puzzle solver'] };
+      'Guild data': ['Index', 'chip', 'Guild index'], Galaxy: ['Galaxy', 'planet', 'Galaxy snapshot'], Comms: ['Chat', 'chat', 'Chat'], Vault: ['Key', 'key', 'Your key'], 'Signing (1 h)': ['Moves', 'send', 'Moves sent (1 h)'], 'Proof engine': ['Solver', 'hash', 'Puzzle solver'] };
     const health = (label: string, value: string, tone: 'ok' | 'warn' | 'bad', sub: string) => {
       const [word, ico, plain] = PLAIN[label];
       return h('div', { class: 'ops-card dc-tile', title: `${plain} (${label}): ${sub}` },
@@ -357,6 +360,12 @@ export class OpsScreen extends PanelScreen {
         health('LCD', pr('LCD')?.ok ? `${pr('LCD')!.ms} ms` : pr('LCD') ? 'Down' : '…', pr('LCD')?.ok ? (pr('LCD')!.ms! > 1500 ? 'warn' : 'ok') : 'bad', LCD_URL.replace(/^https?:\/\//, '')),
         health('GRASS', grass.state.charAt(0).toUpperCase() + grass.state.slice(1), grass.state === 'live' ? 'ok' : grass.state === 'down' ? 'bad' : 'warn', `${store.guildName(grass.guildId || '')} · ${grass.received} msgs`),
         health('Guilds', this.guildReach ? `${this.guildReach.open}/${this.guildReach.total}` : '…', !this.guildReach ? 'warn' : this.guildReach.open ? 'ok' : 'warn', this.guildReach ? 'guild APIs that let this site connect (enlisting, guild info)' : 'checking each guild…'),
+        health('Guild data', ({ open: 'Signed in', checking: 'Checking', signing: 'Signing in', locked: 'Locked', failed: 'Off', off: 'Off' } as Record<string, string>)[session.status.state],
+          session.status.state === 'open' ? 'ok' : session.status.state === 'failed' ? 'bad' : 'warn',
+          session.status.state === 'open' ? `${store.guildName(session.status.guildId || '')} · indexed #${indexedHeight().toLocaleString('en-US')} · ${reads.guild} guild reads, ${reads.lcdStructs} LCD struct reads` : session.status.why || 'members-only Guild API reads'),
+        health('Galaxy', galaxy.snap ? (galaxy.ready ? 'Live' : 'Stale') : galaxy.enabled ? 'On demand' : 'Off',
+          galaxy.ready ? 'ok' : galaxy.error ? 'bad' : 'warn',
+          galaxy.snap ? `${galaxy.snap.source === 'guild' ? 'guild index' : 'LCD'} · ${formatInt(galaxy.snap.structs.size)} structs · walked ${Math.round((Date.now() - galaxy.takenAt) / 60_000)} min ago · ${formatInt(galaxy.snap.applied)} live patches · ${reads.snapshot} reads served` : galaxy.error || 'the whole galaxy in memory, loaded when a galaxy-wide screen opens'),
         health('Comms', ({ idle: 'Idle', connecting: 'Linking', live: 'Live', stalled: 'Stalled', expired: 'Expired', signedOut: 'Signed out' } as Record<string, string>)[comms.state] || comms.state, comms.state === 'live' ? 'ok' : comms.state === 'stalled' || comms.state === 'expired' ? 'bad' : 'warn', 'Matrix sync'),
         health('Vault', ({ empty: 'None', locked: 'Locked', unlocked: 'Open' } as Record<string, string>)[wallet.state], wallet.state === 'unlocked' ? 'ok' : 'warn', `${wallet.accounts.length} account(s) · auto-lock ${wallet.autoLockMinutes || 'off'}`),
         health('Signing (1 h)', hour.length ? `${Math.round((ok / Math.max(1, ok + bad.length)) * 100)}%` : '—', bad.length > ok ? 'bad' : bad.length ? 'warn' : 'ok', `${ok} landed · ${bad.length} failed · ${txq.active.length} in flight`),

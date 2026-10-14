@@ -1,8 +1,12 @@
 /* Your empire: live state of every player this wallet controls — the commander and each
  * replicant. Player + grid, home planet + attributes, fleet, and every struct in their slots.
- * Read from the LCD, refreshed when the chain says something of yours changed (live tx events),
- * after your own transactions land, and every few blocks as a backstop. */
+ * Player, planet and fleet come from the LCD (one composite read each); the structs come from the
+ * guild's indexer in one read when a guild session is open (src/chain/reader.ts), else one LCD read
+ * each. Refreshed when the chain says something of yours changed (live tx events), after your own
+ * transactions land, and every few blocks as a backstop. */
 import { lcd, big, num, type PlayerFull, type PlanetFull, type RawFleet, type StructFull } from '../chain/lcd';
+import { structsByIds } from '../chain/reader';
+import { grass, type GrassEvent } from '../grass/grass';
 import { live } from '../chain/live';
 import { wallet } from '../wallet/wallet';
 import { txq } from '../wallet/queue';
@@ -61,7 +65,9 @@ class Empire {
     if (typeof window === 'undefined') return;
     wallet.onChange(() => this.sync());
     live.onBlock((b) => {
-      if (b.height - this.lastFull >= 8) { this.lastFull = b.height; for (const id of this.players.keys()) this.dirty.add(id); }
+      // The backstop re-read: every 8 blocks, or every 16 while GRASS patches values as they change
+      // (it never says when a value drops to zero: the guild deletes that row without a word).
+      if (b.height - this.lastFull >= (grass.state === 'live' ? 16 : 8)) { this.lastFull = b.height; for (const id of this.players.keys()) this.dirty.add(id); }
       void this.flush();
     });
     live.onTx((tx) => {
@@ -146,6 +152,8 @@ class Empire {
     const acct = wallet.byPlayer(playerId);
     if (!acct && !this.watched.has(playerId)) return;
     this.reading.add(playerId);
+    // The block this read must reflect: whatever made the player dirty has happened by now.
+    const minHeight = live.height;
     try {
       const pf: PlayerFull = await lcd.player(playerId);
       const P = pf.Player;
@@ -164,11 +172,8 @@ class Empire {
       if (planet) { add(planet.Planet.space); add(planet.Planet.air); add(planet.Planet.land); add(planet.Planet.water); }
       if (fleet) { add(fleet.space); add(fleet.air); add(fleet.land); add(fleet.water); if (fleet.commandStruct) ids.add(fleet.commandStruct); }
       const structs = new Map<string, OwnedStruct>();
-      const list = [...ids];
-      for (let i = 0; i < list.length; i += 8) {
-        const chunk = await Promise.all(list.slice(i, i + 8).map((id) => lcd.struct(id).catch(() => null)));
-        for (const s of chunk) if (s) { const o = toOwned(s); if (o.typeId) structs.set(o.id, o); }
-      }
+      // Every struct in our slots is ours: one owner read from the guild covers them all.
+      for (const s of (await structsByIds(ids, [playerId], minHeight, { fresh: true })).values()) { const o = toOwned(s); if (o.typeId) structs.set(o.id, o); }
       const height = live.height || (await lcd.latestHeight().then((r) => r.height).catch(() => 0));
       const st: PlayerState = {
         playerId, account: acct ? acct.index : -1, address: acct ? acct.address : P.primaryAddress,
@@ -194,6 +199,95 @@ class Empire {
     } finally {
       this.reading.delete(playerId);
     }
+  }
+
+  /** Apply a GRASS event to what we hold, in place. True when that was all it needed; false when
+   * the player should be re-read (an event we don't patch, a stub, or a value that doesn't follow
+   * from the one we hold, which means we missed something). */
+  applyGrass(e: GrassEvent): boolean {
+    if (e.stub) return false;
+    const changed = e.kind === 'grid' ? this.patchGrid(e) : e.kind === 'planet' ? this.patchPlanet(e) : null;
+    if (changed === true) {
+      this.emit();
+      // A read in flight began before this change and would put the old value back: read again after it.
+      if (this.reading.size) { for (const id of this.reading) this.dirty.add(id); void this.flush(); }
+    }
+    return changed !== false && changed !== null;
+  }
+
+  /** A grid value: the player's own (ore, power, lastAction), their substation's share, their planet's ore. */
+  private patchGrid(e: GrassEvent): boolean | 'same' | null {
+    // Only the chain-precision value: `value` is in display units (watts, alpha), not what we hold.
+    const v = e.data.value_p, was = e.data.value_old_p;
+    const id = e.objectId;
+    if (v == null || !id) return false;
+    const val = String(v), old = was == null ? null : String(was);
+    // Holds `cur`? Then nothing to do. Holds the old value? Then patch. Else we're out of step.
+    const step = (cur: string): 'same' | 'patch' | 'resync' => (cur === val ? 'same' : old == null || cur === old ? 'patch' : 'resync');
+    const p = this.players.get(id);
+    if (p) {
+      const fields: Record<string, 'ore' | 'load' | 'structsLoad' | 'capacity' | 'lastAction'> = { ore: 'ore', load: 'load', structsLoad: 'structsLoad', capacity: 'capacity', lastAction: 'lastAction' };
+      const f = fields[e.category];
+      if (!f) return 'same';      // a value we don't hold (nonce, proxyNonce…)
+      const r = step(String(p[f]));
+      if (r !== 'patch') return r === 'same' ? 'same' : false;
+      if (f === 'ore' || f === 'lastAction') p[f] = Number(val); else p[f] = big(val);
+      p.online = p.load + p.structsLoad <= p.capacity + p.connectionCapacity;
+      return true;
+    }
+    if (e.category === 'connectionCapacity') {
+      const on = [...this.players.values()].filter((x) => x.substationId === id);
+      if (!on.length) return null;
+      if (on.some((x) => step(String(x.connectionCapacity)) === 'resync')) return false;
+      for (const x of on) { x.connectionCapacity = big(val); x.online = x.load + x.structsLoad <= x.capacity + x.connectionCapacity; }
+      return true;
+    }
+    if (e.category === 'ore') {
+      const on = [...this.players.values()].flatMap((x) => [x.planet, x.target]).filter((pl): pl is PlanetFull => pl?.Planet.id === id);
+      if (!on.length) return null;
+      for (const pl of on) pl.gridAttributes = { ...(pl.gridAttributes || {}), ore: val };
+      return true;
+    }
+    return null;
+  }
+
+  /** Planet activity: a struct's health, status or build clock; a planet's shield. */
+  private patchPlanet(e: GrassEvent): boolean | 'same' | null {
+    const d = e.detail;
+    const sid = typeof d.struct_id === 'string' ? d.struct_id : '';
+    const struct = sid ? [...this.players.values()].map((p) => p.structs.get(sid)).find(Boolean) : undefined;
+    switch (e.category) {
+      case 'struct_health': {
+        if (!struct) return null;
+        if (struct.health === Number(d.health)) return 'same';
+        if (d.health_old != null && struct.health !== Number(d.health_old)) return false;
+        struct.health = Number(d.health);
+        return true;
+      }
+      case 'struct_status': {
+        if (!struct) return null;
+        const st = Number(d.status);
+        if (struct.status === st) return 'same';
+        if (d.status_old != null && struct.status !== Number(d.status_old)) return false;
+        // A struct that finished building, came online or fell has new actions and new loads:
+        // the flags patch now, the re-read brings the rest.
+        Object.assign(struct, { status: st, materialized: !!(st & 1), built: !!(st & 2), online: !!(st & 4), hidden: !!(st & 16), destroyed: !!(st & 32), locked: !!(st & 64) });
+        return (st & 32) || ((st ^ Number(d.status_old ?? st)) & 2) ? false : true;
+      }
+      case 'struct_block_build_start': {
+        if (!struct) return null;
+        struct.blockStartBuild = Number(d.block) || 0;
+        return true;
+      }
+      case 'shield_change': {
+        const pid = e.planetId;
+        const on = [...this.players.values()].flatMap((x) => [x.planet, x.target]).filter((pl): pl is PlanetFull => !!pid && pl?.Planet.id === pid);
+        if (!on.length || d.planetary_shield == null) return null;
+        for (const pl of on) pl.planetAttributes = { ...(pl.planetAttributes || {}), planetaryShield: String(d.planetary_shield) };
+        return true;
+      }
+    }
+    return null;
   }
 
   /** Every struct across the empire. */

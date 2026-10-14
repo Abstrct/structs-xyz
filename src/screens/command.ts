@@ -21,6 +21,7 @@ import { record, RANKS } from '../game/record';
 import { pow, type PowTask } from '../pow/pow';
 import { live } from '../chain/live';
 import { lcd, num, type StructFull } from '../chain/lcd';
+import { structsByIds } from '../chain/reader';
 import { store } from '../chain/store';
 import { blocksToDuration, formatAlpha, hash32 } from '../core/util';
 import { structPortrait } from '../gfx/hull/portrait';
@@ -618,7 +619,8 @@ export class CommandScreen extends PanelScreen {
       void (async () => {
         const fleet = owner?.fleetId ? await lcd.fleet(owner.fleetId).catch(() => null) : null;
         if (fleet && fleet.locationId === pid) ids.push(...['space', 'air', 'land', 'water'].flatMap((a) => (fleet as unknown as Record<string, string[]>)[a] || []).filter(Boolean), fleet.commandStruct);
-        const got = (await Promise.all(ids.filter(Boolean).map((id) => lcd.struct(id).catch(() => null)))).filter((x): x is StructFull => !!x && !x.structAttributes?.isDestroyed);
+        // Every one of them is the defender's: one guild read when a session is open.
+        const got = [...(await structsByIds(ids, [tgt.Planet.owner])).values()].filter((x) => !x.structAttributes?.isDestroyed);
         if (this.enemy?.planetId === pid) { this.enemy.structs = got; this.schedulePaint(); }
       })();
     }

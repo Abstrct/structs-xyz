@@ -18,6 +18,7 @@ import { audio } from '../core/audio';
 import { currentRoute, setPageMeta } from '../core/nav';
 import { ago, blocksToDuration, clamp, damp, easeInOutCubic, formatAlpha, formatInt, formatPower, hash32, idIndex, powAgeFor, powDifficulty } from '../core/util';
 import { lcd, num, big, statusText, type Grid, type PlanetAttributes, type RawFleet, type RawPlanet, type RawPlayer, type StructFull } from '../chain/lcd';
+import { structsByIds } from '../chain/reader';
 import { live } from '../chain/live';
 import { store } from '../chain/store';
 import { commander } from '../chain/commander';
@@ -318,6 +319,7 @@ export class PlanetScreen implements Screen {
   private async load(token: number, quiet = false) {
     // Refreshes can overlap (timer, events, button): the newest read wins, an older one is dropped.
     const seq = ++this.loadSeq;
+    const minHeight = live.height;
     if (!live.height && !this.fallbackHeight) this.fallbackHeight = await lcd.latestHeight().then((r) => r.height).catch(() => 0);
     const pf = await lcd.planet(this.planetId);
     if (token !== this.loadToken) return;
@@ -348,12 +350,8 @@ export class PlanetScreen implements Screen {
     const fleetHome = fleet && fleet.locationId === this.planetId ? fleet : null;
     if (fleetHome) { for (const a of AMBITS) addAll(fleetHome[a]); if (fleetHome.commandStruct) ids.add(fleetHome.commandStruct); }
     for (const r of raiderFull.slice(0, 1)) { for (const a of AMBITS) addAll(r[a]); if (r.commandStruct) ids.add(r.commandStruct); }
-    const structs = new Map<string, StructFull>();
-    const list = [...ids];
-    for (let i = 0; i < list.length; i += 8) {
-      const chunk = await Promise.all(list.slice(i, i + 8).map((id) => lcd.struct(id).catch(() => null)));
-      chunk.forEach((s) => { if (s) structs.set(s.Struct.id, s); });
-    }
+    // The guild answers each side's structs in one read (src/chain/reader.ts); else one LCD read each.
+    const structs = await structsByIds(ids, [ownerId, raiderFull[0]?.owner], minHeight);
     // The owner's secondary capacity is their substation's per-connection share.
     const subId = ownerFull?.Player?.substationId;
     const sub = subId ? await lcd.entity<{ gridAttributes?: Grid }>('substation', subId).catch(() => null) : null;

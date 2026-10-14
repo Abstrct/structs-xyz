@@ -11,6 +11,7 @@ import { h } from '../core/dom';
 import { audio } from '../core/audio';
 import { formatInt, sleep } from '../core/util';
 import { PanelScreen } from './panelScreen';
+import { session } from '../guild/session';
 import { grass, type GrassState } from '../grass/grass';
 import { store } from '../chain/store';
 import { DEFAULT_GUILD, guildLabel, guilds, onGuilds, type GuildEntry } from '../guild/directory';
@@ -168,7 +169,11 @@ export class IntelScreen extends PanelScreen {
     const gen = this.generation;
     const guildId = grass.guildId || grass.preferred() || DEFAULT_GUILD;
     this.mounted = guildId;
-    const api = guildApi(guildId);
+    // Members-only reads go through the guild this browser is signed in to (every guild's indexer
+    // holds the whole galaxy); without a session, the feed's guild answers what is public.
+    const api = session.api() ?? guildApi(guildId);
+    const viaSession = !!session.api();
+    this.tabCleanup.push(session.onChange((st) => { if (st.state === 'open' && !viaSession && this.generation === gen) queueMicrotask(() => this.mountTab(tab, arg, body, ctaHost)); }));
     body.replaceChildren();
     ctaHost.replaceChildren();
     const ctx: IntelCtx = {

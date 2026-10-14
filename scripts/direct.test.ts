@@ -2,8 +2,9 @@
  * (nothing leaves this process):
  *   - guild.json is read straight from the guild, checked before use (https only, must name the
  *     same guild as the chain, links scrubbed), and a CORS refusal is marked as such;
- *   - Guild API calls go to the API that guild.json names, without cookies;
- *   - a members-only route (401) is 'blocked', and nothing is signed;
+ *   - Guild API calls go to the API that guild.json names, without cookies (until the guild session,
+ *     scripts/session.test.ts, holds one for that guild);
+ *   - a members-only route (401) is 'blocked', and the call itself signs nothing;
  *   - a guild that won't answer this site comes back as a plain 'blocked' error. */
 export {};
 
@@ -98,10 +99,10 @@ const PHRASE = 'abandon abandon abandon abandon abandon abandon abandon abandon 
 await wallet.create(PHRASE, 'correct horse battery');
 wallet.setAccount(0, { playerId: '1-77' });
 store.players.set('1-77', { id: '1-77', guildId: '0-5' } as never);
-// Members-only: the guild's session is a cookie this site can't use, so a 401 is final and plain.
+// Members-only without a session: a 401 is plain, and the call itself never signs (the session does).
 calls.length = 0;
 const why = await api.playerCount().then(() => null, (e) => e);
-ok(why instanceof GuildApiError && why.code === 'blocked' && /cookie/.test(why.errors.detail || ''), 'a members-only route is blocked, the reason kept for experts: ' + String(why?.message));
+ok(why instanceof GuildApiError && why.code === 'blocked' && /session/.test(why.errors.detail || ''), 'a members-only route is blocked, the reason kept for experts: ' + String(why?.message));
 ok(calls.length === 1 && !calls.some((c) => c.url.endsWith('/auth/login')), 'nothing is signed and no sign-in is attempted');
 ok(calls.every((c) => c.url.startsWith('https://api.guild.example/api/') && c.session === null && c.credentials === 'omit'), 'every call goes to the guild itself, without cookies or a session header of ours');
 

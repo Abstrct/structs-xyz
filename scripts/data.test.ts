@@ -184,7 +184,7 @@ wallet.setAccount(0, { playerId: '1-77' });
 store.players.set('1-77', { id: '1-77', guildId: '0-5' } as never);
 calls.length = 0;
 const err = await api.playerCount().then(() => null, (e) => e);
-ok(err instanceof GuildApiError && err.code === 'blocked' && /members-only/.test(err.message) && /cookie/.test(err.errors.detail || ''), 'a members-only route is blocked, in plain words: ' + String(err?.message));
+ok(err instanceof GuildApiError && err.code === 'blocked' && /Members only/.test(err.message) && /session/.test(err.errors.detail || ''), 'a members-only route is blocked, in plain words: ' + String(err?.message));
 ok(calls.length === 1 && !calls.some((c) => c.url.endsWith('/auth/login')), 'and nothing is signed or sent to sign in');
 ok(calls.every((c) => c.url.startsWith('https://api.guild.example/api/') && c.credentials === 'omit'), 'calls go straight to the guild’s API, without cookies');
 
