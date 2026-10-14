@@ -9,22 +9,23 @@
          the page refuses for itself: framed, it hides and tries to take the whole window. -->
     <script>if (self !== top) { document.documentElement.style.display = 'none'; try { top.location = self.location.href; } catch (e) { /* stays hidden */ } }</script>
     <title>Structs Command Deck</title>
-    <meta name="description" content="Structs Command Deck: a full browser client for Structs. Build, mine, refine and raid on chain with proofs ground on your GPU; run replicants; chat with your guild; read the guild data layer; watch the live galaxy and replay every real attack." />
+    <meta name="description" content="Structs Command Deck: play Structs, the space strategy game on the Cosmos blockchain, free in your browser. Train in battles, learn strategy, economics and technology in the Academy, meet other commanders in the Concourse, then build, mine, refine and raid for real on chain. Works on phones, keyboards and gamepads." />
     <link rel="canonical" href="%SITE_URL%/" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Structs Command Deck" />
     <meta property="og:title" content="Structs Command Deck" />
-    <meta property="og:description" content="A full Structs client in your browser: a vault, every transaction, GPU proof-of-work, replicants, guild comms, the guild data layer, 3D battlefields and the live galaxy." />
+    <meta property="og:description" content="Play Structs, the space strategy game on the Cosmos blockchain, in your browser. Train, learn in the Academy, meet commanders in the Concourse, then build, mine and raid for real. Phones, keyboards and gamepads." />
     <meta property="og:url" content="%SITE_URL%/" />
     <meta property="og:image" content="%SITE_URL%/og.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="The live Structs galaxy: every discovered world, guild-lit home planets, raid arcs and battle sites" />
+    <meta property="og:image:alt" content="The Structs Command Deck title screen: the Structs mark over the galaxy, PRESS START" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Structs Command Deck" />
-    <meta name="twitter:description" content="A full Structs client in your browser: a vault, every transaction, GPU proof-of-work, replicants, guild comms, the guild data layer, 3D battlefields and the live galaxy." />
+    <meta name="twitter:description" content="Play Structs, the space strategy game on the Cosmos blockchain, in your browser. Train, learn in the Academy, meet commanders in the Concourse, then build, mine and raid for real. Phones, keyboards and gamepads." />
     <meta name="twitter:image" content="%SITE_URL%/og.jpg" />
+    <meta name="twitter:image:alt" content="The Structs Command Deck title screen: the Structs mark over the galaxy, PRESS START" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
@@ -40,15 +41,20 @@
       "alternateName": "Structs",
       "url": "%SITE_URL%/",
       "image": "%SITE_URL%/og.jpg",
-      "description": "A full browser client for Structs, the 5X space strategy game on the Cosmos blockchain: build, mine, refine and raid on chain, run replicants, chat with your guild, watch the live galaxy and replay every real attack.",
+      "description": "Play Structs, the space strategy game on the Cosmos blockchain, in your browser: train in battles, learn strategy, economics and technology in the Academy, meet other commanders in the Concourse, then build, mine, refine and raid for real on chain. Works on phones, keyboards and gamepads.",
       "applicationCategory": "GameApplication",
-      "genre": ["Strategy", "4X", "Space"],
-      "gamePlatform": "Web browser",
+      "genre": ["Strategy", "4X", "Space", "Educational"],
+      "gamePlatform": ["Web browser", "Mobile web", "Gamepad"],
       "operatingSystem": "Any",
-      "playMode": "MultiPlayer",
+      "playMode": ["MultiPlayer", "SinglePlayer"],
+      "numberOfPlayers": { "@type": "QuantitativeValue", "minValue": 1 },
       "isAccessibleForFree": true,
+      "isFamilyFriendly": true,
+      "audience": { "@type": "PeopleAudience", "suggestedMinAge": 13 },
+      "inLanguage": "en",
+      "screenshot": ["%SITE_URL%/og/lobby.jpg", "%SITE_URL%/og/battle.jpg", "%SITE_URL%/og/galaxy.jpg", "%SITE_URL%/og/academy.jpg"],
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-      "sameAs": ["https://playstructs.com", "https://structs.ai"]
+      "sameAs": ["https://playstructs.com", "https://structs.ai", "https://github.com/Abstrct/structs-xyz"]
     }
     </script>
     <style>
@@ -83,24 +89,32 @@
     <!--seo:start-->
     <main id="seo">
       <h1>Structs Command Deck</h1>
-      <p>A full browser client for <a href="https://structs.ai" rel="external">Structs</a>, the 5X space strategy game on the Cosmos blockchain where sentient machines fight over Alpha Matter. Build, mine, refine and raid on chain with proofs ground on your GPU; run replicants; chat with your guild; read the guild data layer; watch the live galaxy and replay every real attack.</p>
-      <h2>Watch, no keys needed</h2>
+      <p>Play Structs, the space strategy game on the Cosmos blockchain, in your browser: a Dreamcast-style client that works on phones, keyboards and gamepads, with an Academy that teaches strategy, economics and technology as you play.</p>
+      <p>Structs is the game where sentient machines fight over Alpha Matter. This client runs the whole game in a browser tab: watch the live galaxy and every real battle without an account, practise in the Battle Simulator, learn in the <a href="/academy">Academy</a>, meet other commanders in <a href="/lobby">the Concourse</a>, and, once you enlist, play for real with your keys sealed in the tab.</p>
+      <h2>Base: your planet, your robots, your next move</h2>
       <ul>
-        <li><a href="/galaxy">Live Galaxy</a>: every planet ever discovered on the testnet, guild-lit homes, raids in flight.</li>
-        <li><a href="/combat">Combat Theatre</a>: every attack ever fought, replayed shot by shot from the chain.</li>
-        <li><a href="/grid">The Grid</a>: reactors, substations and every allocation in the energy economy.</li>
-        <li><a href="/sim">Battle Simulator</a>: fleet-versus-computer battles on the real combat rules.</li>
-        <li><a href="/codex">Codex</a>: all 22 struct types with full mechanics and matchups.</li>
-        <li><a href="/intel">Intel</a>: the guild data layer, live.</li>
+        <li><a href="/command">My Base</a>: build, mine and give orders. The advisor says what to do next.</li>
+        <li><a href="/ops/record">Rank &amp; Missions</a>: your rank, your XP and the mission ladder.</li>
+        <li><a href="/ops/queue">Moves in Progress</a>: every move you have sent, and whether it landed.</li>
       </ul>
-      <h2>Play</h2>
+      <h2>Battle: practise tactics, then watch real fights</h2>
       <ul>
-        <li><a href="/command">Command Deck</a>: your commander, every struct, every action.</li>
-        <li><a href="/ops">Operations</a>: the transaction queue, proof-of-work engine and replicants.</li>
-        <li><a href="/forge">The Forge</a>: every chain message as a form.</li>
+        <li><a href="/sim">Training Battles</a>: your fleet against the computer. No account needed.</li>
+        <li><a href="/sim/daily">Daily Challenge</a>: one new battle a day, the same for every player.</li>
+        <li><a href="/combat">Battle Replays</a>: every real attack in the galaxy, replayed shot by shot.</li>
+        <li><a href="/codex">Unit Guide</a>: all 22 units: what each one hits, and what hits it.</li>
+      </ul>
+      <h2>Explore, Trade, Team and Lab</h2>
+      <ul>
+        <li><a href="/galaxy">Galaxy Map</a> and <a href="/grid">Power Grid</a>: every world and the energy economy, live from the chain.</li>
         <li><a href="/economy">Economy</a>: power, fuel, the market, banks and transfers.</li>
-        <li><a href="/comms">Comms</a>: guild chat over Matrix.</li>
-        <li><a href="/guild">Guild Hall</a>: rosters, ranks, membership and permissions.</li>
+        <li><a href="/guild">Guild Hall</a>, <a href="/intel">Intel</a> and <a href="/comms">Comms</a>: your team, the guild data layer and chat.</li>
+        <li><a href="/forge">The Forge</a> and <a href="/ops">Operations</a>: every chain message as a form; the queue, proofs and robot rules.</li>
+      </ul>
+      <h2>Learn</h2>
+      <ul>
+        <li><a href="/academy/strategy">Strategy</a>, <a href="/academy/economics">Economics</a> and <a href="/academy/technology">Technology</a>: short lessons with quizzes and things to try.</li>
+        <li><a href="/academy/glossary">Glossary</a>: every game word in plain language.</li>
       </ul>
     </main>
     <!--seo:end-->

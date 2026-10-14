@@ -9,6 +9,8 @@ import { openBrowser, pool, serveSite, sleep } from './cdp.mjs';
 const ROOT = new URL('../../', import.meta.url).pathname;
 const clickText = (re) => `[...document.querySelectorAll('button, a')].find((b) => ${re}.test(b.textContent))?.click()`;
 const SHOTS = {
+  title: { route: '/', wait: 10 },
+  lobby: { route: '/lobby', wait: 14, run: `document.querySelector('.dc-press')?.click()`, after: 4000 },
   galaxy: { route: '/galaxy', wait: 12, run: `document.querySelector('.dc-press')?.click()`, after: 1500 },
   hubs: { route: '/galaxy', wait: 12, run: `document.querySelector('.dc-press')?.click(); setTimeout(() => document.querySelectorAll('.topbar .hub')[1]?.click(), 400)`, after: 1500 },
   battle: { route: '/sim', wait: 8, run: `document.querySelector('.setup-panel .dc-start')?.click()`, after: 9000 },

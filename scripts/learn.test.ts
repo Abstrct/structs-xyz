@@ -91,7 +91,10 @@ for (const s of SCREENS) {
 
 /* ── The Academy as a page ──────────────────────────────────────────────── */
 ok(ROUTES.some((r) => r.path === '/academy' && !r.commander), 'the Academy is prerendered, and public');
-ok(describeRoute('academy', { track: 'economics' }).title === 'Academy · Economics', 'track pages name themselves');
+ok(describeRoute('academy', { track: 'economics' }).title === 'Economics · Academy', 'track pages name themselves');
+ok(describeRoute('academy', { track: 'strategy', lesson: 'ambits' }).title === 'Space, air, land and water · Strategy', 'lesson pages name the lesson');
+ok(describeRoute('academy', { track: 'strategy', lesson: 'ambits' }).description === lessonById.get('ambits')!.learn, 'a lesson page describes the idea');
+ok(describeRoute('academy', { track: 'glossary' }).title === 'Glossary · Academy', 'the glossary names itself');
 
 /* ── Chat's phrase guard ────────────────────────────────────────────────── */
 ok(looksLikePhrase(newMnemonic(24)) && looksLikePhrase(newMnemonic(12)), 'a recovery phrase is caught');
