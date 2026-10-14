@@ -149,6 +149,56 @@ const { __walkGuild } = await import('../src/chain/galaxy') as unknown as { __wa
 await __walkGuild(fakeApi, 'grid/all', (rows) => got.push(...rows.map((r) => r.id)));
 ok(got.join('') === 'abcde' && calls.length === 3 && calls[1].includes('after_id=b') && calls.every((c) => c.startsWith('grid/all/page/1?')), 'the guild walk pages by cursor and reads past a clamped page size: ' + calls.length + ' calls');
 
+// A cursor row deleted between pages (a value that dropped to zero): the walk steps back and carries on.
+{
+  const rows = ['a', 'b', 'c', 'd', 'e', 'f'].map((id) => ({ id, val: '1' }));
+  const live2: string[] = [];
+  const api = { call: async (path: string) => {
+    const after = new URLSearchParams(path.split('?')[1]).get('after_id');
+    // 'b' is deleted once page one is out: asking after it finds nothing (the server's subquery is NULL).
+    if (after === 'b') return { success: true, errors: [], data: [] };
+    const from = after ? rows.findIndex((r) => r.id === after) + 1 : 0;
+    return { success: true, errors: [], data: rows.slice(from, from + 2), total: 6 };
+  } };
+  await __walkGuild(api, 'grid/all', (r) => live2.push(...r.map((x) => x.id)));
+  ok(['c', 'd', 'e', 'f'].every((x) => live2.includes(x)), 'a deleted cursor row doesn’t end the walk early: ' + live2.join(''));
+  // A walk that stops far short of the server's own count is refused.
+  const short = { call: async (path: string) => ({ success: true, errors: [], data: new URLSearchParams(path.split('?')[1]).get('after_id') ? [] : rows.slice(0, 2), total: 50 }) };
+  const err = await __walkGuild(short, 'grid/all', () => {}).then(() => null, (e: Error) => e);
+  ok(err && /short/.test(err.message), 'a walk far short of the server’s count is refused: ' + err?.message);
+}
+
+// GRASS: a number past 2^53 is left to the chain's event; a struct's own mining clock patches.
+{
+  const t = new Snapshot();
+  t.putStruct({ id: '5-1', type: 1, owner: '1-1', locationType: 'planet', locationId: '2-1', ambit: 'land', slot: 0 });
+  ok(!t.applyGrass(frame({ subject: 'structs.grid.reactor.3-1', category: 'fuel', object_id: '3-1', attribute_type: 'fuel', value_p: 2 ** 60 })) && t.gridOf('3-1').fuel === '0', 'a grid value JSON can’t hold exactly is left to the chain’s event');
+  t.applyGrass(frame({ subject: 'structs.planet.2-1.1-1', category: 'struct_block_ore_mine_start', planet_id: '2-1', detail: { struct_id: '5-1', block: 77 } }));
+  ok((t.structFull('5-1')!.structAttributes as Record<string, unknown>).blockStartOreMine === '77', 'a struct’s mining clock from GRASS');
+}
+
+// A drop in the chain feed distrusts the copy; failed walks back off.
+{
+  const g = galaxy as unknown as { stateListeners?: unknown; broken: boolean; failures: number; nextTry: number; snap: unknown };
+  live.state = 'live';
+  const fire = (st: string) => { for (const f of (live as unknown as { stateL: Set<(s: string) => void> }).stateL) f(st); };
+  fire('down');
+  live.state = 'down';
+  ok(g.broken && galaxy.want() === null, 'a dropped chain feed distrusts the snapshot (nothing replays the gap)');
+  live.state = 'live';
+  ok(galaxy.want() === null, 'and coming back doesn’t trust it again until it has walked');
+  // Make every walk fail: the next may not start at once.
+  globalThis.fetch = (async () => new Response('{}', { status: 500 })) as typeof fetch;
+  g.snap = null;
+  await galaxy.refresh();
+  const after = g.nextTry - Date.now();
+  let started = false;
+  const orig = galaxy.refresh.bind(galaxy);
+  (galaxy as unknown as { refresh: () => Promise<void> }).refresh = () => { started = true; return orig(); };
+  galaxy.want();
+  ok(galaxy.error && after > 20_000 && !started, 'a failed walk backs off instead of walking again on the next ask: ' + galaxy.error);
+}
+
 if (fails) { console.error(`galaxy: ${fails} failure(s)`); process.exit(1); }
 console.log('galaxy: all checks passed');
 process.exit(0);

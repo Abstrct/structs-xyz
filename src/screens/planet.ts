@@ -350,8 +350,11 @@ export class PlanetScreen implements Screen {
     const fleetHome = fleet && fleet.locationId === this.planetId ? fleet : null;
     if (fleetHome) { for (const a of AMBITS) addAll(fleetHome[a]); if (fleetHome.commandStruct) ids.add(fleetHome.commandStruct); }
     for (const r of raiderFull.slice(0, 1)) { for (const a of AMBITS) addAll(r[a]); if (r.commandStruct) ids.add(r.commandStruct); }
-    // The guild answers each side's structs in one read (src/chain/reader.ts); else one LCD read each.
-    const structs = await structsByIds(ids, [ownerId, raiderFull[0]?.owner], minHeight);
+    // From the galaxy snapshot when it's live; else the guild answers each side's structs in one read
+    // (src/chain/reader.ts); else one LCD read each. A board you command reads fresh: its verbs
+    // (switch on, stop guarding) are built from it.
+    const mine = empire.commands(ownerId) || (!!raiderFull[0]?.owner && empire.commands(raiderFull[0].owner));
+    const structs = await structsByIds(ids, [ownerId, raiderFull[0]?.owner], minHeight, { fresh: mine });
     // The owner's secondary capacity is their substation's per-connection share.
     const subId = ownerFull?.Player?.substationId;
     const sub = subId ? await lcd.entity<{ gridAttributes?: Grid }>('substation', subId).catch(() => null) : null;

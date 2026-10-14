@@ -24,6 +24,7 @@
 import { LCD_URL, type StructFull, type Grid, type PlanetAttributes } from './lcd';
 import { live, type LiveTx } from './live';
 import { session } from '../guild/session';
+import { indexedHeight } from './reader';
 import { grass, type GrassEvent } from '../grass/grass';
 import { idIndex, safeEach } from '../core/util';
 import type { GuildApi } from '../guild/api';
@@ -163,10 +164,13 @@ export class Snapshot {
       const i = (GRID_ATTRS as readonly string[]).indexOf(String(e.data.attribute_type ?? e.category));
       const id = e.objectId;
       // Only the chain-precision value: `value` is a floored display figure.
-      if (i < 0 || !id || e.data.value_p == null) return false;
+      // A number past 2^53 has already lost digits in JSON.parse: leave it to the chain's own
+      // event, which carries it as a string.
+      const v = e.data.value_p;
+      if (i < 0 || !id || typeof v !== 'number' || !Number.isSafeInteger(v)) return false;
       const ts = Date.parse(String(e.data.updated_at || ''));
       if (ts && this.takenAt && ts + 2000 < this.takenAt) { this.stale++; return false; }
-      return this.count(this.setGrid(id, i, String(e.data.value_p).split('.')[0]));
+      return this.count(this.setGrid(id, i, String(v)));
     }
     if (e.kind !== 'planet') return false;
     if (e.height && e.height < this.minHeight) { this.stale++; return false; }
@@ -205,8 +209,11 @@ export class Snapshot {
       case 'shield_change': return e.planetId ? this.count(this.setPlanetAttr(e.planetId, P_SHIELD, n(d.planetary_shield))) : false;
       case 'struct_block_ore_mine_start':
       case 'struct_block_ore_refine_start': {
+        // From a struct's clock ({struct_id, block}) or a planet's ({planet_id, block}).
+        const mine = e.category === 'struct_block_ore_mine_start', b = n(d.block ?? d.block_height);
+        if (sid) return this.count(this.setStructAttr(sid, mine ? S_MINE : S_REFINE, b));
         const pid = typeof d.planet_id === 'string' ? d.planet_id : e.planetId;
-        return pid ? this.count(this.setPlanetAttr(pid, e.category === 'struct_block_ore_mine_start' ? P_MINE : P_REFINE, n(d.block ?? d.block_height))) : false;
+        return pid ? this.count(this.setPlanetAttr(pid, mine ? P_MINE : P_REFINE, b)) : false;
       }
       // The frame carries the raid clock itself (0 when the raid ended), not the frame's height.
       case 'block_raid_start': return e.planetId ? this.count(this.setPlanetAttr(e.planetId, P_RAID, n(d.block_start_raid ?? d.block ?? d.block_height))) : false;
@@ -247,20 +254,37 @@ export class Snapshot {
 
 type Row = Record<string, any>;
 
-/** A guild catalog route, walked by keyset (`after_id`): rows that change or vanish mid-walk can't
- * shift the pages under it the way an offset does. Ends on a page shorter than the first (the
- * server clamps `limit`). Throws on a walk cut short. */
-async function walkGuild(api: GuildApi, path: string, onRows: (rows: Row[]) => void, q: Record<string, string | number> = {}): Promise<void> {
-  let after = '', full = 0;
-  for (let p = 0; p < 200; p++) {
-    const res = await api.call<Row[]>(`${path}/page/1?${new URLSearchParams({ limit: '10000', ...Object.fromEntries(Object.entries(q).map(([k, v]) => [k, String(v)])), ...(after ? { after_id: after } : {}) })}`);
-    const rows = res.data || [];
+/** A guild catalog route, walked by keyset (`after_id`): rows that vanish mid-walk can't shift
+ * the pages the way an offset does. The server orders by last update, so a row updated mid-walk
+ * jumps behind the cursor: the caller's catch-up pass (`updated_since`) collects those. Ends on a
+ * page shorter than the first (the server clamps `limit`). A cursor row deleted between pages
+ * makes the next page come back empty: the walk steps back along the last page for a cursor that
+ * still exists. Throws on a walk cut short (fewer rows than the server's own count). */
+async function walkGuild(api: GuildApi, path: string, onRows: (rows: Row[]) => void, q: Record<string, string | number> = {}, stop?: { dead: boolean }): Promise<void> {
+  let full = 0, seen = 0, total = 0;
+  let prev: Row[] = [];
+  const get = async (after: string, first: boolean) => {
+    const params = { limit: '10000', ...Object.fromEntries(Object.entries(q).map(([k, v]) => [k, String(v)])), ...(after ? { after_id: after } : {}), ...(first ? { include_total: '1' } : {}) };
+    const res = await api.call<Row[]>(`${path}/page/1?${new URLSearchParams(params)}`);
+    if (first) total = Number(res.total) || 0;
+    return res.data || [];
+  };
+  for (let p = 0; p < 300; p++) {
+    if (stop?.dead) throw new Error('walk abandoned');
+    let rows = p === 0 ? await get('', true) : await get(String(prev[prev.length - 1].id), false);
+    // An empty page right after a full one: the cursor row may have been deleted (a value that
+    // dropped to zero). Step back along the last page for a cursor that still exists.
+    for (let k = 2; !rows.length && p > 0 && prev.length === full && k <= Math.min(8, prev.length); k++) rows = await get(String(prev[prev.length - k].id), false);
     if (p === 0) full = rows.length;
+    seen += rows.length;
     onRows(rows);
-    if (!rows.length || rows.length < full) return;
-    const last = rows[rows.length - 1]?.id;
-    if (last == null || String(last) === after) throw new Error(`walk of ${path} could not advance`);
-    after = String(last);
+    if (!rows.length || rows.length < full) {
+      // Rows deleted mid-walk make the count drift a little; a walk cut off part-way misses a lot.
+      if (total && seen < total * 0.98) throw new Error(`walk of ${path} came back short (${seen} of ${total})`);
+      return;
+    }
+    if (rows[rows.length - 1]?.id == null) throw new Error(`walk of ${path} could not advance`);
+    prev = rows;
   }
   throw new Error(`walk of ${path} was cut short`);
 }
@@ -288,15 +312,22 @@ const structRowOf = (r: Row): StructRow => ({
   ambit: String(r.operating_ambit ?? r.operatingAmbit ?? ''), slot: Number(r.slot) || 0,
 });
 
-async function fromGuild(api: GuildApi, snap: Snapshot) {
+async function fromGuild(api: GuildApi, snap: Snapshot, sinceSec: number) {
   snap.source = 'guild';
-  await Promise.all([
-    walkGuild(api, 'struct/list/all', (rows) => { for (const r of rows) if (!r.is_destroyed) snap.putStruct(structRowOf(r)); }, { is_destroyed: 0 }),
+  const stop = { dead: false };
+  const stores: [string, (rows: Row[]) => void, Record<string, string | number>][] = [
+    ['struct/list/all', (rows) => { for (const r of rows) if (!r.is_destroyed) snap.putStruct(structRowOf(r)); }, { is_destroyed: 0 }],
     // Keyed by the row's id (the chain's attribute id): the indexer leaves some names NULL.
-    walkGuild(api, 'struct-attribute/all', (rows) => { for (const r of rows) snap.putAttribute('struct', String(r.id), r.val); }),
-    walkGuild(api, 'planet-attribute/all', (rows) => { for (const r of rows) snap.putAttribute('planet', String(r.id), r.val); }),
-    walkGuild(api, 'grid/all', (rows) => { for (const r of rows) snap.putAttribute('grid', String(r.id), r.val); }),
-  ]);
+    ['struct-attribute/all', (rows) => { for (const r of rows) snap.putAttribute('struct', String(r.id), r.val); }, {}],
+    ['planet-attribute/all', (rows) => { for (const r of rows) snap.putAttribute('planet', String(r.id), r.val); }, {}],
+    ['grid/all', (rows) => { for (const r of rows) snap.putAttribute('grid', String(r.id), r.val); }, {}],
+  ];
+  // One walk failing stops the others: the LCD takes over, not four half-walks.
+  const all = (extra: (q: Record<string, string | number>) => Record<string, string | number>) =>
+    Promise.all(stores.map(([path, on, q]) => walkGuild(api, path, on, extra(q), stop))).catch((e) => { stop.dead = true; throw e; });
+  await all((q) => q);
+  // Rows updated while it walked jumped behind its cursor: read them again (by the guild's clock).
+  if (sinceSec) await all((q) => ({ ...q, updated_since: sinceSec }));
 }
 
 async function fromLcd(snap: Snapshot) {
@@ -332,6 +363,13 @@ class Galaxy {
   private wantedUntil = 0;
   private listening = false;
   private listeners = new Set<() => void>();
+  /** A live feed dropped since the copy was walked: changes may have been missed. */
+  private broken = false;
+  /** Failed walks in a row, and when the next may start. */
+  private failures = 0;
+  private nextTry = 0;
+  /** Guild clock minus this browser's (ms), for stamping walks the way the indexer stamps rows. */
+  private skew = 0;
 
   /** Off on a small device, or by VITE_GALAXY=off. */
   get enabled(): boolean {
@@ -340,9 +378,10 @@ class Galaxy {
     return mem == null || mem >= 4;
   }
 
-  /** Fresh enough to answer for the galaxy: walked lately, and a live feed patching it. */
+  /** Fresh enough to answer for the galaxy: walked lately, the chain's own feed patching it, and no
+   * gap in that feed since. (GRASS alone isn't enough: it never says when a value drops to zero.) */
   get ready(): boolean {
-    return !!this.snap && Date.now() - this.takenAt < TRUST_MS && (live.state === 'live' || grass.state === 'live');
+    return !!this.snap && !this.broken && live.state === 'live' && Date.now() - this.takenAt < TRUST_MS;
   }
 
   onChange(f: () => void) { this.listeners.add(f); return () => { this.listeners.delete(f); }; }
@@ -352,7 +391,7 @@ class Galaxy {
     if (!this.enabled) return null;
     this.wantedUntil = Date.now() + WANT_MS;
     this.listen();
-    if (!this.snap && !this.walking) void this.refresh();
+    if (!this.snap && !this.walking && Date.now() >= this.nextTry) void this.refresh();
     return this.ready ? this.snap : null;
   }
 
@@ -362,16 +401,27 @@ class Galaxy {
     // GRASS only where the app runs it (a devnet turns it off): subscribing would dial it.
     if (ENV.VITE_GRASS_URL !== 'off') grass.on(undefined, (e) => this.feed({ kind: 'grass', e, at: Date.now() }));
     live.onTx((tx) => this.feed({ kind: 'chain', tx, at: Date.now() }));
+    // Neither feed replays what it missed while down: a drop distrusts the copy, and coming back
+    // walks again (while a screen still wants it).
+    live.onState((st) => {
+      if (st !== 'live') { if (this.snap || this.walking) this.broken = true; }
+      else if (this.broken && Date.now() < this.wantedUntil) void this.refresh();
+    });
     if (typeof setInterval !== 'undefined') setInterval(() => {
       const visible = typeof document === 'undefined' || !document.hidden;
-      if (visible && Date.now() < this.wantedUntil && Date.now() - this.takenAt >= REFRESH_MS) void this.refresh();
+      const due = Date.now() - this.takenAt >= REFRESH_MS || this.broken;
+      if (visible && due && Date.now() < this.wantedUntil && Date.now() >= this.nextTry) void this.refresh();
       // Nobody has asked for a while: let the memory go.
       if (this.snap && Date.now() > this.wantedUntil + REFRESH_MS) { this.snap = null; this.takenAt = 0; }
     }, 30_000);
   }
 
+  private overflowed = false;
   private feed(f: Frame) {
-    if (this.pending) { if (this.pending.length < PENDING_MAX) this.pending.push(f); }
+    // Only what can change a store is kept for the replay (not heartbeats, players, money).
+    if (this.pending && (f.kind === 'chain' || f.e.kind === 'grid' || f.e.kind === 'planet')) {
+      if (this.pending.length < PENDING_MAX) this.pending.push(f); else this.overflowed = true;
+    }
     if (this.snap && apply(this.snap, f)) this.emit();
   }
 
@@ -384,39 +434,60 @@ class Galaxy {
     return this.walking;
   }
 
+  /** The guild's clock, once a visit (its rows are stamped by it, not by this browser). */
+  private async measureSkew(api: GuildApi | null) {
+    if (!api || this.skew) return;
+    try {
+      const t0 = Date.now();
+      const { unix_timestamp } = await api.timestamp();
+      if (Number.isFinite(unix_timestamp)) this.skew = unix_timestamp * 1000 - (t0 + Date.now()) / 2;
+    } catch { /* this browser's clock, then */ }
+  }
+
   private async walk() {
     this.pending = [];
-    const begin = () => {
+    this.overflowed = false;
+    // A drop from here on is a gap in the new copy too.
+    this.broken = false;
+    const api = session.api();
+    await this.measureSkew(api);
+    const begin = (minHeight: number) => {
       const s = new Snapshot();
-      s.takenAt = Date.now();
-      s.minHeight = live.height || session.status.height || 0;
+      s.takenAt = Date.now() + this.skew;
+      s.minHeight = minHeight;
       return s;
     };
     let next: Snapshot | null = null;
     try {
-      const api = session.api();
       if (api) {
         try {
-          const s = begin();
-          await fromGuild(api, s);
+          // The guild's rows are as of its indexer, which may trail the chain: frames from the
+          // blocks in between must still apply.
+          const s = begin(indexedHeight() || session.status.height || 0);
+          await fromGuild(api, s, Math.floor(s.takenAt / 1000) - 5);
           if (plausible(s, this.snap)) next = s;
           else console.warn('[galaxy] the guild’s walk came back short; reading the LCD', s.sizes());
         } catch (e) { console.warn('[galaxy] guild walk failed; reading the LCD', e); }
       }
       if (!next) {
-        const s = begin();
+        const s = begin(live.height || 0);
         await fromLcd(s);
         if (!plausible(s, this.snap)) throw new Error('the LCD walk came back short');
         next = s;
       }
+      if (this.overflowed) throw new Error('too much happened during the walk to replay');
       // What happened during the walk, onto the new copy, before anyone reads it.
       for (const f of this.pending || []) apply(next, f);
       this.snap = next;
-      this.takenAt = next.takenAt;
+      this.takenAt = Date.now();
       this.error = '';
+      this.failures = 0;
       this.emit();
     } catch (e) {
       this.error = String((e as Error).message || e);
+      // Back off: 30 s, 1, 2, 4… up to 10 minutes (each walk is the whole galaxy).
+      this.failures++;
+      this.nextTry = Date.now() + Math.min(REFRESH_MS, 30_000 * 2 ** (this.failures - 1));
       console.warn('[galaxy] walk failed', e);
     } finally {
       this.pending = null;
