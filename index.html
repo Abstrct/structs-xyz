@@ -8,6 +8,20 @@
          Servers that can say so do (frame-ancestors); a static host such as GitHub Pages can't, so
          the page refuses for itself: framed, it hides and tries to take the whole window. -->
     <script>if (self !== top) { document.documentElement.style.display = 'none'; try { top.location = self.location.href; } catch (e) { /* stays hidden */ } }</script>
+    <!-- Google Analytics (GA4). Only on the live site: dev servers, studio runs and automated
+         browsers (soak, personas, playtest bots) stay out of the numbers. Enhanced measurement
+         counts the client's pushState route changes as page views. -->
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      if (location.hostname === new URL('%SITE_URL%').hostname && !navigator.webdriver) {
+        var ga = document.createElement('script'); ga.async = true;
+        ga.src = 'https://www.googletagmanager.com/gtag/js?id=G-CC8HNRF2TE';
+        document.head.appendChild(ga);
+        gtag('js', new Date());
+        gtag('config', 'G-CC8HNRF2TE');
+      }
+    </script>
     <title>Structs Command Deck</title>
     <meta name="description" content="Structs Command Deck: play Structs, the space strategy game on the Cosmos blockchain, free in your browser. Train in battles, learn strategy, economics and technology in the Academy, meet other commanders in the Concourse, then build, mine, refine and raid for real on chain. Works on phones, keyboards and gamepads." />
     <link rel="canonical" href="%SITE_URL%/" />
