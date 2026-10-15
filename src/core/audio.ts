@@ -58,8 +58,9 @@ class AudioEngine {
 
   private volume = 0.8;
   private musicVolume = 0.32;
-  setVolume(v: number) { this.volume = v; if (this.ctx && !this.muted) this.master.gain.setTargetAtTime(v, this.ctx.currentTime, 0.05); }
-  setMusicVolume(v: number) { this.musicVolume = v; if (this.ctx) this.musicBus.gain.setTargetAtTime(v, this.ctx.currentTime, 0.1); }
+  // A gain must be a finite number (a bad one throws in the middle of building the graph): 0..1 or the old level.
+  setVolume(v: number) { v = Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : this.volume; this.volume = v; if (this.ctx && !this.muted) this.master.gain.setTargetAtTime(v, this.ctx.currentTime, 0.05); }
+  setMusicVolume(v: number) { v = Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : this.musicVolume; this.musicVolume = v; if (this.ctx) this.musicBus.gain.setTargetAtTime(v, this.ctx.currentTime, 0.1); }
 
   setMuted(m: boolean) {
     this.muted = m;

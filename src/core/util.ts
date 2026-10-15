@@ -120,3 +120,9 @@ export function safeEach<F>(listeners: Iterable<F>, call: (f: F) => void) {
     try { call(f); } catch (e) { console.error(e); }
   }
 }
+
+/** A count or best kept in localStorage: a finite number ≥ 0, else 0 (an old or hand-edited save
+ * can hold anything; NaN would stick forever, since NaN + 1 and n > NaN never change it). */
+export function storedCount(key: string): number {
+  try { const n = Number(localStorage.getItem(key) || 0); return Number.isFinite(n) && n > 0 ? n : 0; } catch { return 0; }
+}

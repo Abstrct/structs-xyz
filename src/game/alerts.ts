@@ -11,7 +11,7 @@ import { goTo } from '../core/nav';
 
 export const ALERT_KINDS: [string, string][] = [['atk', 'Under attack'], ['raid', 'Raids on your planets'], ['theft', 'Ore stolen'], ['fleet', 'Enemy fleets nearby'], ['power', 'Running out of power']];
 const MUTE_KEY = 'structs.alerts.muted';
-export function mutedKinds(): Set<string> { try { return new Set(JSON.parse(localStorage.getItem(MUTE_KEY) || '[]')); } catch { return new Set(); } }
+export function mutedKinds(): Set<string> { try { const v: unknown = JSON.parse(localStorage.getItem(MUTE_KEY) || '[]'); return new Set(Array.isArray(v) ? v.filter((k): k is string => typeof k === 'string') : []); } catch { return new Set(); } }
 export function setMuted(kind: string, muted: boolean) {
   const m = mutedKinds();
   if (muted) m.add(kind); else m.delete(kind);

@@ -12,7 +12,7 @@ import { copyText, h, hideTooltip, holdNotices, portrait, showTooltip, toast } f
 import { audio } from '../core/audio';
 import { wallet } from '../wallet/wallet';
 import { openVault } from '../ui/vault';
-import { ago, clamp, damp, easeInOutCubic, formatInt, hash32, idIndex, mulberry } from '../core/util';
+import { ago, clamp, damp, easeInOutCubic, formatInt, hash32, idIndex, mulberry, storedCount } from '../core/util';
 import { store, type FeedItem, type PlanetLite } from '../chain/store';
 import { live } from '../chain/live';
 import { lcd } from '../chain/lcd';
@@ -867,8 +867,7 @@ export class GalaxyScreen implements Screen {
       save.hidden = !rec.battles && !xp;
       if (save.hidden) { save.replaceChildren(); return; }
       const best = dailyBest(daily.key), streak = dailyStreak(daily.key);
-      let gauntlet = 0;
-      try { gauntlet = Number(localStorage.getItem('structs.gauntlet.best') || 0); } catch { /* none */ }
+      const gauntlet = storedCount('structs.gauntlet.best');
       const rank = service.rank, next = RANKS[rank + 1];
       const chip = (cls: string, ico: string, title: string, href: string, ...body: (Node | string | null)[]) =>
         h('a', { class: 'dc-save-chip ' + cls, href, title, 'aria-label': title, 'data-k': cls.split(' ')[0], onclick: (e: Event) => {

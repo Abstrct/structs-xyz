@@ -20,9 +20,22 @@ const DEFAULTS: Settings = {
 
 export function loadSettings(): Settings {
   try {
-    const v = JSON.parse(localStorage.getItem(KEY) || '{}') as Partial<Settings> & { proHud?: boolean };
-    // The old "pro status bar" switch became expert mode.
-    return { ...DEFAULTS, ...v, expert: v.expert ?? !!v.proHud };
+    const raw: unknown = JSON.parse(localStorage.getItem(KEY) || '{}');
+    const v = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+    // Each field checked against its default: an old or hand-edited save ("volume": "loud") falls back
+    // field by field rather than reaching the audio graph (a non-finite gain throws on every sound).
+    const level = (k: 'volume' | 'music') => { const n = v[k]; return typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : DEFAULTS[k]; };
+    const flag = (k: 'bloom' | 'reduceMotion' | 'bigText') => typeof v[k] === 'boolean' ? v[k] as boolean : DEFAULTS[k];
+    const one = <T extends string>(x: unknown, of: readonly T[], d: T): T => (of as readonly unknown[]).includes(x) ? x as T : d;
+    return {
+      volume: level('volume'), music: level('music'),
+      bloom: flag('bloom'), reduceMotion: flag('reduceMotion'), bigText: flag('bigText'),
+      quality: one(v.quality, ['high', 'low'], DEFAULTS.quality),
+      look: one(v.look, ['dc', 'modern'], DEFAULTS.look),
+      startIn: one(v.startIn, ['lobby', 'galaxy'], DEFAULTS.startIn),
+      // The old "pro status bar" switch became expert mode.
+      expert: typeof v.expert === 'boolean' ? v.expert : !!v.proHud,
+    };
   } catch { return { ...DEFAULTS }; }
 }
 

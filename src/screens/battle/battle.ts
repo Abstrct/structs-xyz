@@ -6,7 +6,7 @@ import type { Engine, Screen } from '../../core/engine';
 import { moveFocus } from '../../core/pad';
 import { banner, confirmBox, copyText, dismissConfirms, h, hideTooltip, holdRewards, portrait, showTooltip, toast } from '../../core/dom';
 import { audio } from '../../core/audio';
-import { cap, clamp, damp, hash32 } from '../../core/util';
+import { cap, clamp, damp, hash32, storedCount } from '../../core/util';
 import { BoardZoom, bindPinch, bindTap } from './zoom';
 import {
   type Ambit, AMBIT_FLAG, AMBIT_NAME, AMBITS, canTargetAmbit, COMMAND_SHIP_ID, controlName, DEFENSE_HINT, DEFENSE_NAME, PASSIVE_NAME,
@@ -704,7 +704,7 @@ export class BattleScreen implements Screen {
         ),
       h('div', { class: 'keys setup-keys dc-keys' },
         h('span', { title: 'Fire (keys 1 and 2)' }, h('kbd', null, '1'), h('span', { html: icon('target', 16) })), h('span', { title: 'Guard (G)' }, h('kbd', null, 'G'), h('span', { html: icon('shield', 16) })),
-        h('span', { title: 'Drift (D)' }, h('kbd', null, 'D'), h('span', { html: icon('trade', 16) })), h('span', { title: 'Next ship (Tab)' }, h('kbd', null, 'Tab'), h('span', { html: icon('ship', 16) })), h('span', { title: 'Pause (Space)' }, h('kbd', null, '␣'), h('span', null, '❚❚'))),
+        h('span', { title: 'Drift (D)' }, h('kbd', null, 'D'), h('span', { html: icon('trade', 16) })), h('span', { title: 'Next ship (Tab, in the fight; F6 to the turn controls)' }, h('kbd', null, 'Tab'), h('span', { html: icon('ship', 16) })), h('span', { title: 'Pause (Space)' }, h('kbd', null, '␣'), h('span', null, '❚❚'))),
     );
     this.root.appendChild(panel);
     this.els.setup = panel;
@@ -780,9 +780,9 @@ export class BattleScreen implements Screen {
   /** Fights whose gauntlet win has been recorded (once each). */
   private wonRuns = new WeakSet<object>();
   /** Gauntlets won in this browser, and the fastest won run's fighting time (ms; 0: none yet). */
-  private gauntletWins(): number { try { return Number(localStorage.getItem('structs.gauntlet.won') || 0); } catch { return 0; } }
-  private gauntletBestMs(): number { try { return Number(localStorage.getItem('structs.gauntlet.bestMs') || 0); } catch { return 0; } }
-  private gauntletBest(): number { try { return Number(localStorage.getItem('structs.gauntlet.best') || 0); } catch { return 0; } }
+  private gauntletWins(): number { return storedCount('structs.gauntlet.won'); }
+  private gauntletBestMs(): number { return storedCount('structs.gauntlet.bestMs'); }
+  private gauntletBest(): number { return storedCount('structs.gauntlet.best'); }
   private saveGauntletBest(n: number) { try { if (n > this.gauntletBest()) localStorage.setItem('structs.gauntlet.best', String(n)); } catch { /* ignore */ } window.dispatchEvent(new Event('structs:progress')); }
 
   private startGauntlet() {
@@ -1065,6 +1065,9 @@ export class BattleScreen implements Screen {
     const items = () => [...ed.querySelectorAll<HTMLButtonElement>('.panel-body button:not(:disabled)')];
     ed.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); audio.play('select'); close(); return; }
+      // START fights from anywhere in setup, the picker too: it closes and the battle begins. (A keyboard's
+      // Space on an option presses that option.)
+      if (e.key === ' ' && this.phase === 'setup' && (inputMode() === 'pad' || !e.isTrusted)) { e.preventDefault(); e.stopPropagation(); close(); void this.engage(); return; }
       if (e.key.startsWith('Arrow') || e.key === 'Tab') {
         e.preventDefault(); e.stopPropagation();
         const all = items();
@@ -2357,9 +2360,16 @@ export class BattleScreen implements Screen {
           void confirmBox('Retreat', this.gauntlet ? 'Pull your fleet out? This ends your gauntlet run.' : 'Pull your fleet out? The battle ends and you return to fleet setup.', 'Retreat').then((yes) => {
             if (yes) this.toSetup(false);
             else if (!wasPaused && this.paused) this.togglePause();
+            if (!yes && inputMode() === 'pad') requestAnimationFrame(() => (document.activeElement as HTMLElement | null)?.closest?.('.hud-retreat') && (document.activeElement as HTMLElement).blur());
           });
         } }, h('span', { html: EXIT(18) }))),
     );
+    // A pad's A on a turn control (pace, log, withdraw, pause) does its job and the cursor goes back to the
+    // fight, so the next A fires again rather than pressing it once more. Pause keeps it, on Resume.
+    center.addEventListener('click', (e) => {
+      if (inputMode() !== 'pad' || !(e.target as Element | null)?.closest?.('button')) return;
+      requestAnimationFrame(() => { const f = document.activeElement as HTMLElement | null; if (f && center.contains(f) && !(f === pauseBtn && this.paused)) f.blur(); });
+    });
     this.els.otMeter = otMeter;
     this.els.blockNum = blockNum; this.els.blockBar = blockBar; this.els.nextIn = nextIn; this.els.order = order; this.els.pause = pauseBtn; this.els.cancel = cancel;
     const top = h('div', { class: 'battle-top' }, fleetCard('player'), center, fleetCard('enemy'));
@@ -2368,6 +2378,10 @@ export class BattleScreen implements Screen {
     const log = h('div', { class: 'battle-log panel' + (this.showLog ? '' : ' shut') }, h('div', { class: 'panel-head' }, h('span', { class: 't-label' }, 'Battle log'), h('span', { class: 'chip x-only' }, 'chain events')), this.logEl);
     this.root.appendChild(top);
     this.root.appendChild(log);
+    // The fight, spoken: shots, hits and kills as short sentences a screen reader reads out (in place before
+    // the first shot, so the first one is heard too).
+    this.srFight = h('div', { class: 'dc-sr', role: 'log', 'aria-live': 'polite', 'aria-label': 'Battle events' });
+    this.root.appendChild(this.srFight);
     this.renderActionBar();
   }
 
@@ -2726,7 +2740,7 @@ export class BattleScreen implements Screen {
   private srSaid = '';
 
   /** How many fights have armed the Command Ship's weapon (the warning shows for the first three). */
-  private cmdArms = (() => { try { return Number(localStorage.getItem('structs.warn.cmdfire') || 0); } catch { return 0; } })();
+  private cmdArms = storedCount('structs.warn.cmdfire');
   private cmdArmCounted: object | null = null;
   private countCmdArm() {
     if (this.cmdArmCounted === this.session) return;
@@ -2736,6 +2750,14 @@ export class BattleScreen implements Screen {
   }
   private cmdWarnShown() { return this.cmdArms <= 3; }
 
+  private srFight: HTMLElement | null = null;
+  /** One line of the fight for a screen reader (the last few kept; a polite log reads each new one). */
+  private srFightSay(text: string) {
+    if (!text) return;
+    if (!this.srFight?.isConnected) { this.srFight = h('div', { class: 'dc-sr', role: 'log', 'aria-live': 'polite', 'aria-label': 'Battle events' }); this.root.appendChild(this.srFight); }
+    this.srFight.appendChild(h('div', null, text));
+    while (this.srFight.children.length > 6) this.srFight.firstElementChild?.remove();
+  }
   /** Say something to a screen reader, from one quiet status line that stays put. */
   private srSay(text: string) {
     if (!this.srAim?.isConnected) { this.srAim = h('div', { class: 'dc-sr', role: 'status', 'aria-live': 'polite' }); this.root.appendChild(this.srAim); }
@@ -3184,6 +3206,10 @@ export class BattleScreen implements Screen {
     // Rows are HTML (for <b>); every value that came from the chain or a link is escaped.
     const name = (id: string) => { const s = c.structs[id]; return esc(s ? TYPES_BY_ID[s.typeId].type : id); };
     const rows: string[] = [];
+    // The same, as plain sentences for a screen reader: whose ship, what it hit, what sank.
+    const spoken: string[] = [];
+    const owned = (id: string) => { const s = c.structs[id]; return s ? `${s.owner === YOU.id ? 'your' : 'their'} ${TYPES_BY_ID[s.typeId].type}` : 'a ship'; };
+    if (!tx.ok && tx.signer === YOU.id) spoken.push(`Order failed: ${humanError(tx.error || '')}.`);
     if (!tx.ok) rows.push(`order failed — ${esc(humanError(tx.error || ''))}`);
     for (const e of tx.events) {
       const d = e.detail;
@@ -3206,6 +3232,15 @@ export class BattleScreen implements Screen {
         if (countered) line += `, countered ${countered}`;
         if (killed.length) line += ` — <b>destroyed ${killed.join(', ')}</b>`;
         rows.push(line);
+        { const shot = d.eventAttackShotDetail[0];
+          const by = `${tx.signer === YOU.id ? 'Your' : 'Their'} ${d.attackerStructType}`;
+          const at = shot ? owned(shot.targetStructId) : 'a ship';
+          let say = ev ? `${by} misses ${at}.` : `${by} hits ${at} for ${dmg}.`;
+          if (shot?.blocked) say = `${by} fires at ${at}; ${owned(shot.blockedByStructId)} blocks it.`;
+          const sunk = new Set<string>();
+          for (const r of d.eventAttackShotDetail) { if (r.targetDestroyed) sunk.add(owned(r.targetStructId)); if (r.blockerDestroyed) sunk.add(owned(r.blockedByStructId)); if (r.targetCounterDestroyedAttacker || (r.eventAttackDefenderCounterDetail || []).some((x: any) => x.counterDestroyedAttacker)) sunk.add(`${tx.signer === YOU.id ? 'your' : 'their'} ${d.attackerStructType}`); }
+          if (sunk.size) say += ` Destroyed: ${[...sunk].join(', ')}.`;
+          spoken.push(say); }
       } else if (e.category === 'struct_defense_add') rows.push(`${name(d.defender_struct_id)} guards ${name(d.protected_struct_id)}`);
       else if (e.category === 'struct_defense_remove' && tx.type.endsWith('DefenseClear')) rows.push(`${name(d.defender_struct_id)} unguards`);
       else if (e.category === 'struct_move') rows.push(`${name(d.struct_id)} drifts to ${esc(d.ambit)}`);
@@ -3218,6 +3253,7 @@ export class BattleScreen implements Screen {
       const row = h('div', { class: 'log-row' }, h('span', { class: 'when num' }, ...when), h('span', { class: 'what' }, h('span', { class: 'tag ' + tone }, who), h('span', { html: r })));
       this.logEl.appendChild(row);
     }
+    this.srFightSay(spoken.join(' '));
     while (this.logEl.children.length > 200) this.logEl.firstElementChild?.remove();
     this.logEl.scrollTop = this.logEl.scrollHeight;
   }
@@ -3270,7 +3306,7 @@ export class BattleScreen implements Screen {
     if (!this.spectate && !this.paid.has(s)) {
       this.paid.add(s); record.gain(won ? 25 + 5 * stars : effort); this.noteRung(won);
       // The ladder cleared: remembered (a crown on the setup panel from now on), and a bonus the first time.
-      if (cleared) { const first = !this.ladderCleared(); try { localStorage.setItem('structs.ladder.cleared', String(Number(localStorage.getItem('structs.ladder.cleared') || 0) + 1)); } catch { /* this visit */ } if (first) record.gain(150); }
+      if (cleared) { const first = !this.ladderCleared(); try { localStorage.setItem('structs.ladder.cleared', String(this.ladderCleared() + 1)); } catch { /* this visit */ } if (first) record.gain(150); }
     }
     // The fight's rewards play now, its own XP (and any promotion it brings) in the same queue, so
     // banners go first and toasts after them, never over them (core/dom holdRewards).
@@ -3531,7 +3567,7 @@ export class BattleScreen implements Screen {
   }
 
   /** How many times this browser has cleared the ladder (0: not yet). */
-  private ladderCleared() { try { return Number(localStorage.getItem('structs.ladder.cleared') || 0); } catch { return 0; } }
+  private ladderCleared() { return storedCount('structs.ladder.cleared'); }
 
   /** Leave a battle for the galaxy. Its title (shown on a first visit, e.g. after a direct link to a
    * battle) opens on its doors, not PRESS START, once start has been pressed this session: anyone
@@ -4120,6 +4156,7 @@ export class BattleScreen implements Screen {
     const s = this.selectedStruct();
     const panel = this.phase === 'setup' ? this.root.querySelector<HTMLElement>('.setup-panel') : null;
     const inPanel = !!panel?.contains(document.activeElement);
+    if (e.key === 'Escape' && this.phase === 'battle' && document.activeElement?.closest('.battle-top')) { (document.activeElement as HTMLElement).blur(); return; }
     if (e.key === 'Escape') {
       this.clearAim();
       if (this.targeting) { this.targeting = null; this.refreshSelectionVisuals(); this.renderActionBar(); }
@@ -4150,13 +4187,26 @@ export class BattleScreen implements Screen {
         return;
       }
     }
+    // In a fight, a d-pad press with the cursor on nothing (not aiming) lands on the weapons, as setup's lands on
+    // Start: never on the page's first control (a hub, Pause), where every A would press that instead.
+    if (this.phase === 'battle' && !this.targeting && e.key.startsWith('Arrow') && [null, document.body, this.engine.canvas].includes(document.activeElement as HTMLElement | null)) {
+      const w = this.root.querySelector<HTMLElement>('.action-bar .btn.action.weapon:not([disabled])');
+      if (w) { e.preventDefault(); w.focus({ focusVisible: true } as FocusOptions); audio.play('hover', 0.6); return; }
+    }
     // Aiming without a mouse: arrows walk the targets, Enter (A on a pad) fires.
     if (this.targeting && (this.phase === 'battle' || this.phase === 'setup') && e.key.startsWith('Arrow')) { e.preventDefault(); this.cycleAim(e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1); return; }
     // While aiming, Enter fires at the aimed target even if a bar button kept the cursor.
     const onControl = !!typing?.closest?.('button, a[href]') && !(this.targeting && typing?.closest?.('.action-bar') && !typing?.closest?.('.drift'));
     if (e.key === 'Enter' && this.phase === 'battle' && !onControl) {
       e.preventDefault();
-      if (this.targeting) { if (!this.commitAim()) { this.cycleAim(0); if (!this.aimId) this.denyWhy(); } return; }
+      if (this.targeting) {
+        if (!this.commitAim()) {
+          this.cycleAim(0);
+          // Nothing to aim at: say why, and let go of the aim, so the next A starts over (a ship that reaches).
+          if (!this.aimId) { this.denyWhy(); if (this.targeting?.kind === 'attack') { this.targeting = null; this.refreshSelectionVisuals(); this.renderActionBar(); } }
+        }
+        return;
+      }
       // Nothing selected: pick your first ship (as the battle does at the start) rather than nothing.
       if (!s || s.owner !== YOU.id || this.chain?.isDestroyed(s)) { this.selectBest(); return; }
       // This ship reaches none of what A aims at (their flagship's guards, else their flagship): a ship that
@@ -4206,6 +4256,18 @@ export class BattleScreen implements Screen {
       if (this.onBoard()) { e.preventDefault(); this.editAtCursor(); return; }
       void this.engage(); return;
     }
+    // A keyboard's Tab walks the controls, as on every screen: Start, the panel, the hubs. In a fight it picks
+    // the next ship while the cursor is on the fight (nothing, the board, the bar); F6 switches the cursor
+    // between the fight and the turn's controls (Escape there comes back too). A pad's L/R always steps ships.
+    const onFight = (a: Element | null) => !a || a === document.body || a === this.engine.canvas || !!a.closest('.action-bar');
+    if (e.key === 'F6' && this.phase === 'battle') {
+      e.preventDefault();
+      const a = document.activeElement;
+      if (onFight(a)) this.els.pause?.focus({ focusVisible: true } as FocusOptions); else (a as HTMLElement).blur();
+      audio.play('hover', 0.6);
+      return;
+    }
+    if (e.key === 'Tab' && e.isTrusted && (this.phase !== 'battle' || !onFight(document.activeElement))) return;
     if (e.key === 'Tab') {
       e.preventDefault();
       const c = this.activeChain();
@@ -4271,6 +4333,8 @@ export class BattleScreen implements Screen {
     this.paused = !this.paused;
     if (this.paused) this.session.pause(); else this.session.resume();
     this.view.paused = this.paused;
+    // Resumed with the cursor on Resume: it goes back to the fight (A fires again, not pauses).
+    if (!this.paused && document.activeElement === this.els.pause) this.els.pause.blur();
     if (this.els.pause) { this.els.pause.innerHTML = icon(this.paused ? 'play' : 'pause', 16); this.els.pause.setAttribute('aria-label', this.paused ? 'Resume' : 'Pause'); this.els.pause.title = this.paused ? 'Resume (Space)' : 'Pause (Space)'; }
     toast(this.paused ? 'Paused — the chain waits' : 'Resumed', '', 1200);
   }
