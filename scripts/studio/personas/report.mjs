@@ -38,6 +38,23 @@ ${card.personas.map((s) => `<tr><th><a href="#p-${s.id}">${esc(s.handle)}</a><sm
 <div class="scroll"><table class="plain"><thead><tr><th>Pair</th><th></th>${Object.keys(card.palette[0].dE).map((t) => `<th>${t}</th>`).join('')}</tr></thead><tbody>
 ${card.palette.map((r) => `<tr><th>${esc(r.what)}${r.labelled ? ' <small>(labelled)</small>' : ''}</th><td><span class="sw" style="background:${esc(r.a)}"></span><span class="sw" style="background:${esc(r.b)}"></span></td>${Object.values(r.dE).map((d) => `<td class="c ${d == null ? 'na' : d >= lab.palettePairs.minDeltaE * 2 ? 'great' : d >= lab.palettePairs.minDeltaE ? 'good' : 'bad'}">${d ?? '–'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>` : '';
 
+  let engines = '';
+  const E = card.engines?.firefox;
+  if (E) {
+    const n = (x) => (x == null ? '–' : x);
+    const pair = (c, f, better = 'high', fmt = (x) => x) => {
+      const worse = c != null && f != null && (better === 'high' ? f < c * 0.9 : f > c * 1.15);
+      return `<td>${n(c == null ? null : fmt(c))}</td><td class="${worse ? 'warn' : ''}">${n(f == null ? null : fmt(f))}</td>`;
+    };
+    const shot = (id) => { try { const b = JSON.parse(readFileSync(join(out, 'firefox', id, 'browser.json'), 'utf8')); return b.checkpoints?.find((c) => c.name === 'first-shot' && c.shot)?.shot || b.checkpoints?.find((c) => c.shot)?.shot; } catch { return null; } };
+    engines = `<h2>Chrome and Firefox</h2><p class="dim">The same personas, the same journeys: Chrome ${esc(n(E.chrome))} over the DevTools protocol, Firefox ${esc(n(E.version))} over WebDriver BiDi. CPU is the browser's whole process tree (GPU and content processes too) per minute of play; memory is its peak resident size, which counts shared pages in each process, so compare the engines with each other rather than reading it as an absolute. A Firefox number noticeably worse than Chrome's is highlighted. Firefox's frame rate falls much further than Chrome's when the machine is busy, so confirm a gap with a run alone (PERSONA_WORKERS=1) on a quiet machine before acting on it.${E.unsupported.length ? ` Not measured in Firefox, which has no BiDi equivalent: ${esc(E.unsupported.join(', '))}.` : ''}${E.unmeasured?.length ? ` <b class="warn">Not measured: ${esc(E.unmeasured.join(', '))} (Firefox's process ended under the bots twice, which is the machine, not the game).</b>` : ''}</p>
+<div class="scroll"><table class="plain eng"><thead><tr><th>Persona</th><th>Score C</th><th>F</th><th>fps C</th><th>F</th><th>Jank C</th><th>F</th><th>CPU-s/min C</th><th>F</th><th>Peak MB C</th><th>F</th><th>Title s C</th><th>F</th><th>p95 ms C</th><th>F</th><th>Firefox journeys</th></tr></thead><tbody>
+${E.rows.map((r) => { const sh = shot(r.id); return `<tr><th><a href="#p-${r.id}">${esc(r.handle)}</a>${sh ? ` <a href="${esc('firefox/' + r.id + '/' + sh)}">▣</a>` : ''}</th>${pair(r.chrome?.overall, r.firefox.overall)}${pair(r.chrome?.fps, r.firefox.fps)}${pair(r.chrome?.jank, r.firefox.jank, 'low', (x) => Math.round(x * 100) + '%')}${pair(r.chrome?.cpuPerMin, r.firefox.cpuPerMin, 'low')}${pair(r.chrome?.peakRssMB, r.firefox.peakRssMB, 'low')}${pair(r.chrome?.boot, r.firefox.boot, 'low')}${pair(r.chrome?.latencyP95, r.firefox.latencyP95, 'low')}<td class="c ${r.firefox.ok === r.firefox.journeys ? 'great' : 'bad'}">${r.firefox.ok}/${r.firefox.journeys}</td></tr>`; }).join('')}</tbody></table></div>
+<h2>Web features the game uses</h2><p class="dim">Found in src/ by a scan (scripts/studio/personas/compat.mjs), then tested in each engine. A gap in CSS drops an effect; a gap in JS can stop a feature, unless the game checks first and goes without.</p>
+<div class="scroll"><table class="plain"><thead><tr><th>Feature</th><th>Uses</th><th>Chrome</th><th>Firefox</th><th>Where</th></tr></thead><tbody>
+${E.compat.map((c) => `<tr><th>${esc(c.name)}</th><td>${c.uses}</td>${[c.chrome, c.firefox].map((ok) => `<td class="c ${ok == null ? 'na' : ok ? 'great' : 'bad'}">${ok == null ? '–' : ok ? '✓' : '✗'}</td>`).join('')}<td style="text-align:left">${esc(c.files.join(', '))}</td></tr>`).join('')}</tbody></table></div>`;
+  }
+
   const cards = card.personas.map((s) => {
     const p = byId[s.id];
     let br = null;
@@ -66,7 +83,7 @@ a{color:#FFB27A}.dim{color:var(--dim)}.warn{color:#FFD27A}small{display:block;co
 .c{text-align:center;font:italic 800 16px system-ui;padding:6px 8px;border-radius:8px;min-width:52px}.c i{font-size:10px;margin-left:3px}
 .great{background:var(--great)}.good{background:var(--good)}.meh{background:var(--meh)}.bad{background:var(--bad)}.na{background:var(--na);color:var(--dim)}
 .all{outline:2px solid #fff3}.mean th{font-style:italic}.home{outline:3px solid var(--accent)}.matrix thead th{font-size:12px;color:var(--dim);text-align:center}
-.plain td{padding:4px 8px;background:var(--deep);border-radius:6px;text-align:center}.sw{display:inline-block;width:18px;height:18px;border-radius:5px;margin-right:3px;vertical-align:middle;border:1px solid #fff5}
+.plain td{padding:4px 8px;background:var(--deep);border-radius:6px;text-align:center}.plain td.warn{background:var(--meh)}.eng td{font-variant-numeric:tabular-nums}.sw{display:inline-block;width:18px;height:18px;border-radius:5px;margin-right:3px;vertical-align:middle;border:1px solid #fff5}
 ol.issues{list-style:none;padding:0;margin:0;display:grid;gap:6px}.issue{background:var(--card);border-radius:12px;padding:8px 12px;border-left:6px solid var(--na)}
 .issue.blocker{border-color:#FF3D5A}.issue.major{border-color:var(--accent)}.issue.minor{border-color:#F5C518}.issue.polish{border-color:#5B7BE0}
 .issue .sev{font:italic 800 11px system-ui;text-transform:uppercase;margin-right:8px;color:var(--dim)}.issue .meta,.issue .detail{display:block;font-size:12px;color:var(--dim)}
@@ -84,6 +101,7 @@ ol.issues{list-style:none;padding:0;margin:0;display:grid;gap:6px}.issue{backgro
 <h2>Every persona, every pillar</h2><div class="scroll">${matrix}</div>
 <h2>Top fixes</h2><p class="dim">The same issue met by several personas is one line, blockers first, then by severity × how many it hit. ${card.issues.length} in all.</p><ol class="issues">${issues}</ol>
 ${funLab}
+${engines}
 ${palette}
 <h2>The players</h2>
 ${cards}

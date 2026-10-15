@@ -4,7 +4,8 @@
  * STUDIO_EVAL runs a page expression after the wait and before the picture (e.g. to open a menu);
  * (STUDIO_AFTER ms later; default 800); STUDIO_MOTION=1 keeps animations (reduced motion is emulated by default).
  * STUDIO_PERSONA=<id> shoots as a persona lab player (studio/personas.json): their screen, eyesight, OS
- * settings, game settings, saved data, GPU and network; the @view is ignored and names gain the id. */
+ * settings, game settings, saved data, GPU and network; the @view is ignored and names gain the id.
+ * STUDIO_ENGINE=firefox (with STUDIO_PERSONA) shoots in Firefox instead (scripts/studio/firefox.mjs). */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { openBrowser, pool, serveSite, sleep } from './cdp.mjs';
@@ -23,13 +24,13 @@ const shots = process.argv.slice(2).map((a) => {
 const site = await serveSite();
 try {
   await pool(shots, 3, async ({ route, view, secs }) => {
-    const b = persona ? (await openAs(persona, LAB, site.base)).b : await openBrowser(VIEWS[view] || VIEWS.desktop, { siteBase: site.base, reducedMotion: !process.env.STUDIO_MOTION });
+    const b = persona ? (await openAs(persona, LAB, site.base, process.env.STUDIO_ENGINE || 'chrome')).b : await openBrowser(VIEWS[view] || VIEWS.desktop, { siteBase: site.base, reducedMotion: !process.env.STUDIO_MOTION });
     try {
       await b.send('Page.navigate', { url: site.base + route });
       await sleep(secs * 1000);
       if (process.env.STUDIO_EVAL) { await b.evaluate(process.env.STUDIO_EVAL); await sleep(Number(process.env.STUDIO_AFTER || 800)); }
       const img = await b.shot('png');
-      const file = join(OUT, `${route.slice(1).replace(/\//g, '_') || 'title'}-${persona ? persona.id : view}.png`);
+      const file = join(OUT, `${route.slice(1).replace(/\//g, '_') || 'title'}-${persona ? persona.id + (process.env.STUDIO_ENGINE === 'firefox' ? '-firefox' : '') : view}.png`);
       if (img) writeFileSync(file, img);
       console.log((b.problems.length ? '✗ ' : '✓ ') + file + (b.problems.length ? '\n    ' + b.problems.join('\n    ') : ''));
     } finally { await b.close(); }

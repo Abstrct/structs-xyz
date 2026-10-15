@@ -6,6 +6,7 @@
  * Severities: blocker (a crash, a persona who can't finish a must journey, a seizure risk) fails the
  * run; major and minor cost points; polish is noted. Each rule below says what it costs and why. */
 import { deltaE, parseColour, readingGrade, simulate, VISION_TYPES } from './metrics.mjs';
+import { FEATURES } from './compat.mjs';
 
 export const SEV = { blocker: 100, major: 30, minor: 8, polish: 2 };
 const clamp = (n) => Math.max(0, Math.min(100, Math.round(n)));
@@ -164,14 +165,16 @@ function accessibility(p, br, lab) {
   const unnamed = across((c) => c.audit.unnamed, (x) => x);
   for (const { x, where } of unnamed) L.issues.push({ sev: ax ? 'major' : 'minor', code: 'unnamed', title: `a control with no name (${x})`, where: places(where), screens: [...where] });
   L.pen(capped(unnamed.length, ax ? 6 : 3, ax ? 35 : 20), `${unnamed.length} unnamed controls`);
-  if (p.input === 'pad' || p.checks?.focus) {
+  // (Headless Firefox holds no window focus, so :focus-visible and rings can't show there: not judged.)
+  const ringsMeasured = br.engine !== 'firefox';
+  if ((p.input === 'pad' || p.checks?.focus) && ringsMeasured) {
     const pads = A.filter((c) => c.journey === 'tour' && c.route);
     const lost = pads.filter((c) => !c.audit.focus), noRing = pads.filter((c) => c.audit.focus && !c.audit.focus.ring);
     L.pen(capped(lost.length + noRing.length, 3, 20), `${lost.length} screens where a d-pad press focused nothing, ${noRing.length} with no cursor ring`);
     for (const c of lost) L.issues.push({ sev: 'minor', code: 'pad-focus', title: 'a d-pad press lands focus nowhere', where: routeOf(c) });
     for (const c of noRing) L.issues.push({ sev: 'minor', code: 'focus-ring', title: `focus on "${c.audit.focus.name}" shows no ring`, where: routeOf(c) });
   }
-  for (const w of br.tabwalk || []) {
+  for (const w of ringsMeasured ? br.tabwalk || [] : []) {
     if (!w.distinct) { L.pen(15, `Tab reaches nothing on ${w.route}`, { sev: 'major', code: 'tab-nothing', title: `Tab moves focus nowhere: no control on the screen is reachable by Tab`, where: w.route }); continue; }
     if (w.trapped) L.pen(20, `Tab is trapped on ${w.route}`, { sev: 'major', code: 'focus-trap', title: `Tab cycles ${w.distinct} controls and never leaves`, where: w.route });
     if (!w.hubs && !w.trapped) L.pen(6, `Tab never reaches the hubs on ${w.route}`, { sev: 'minor', code: 'tab-hubs', title: `40 Tabs never reach the hubs`, where: w.route });
@@ -306,4 +309,67 @@ export function paletteTable(lab, palette) {
     const ca = parseColour(palette[a]), cb = parseColour(palette[b]);
     return { what, a: palette[a], b: palette[b], labelled: !!labelled, dE: Object.fromEntries(VISION_TYPES.map((t) => [t, ca && cb ? +deltaE(simulate(ca, t), simulate(cb, t)).toFixed(1) : null])) };
   });
+}
+
+/* ── Engines ───────────────────────────────────────────────────────────── */
+const p95 = (a) => { const s = (a || []).slice().sort((x, y) => x - y); return s.length ? s[Math.floor(s.length * 0.95)] : null; };
+/** What one browser lane measured that the engines can be compared on. */
+export function engineFacts(br) {
+  if (!br) return null;
+  const fps = median((br.battles || []).map((x) => x.frames?.fps).filter(Boolean)) ?? median((br.checkpoints || []).map((c) => c.frames?.fps));
+  return {
+    version: br.version || null, ok: (br.journeys || []).filter((j) => j.ok).length, journeys: (br.journeys || []).length,
+    fps, jank: median((br.battles || []).map((x) => x.frames?.jank)), boot: br.boot, latencyP95: p95(br.inputs?.latency),
+    battleS: median((br.battles || []).map((x) => x.seconds)), cpuPerMin: br.efficiency?.cpuPerMin ?? null, peakRssMB: br.efficiency?.peakRssMB ?? null,
+    webgl: br.engineInfo?.webgl || null, drawCalls: br.engineInfo?.drawCalls ?? null, unsupported: br.unsupported || [],
+  };
+}
+
+/** Firefox against Chrome, persona by persona, plus the features each engine lacks of those the game uses.
+ * chrome / firefox: { id: browser.json }. uses: scanUses(). Issues are raised only for differences Firefox
+ * shows (or, for features, either engine lacks): what already fails in Chrome is the Chrome lane's issue. */
+export function compareEngines(lab, chrome, firefox, uses, scoreFor) {
+  const issues = [], rows = [];
+  const FEAT = Object.fromEntries(FEATURES.map((f) => [f.id, f]));
+  for (const [id, ff] of Object.entries(firefox)) {
+    const ch = chrome[id], p = lab.personas.find((x) => x.id === id);
+    const fScore = scoreFor(p, ff), cScore = ch ? scoreFor(p, ch) : null;
+    const F = engineFacts(ff), C = engineFacts(ch);
+    rows.push({ id, handle: p.handle, chrome: C && { ...C, pillars: cScore?.pillars, overall: cScore?.overall }, firefox: { ...F, pillars: fScore.pillars, overall: fScore.overall } });
+    const okIn = (br, name) => br?.journeys?.find((j) => j.name === name)?.ok;
+    for (const j of ff.journeys || []) {
+      if (j.ok || okIn(ch, j.name) === false) continue;
+      const at = j.steps?.find((s) => !s.ok)?.name || j.error;
+      issues.push({ pillar: 'playability', sev: (p.musts || []).includes(j.name) ? 'blocker' : 'major', code: 'engine-journey', title: `Firefox: ${j.name} can't get past "${at}" (Chrome can)`, where: j.name, personas: [id] });
+    }
+    const seen = new Set((ch?.problems || []).map(norm));
+    for (const x of uniq((ff.problems || []).map(norm))) {
+      if (seen.has(x)) continue;
+      const sev = /^uncaught/.test(x) ? 'blocker' : 'major';
+      issues.push({ pillar: 'stability', sev, code: 'engine-error', title: `Firefox only: ${x.slice(0, 120)}`, where: 'runtime', personas: [id] });
+    }
+    // (Firefox's frame rate falls much further than Chrome's when the machine is busy: 57–60 fps on a quiet
+    // machine, 2–15 under load on 2026-10-14. A gap is minor until a run alone, PERSONA_WORKERS=1, repeats it.)
+    if (C?.fps && F.fps && F.fps < C.fps * 0.85) issues.push({ pillar: 'beauty', sev: 'minor', code: 'engine-fps', title: `Firefox draws ${F.fps} fps where Chrome draws ${C.fps} (confirm alone on a quiet machine)`, where: p.view, personas: [id] });
+    if (C?.jank != null && F.jank != null && F.jank > C.jank + 0.04) issues.push({ pillar: 'beauty', sev: F.jank > C.jank + 0.1 ? 'major' : 'minor', code: 'engine-jank', title: `Firefox stutters: ${Math.round(F.jank * 100)}% of frames run long, Chrome ${Math.round(C.jank * 100)}%`, where: p.view, personas: [id] });
+    if (C?.cpuPerMin && F.cpuPerMin && F.cpuPerMin > C.cpuPerMin * 1.5) issues.push({ pillar: 'beauty', sev: 'minor', code: 'engine-cpu', title: `Firefox burns ${(F.cpuPerMin / C.cpuPerMin).toFixed(1)}× Chrome's CPU (${F.cpuPerMin} vs ${C.cpuPerMin} CPU-s a minute)`, where: p.view, personas: [id] });
+    if (C?.peakRssMB && F.peakRssMB && F.peakRssMB > C.peakRssMB * 1.5) issues.push({ pillar: 'beauty', sev: 'polish', code: 'engine-memory', title: `Firefox peaks at ${F.peakRssMB} MB where Chrome peaks at ${C.peakRssMB}`, where: p.view, personas: [id] });
+    if (C?.boot && F.boot && F.boot > C.boot * 1.5 && F.boot - C.boot > 2) issues.push({ pillar: 'playability', sev: 'minor', code: 'engine-boot', title: `Firefox reaches the title in ${F.boot} s, Chrome in ${C.boot} s`, where: '/', personas: [id] });
+    if (C?.latencyP95 && F.latencyP95 && F.latencyP95 > C.latencyP95 * 1.5 && F.latencyP95 - C.latencyP95 > 50) issues.push({ pillar: 'playability', sev: 'minor', code: 'engine-latency', title: `Firefox answers inputs in ${F.latencyP95} ms (p95), Chrome in ${C.latencyP95} ms`, where: p.input, personas: [id] });
+  }
+  // Features: whichever engine lacks something the game uses.
+  const compat = [];
+  const probeOf = (lane) => Object.values(lane).map((b) => b?.engineInfo?.features).find(Boolean) || null;
+  const cf = probeOf(chrome), ffF = probeOf(firefox);
+  for (const [fid, u] of Object.entries(uses)) {
+    const f = FEAT[fid]; if (!f) continue;
+    const row = { id: fid, name: f.name, kind: f.kind, uses: u.count, files: u.files, chrome: cf ? cf[fid] : null, firefox: ffF ? ffF[fid] : null };
+    compat.push(row);
+    for (const [eng, ok] of [['Chrome', row.chrome], ['Firefox', row.firefox]]) {
+      if (ok !== false) continue;
+      issues.push({ pillar: f.kind === 'css' ? 'beauty' : 'playability', sev: f.kind === 'css' || f.degrades ? 'minor' : 'major', code: 'engine-feature', title: `${eng} lacks ${f.name}, used ${u.count}× (${u.files.join(', ')})${f.degrades ? ': the game goes without it' : ''}`, where: 'compat', personas: Object.keys(eng === 'Chrome' ? chrome : firefox).slice(0, 1) });
+    }
+  }
+  compat.sort((a, b) => (a.chrome && a.firefox) - (b.chrome && b.firefox) || b.uses - a.uses);
+  return { rows, compat, issues };
 }

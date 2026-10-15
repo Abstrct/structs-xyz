@@ -22,6 +22,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PAD_STUB, openBrowser, padPress, sleep } from '../cdp.mjs';
+import { openFirefox } from '../firefox.mjs';
+import { ENGINE_PROBE, procTree } from './compat.mjs';
 import { AUDIT, FINGERPRINT, PROBE_INIT, seedStorage } from './probes.mjs';
 import { decodePng, flashes, imageStats, motion, pct } from './metrics.mjs';
 
@@ -37,7 +39,8 @@ const SIM = 'window.__structs?.screens?.().sim';
 const OVER = `(${SIM}?.phase === 'debrief' || !!document.querySelector('.debrief-back'))`;
 const SHOTS = `((${SIM}?.session?.stats?.['1-1']?.attacks || 0) + (${SIM}?.session?.pending ? 1 : 0))`;
 const START_BTN = `[...document.querySelectorAll('.setup-panel button')].find((b) => /start/i.test(b.textContent))`;
-const TITLE = `!!document.querySelector('.dc-title .dc-press')`;
+/** The title is up and the boot screen has gone (it fades for a second or two over a title already in the page). */
+const TITLE = `!!document.querySelector('.dc-title .dc-press') && !document.querySelector('#boot')`;
 
 function rngFor(s) {
   let a = 0; for (let i = 0; i < s.length; i++) a = Math.imul(a ^ s.charCodeAt(i), 16777619) >>> 0;
@@ -45,11 +48,15 @@ function rngFor(s) {
 }
 
 /** A browser set up as this persona's machine: viewport, GPU, CPU, network, OS media settings, eyesight,
- * saved state and (for a pad player) the virtual pad. Used by playAs and by `STUDIO_PERSONA=id pnpm shoot`. */
-export async function openAs(persona, lab, siteBase) {
+ * saved state and (for a pad player) the virtual pad. Used by playAs and by `STUDIO_PERSONA=id pnpm shoot`.
+ * engine: 'chrome' (DevTools protocol, cdp.mjs) or 'firefox' (WebDriver BiDi, firefox.mjs; what it can't
+ * emulate lands in b.unsupported). */
+export async function openAs(persona, lab, siteBase, engine = 'chrome') {
   const view = { ...lab.views[persona.view] };
   const init = [persona.input === 'pad' ? PAD_STUB : '', PROBE_INIT, seedStorage(persona.storage, persona.settings)].join('\n');
-  const b = await openBrowser(view, { siteBase, init, reducedMotion: false, gl: persona.gl });
+  const b = engine === 'firefox'
+    ? await openFirefox(view, { siteBase, init, reducedMotion: !!persona.media?.reducedMotion })
+    : await openBrowser(view, { siteBase, init, reducedMotion: false, gl: persona.gl });
   const net = (name) => b.send('Network.emulateNetworkConditions', NETWORK[name] || NETWORK.online);
   const problems = [];
   try {
@@ -66,7 +73,7 @@ export async function openAs(persona, lab, siteBase) {
   return { b, view, net, problems };
 }
 
-export async function playAs(persona, lab, site, outDir, { routes = [], log = () => {} } = {}) {
+export async function playAs(persona, lab, site, outDir, { routes = [], log = () => {}, engine = 'chrome' } = {}) {
   mkdirSync(outDir, { recursive: true });
   const inputKind = persona.input, pad = inputKind === 'pad', kb = inputKind === 'keyboard', touch = inputKind === 'touch';
   const minTap = persona.checks?.minTargetPx ?? (touch ? 40 : 24);
@@ -82,8 +89,12 @@ export async function playAs(persona, lab, site, outDir, { routes = [], log = ()
   const secs = () => +((Date.now() - t0) / 1000).toFixed(1);
   let journey = '';
 
-  const { b, view, net, problems: setup } = await openAs(persona, lab, site.base);
+  const { b, view, net, problems: setup } = await openAs(persona, lab, site.base, engine);
   rep.problems.push(...setup);
+  Object.assign(rep, { engine: b.engine, version: b.version });
+  // Efficiency: the browser's whole process tree, CPU and memory, from launch to the end of the run.
+  const proc0 = procTree(b.pid);
+  let peakRss = proc0?.rssMB || 0;
 
   /* ── Looking ─────────────────────────────────────────────────────────── */
   const until = async (expr, ms, every = 200) => {
@@ -137,7 +148,8 @@ export async function playAs(persona, lab, site, outDir, { routes = [], log = ()
     const file = `${String(rep.checkpoints.length).padStart(2, '0')}-${name.replace(/[^a-z0-9-]+/gi, '_')}.jpg`;
     const jpg = await b.shot('jpeg', 72).catch(() => null);
     if (jpg) writeFileSync(join(outDir, file), jpg);
-    const ax = persona.checks?.ax ? await axAudit() : null;
+    const ax = persona.checks?.ax && engine === 'chrome' ? await axAudit() : null;
+    peakRss = Math.max(peakRss, procTree(b.pid)?.rssMB || 0);
     rep.checkpoints.push({ name, journey, s: secs(), audit, frames: frameStats(ft), metrics, image, shot: jpg ? file : null, ax, ...extra });
   }
 
@@ -217,7 +229,20 @@ export async function playAs(persona, lab, site, outDir, { routes = [], log = ()
     if (kb) return input(() => key('Escape'));
     return input(() => pointAt(`(() => { const s = document.querySelector('.guide-card') || [...document.querySelectorAll('.modal-back')].pop(); return s && ([...s.querySelectorAll('button')].find((x) => /got it|^ok|close|continue|done|×/i.test((x.getAttribute('aria-label') || '') + ' ' + x.textContent.trim())) || s.querySelector('[data-primary]')); })()`));
   }
+  /** A full load starts a fresh __probe, so the live announcements so far are banked first: drained from the
+   * page into the run's total and the journey's count, never counted twice. */
+  const liveRun = { changes: 0, sample: [] };
+  async function snapLive() {
+    const got = await b.evaluate(`(() => { const P = window.__probe; if (!P) return null; const r = { n: P.live, text: P.liveText.splice(0) }; P.live = 0; return r; })()`).catch(() => null);
+    if (!got) return;
+    liveRun.changes += got.n;
+    liveRun.sample.push(...got.text);
+    if (liveRun.sample.length > 200) liveRun.sample.splice(0, liveRun.sample.length - 200);
+    const j = rep.journeys[rep.journeys.length - 1];
+    if (j) j.live = (j.live || 0) + got.n;
+  }
   async function go(path, waitFor = `!!document.querySelector('#ui .screen') || ${TITLE}`, ms = 30000) {
+    await snapLive();
     await b.send('Page.navigate', { url: site.base + path });
     return until(waitFor, ms);
   }
@@ -353,6 +378,7 @@ export async function playAs(persona, lab, site, outDir, { routes = [], log = ()
       step('title shows', await go('/', TITLE, persona.network === '3g' ? 120000 : 45000));
       rep.boot ??= +((Date.now() - at) / 1000).toFixed(1);
       await sleep(600);
+      rep.engineInfo ??= await b.evaluate(ENGINE_PROBE).catch((e) => ({ error: String(e.message || e) }));
       await checkpoint('title');
       if (!rep.palette) rep.palette = await b.evaluate(`(() => { const cs = getComputedStyle(document.documentElement); return Object.fromEntries(${JSON.stringify(lab.palettePairs.pairs.flat().filter((x) => x.startsWith('--')))}.map((v) => [v, cs.getPropertyValue(v).trim()])); })()`).catch(() => null);
       if (pad) { await b.evaluate(`window.dispatchEvent(new Event('gamepadconnected'))`); await sleep(300); }
@@ -590,15 +616,21 @@ export async function playAs(persona, lab, site, outDir, { routes = [], log = ()
       await checkpoint('failed').catch(() => {});
     }
     if (cast) await castStop('journey-end');
+    await snapLive();
     j.seconds = +(secs() - j.s0).toFixed(1);
     j.problems = b.problems.slice(p0);
   }
-  const tail = await b.evaluate(`window.__probe ? { long: window.__probe.long, cls: +window.__probe.cls.toFixed(3), live: window.__probe.live, liveText: window.__probe.liveText.slice(-30) } : null`).catch(() => null);
+  const tail = await b.evaluate(`window.__probe ? { long: window.__probe.long, cls: +window.__probe.cls.toFixed(3) } : null`).catch(() => null);
   rep.longTasks = tail?.long || [];
   rep.cls = tail?.cls ?? null;
-  rep.live = tail ? { changes: tail.live, sample: tail.liveText } : null;
+  // Banked after every journey and before every full load (snapLive), so this is the whole run, not the last page.
+  rep.live = tail || liveRun.changes ? { changes: liveRun.changes, sample: liveRun.sample.slice(-30), byJourney: rep.journeys.reduce((o, x) => ({ ...o, [x.name]: (o[x.name] || 0) + (x.live || 0) }), {}) } : null;
   rep.problems.push(...b.problems);
   rep.seconds = secs();
+  rep.engineInfo ??= await b.evaluate(ENGINE_PROBE).catch(() => null);
+  const proc1 = procTree(b.pid);
+  rep.efficiency = proc0 && proc1 ? { cpuSec: +(proc1.cpuSec - proc0.cpuSec).toFixed(1), cpuPerMin: +((proc1.cpuSec - proc0.cpuSec) / Math.max(0.1, rep.seconds / 60)).toFixed(1), peakRssMB: Math.max(peakRss, proc1.rssMB), procs: proc1.procs } : null;
+  rep.unsupported = [...(b.unsupported || [])];
   await b.close();
   writeFileSync(join(outDir, 'browser.json'), JSON.stringify(rep, null, 1));
   return rep;

@@ -163,7 +163,9 @@ async function launch(view, opts) {
     children.delete(chrome);
     try { rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } catch { /* left for the OS */ }
   };
-  return { send, evaluate, shot, problems, close, on: (fn) => listeners.add(fn), get dead() { return dead; } };
+  const version = await fetch(`http://127.0.0.1:${port}/json/version`).then((r) => r.json()).then((v) => String(v.Browser || '').split('/')[1] || '').catch(() => '');
+  // engine, version, pid and unsupported match firefox.mjs, so the persona lab can run either and compare.
+  return { engine: 'chrome', version, pid: chrome.pid, unsupported: new Set(), send, evaluate, shot, problems, close, on: (fn) => listeners.add(fn), get dead() { return dead; } };
 }
 
 /** Run jobs with at most n in flight; results in order. */

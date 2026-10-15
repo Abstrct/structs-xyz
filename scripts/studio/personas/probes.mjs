@@ -11,7 +11,7 @@
 
 export const PROBE_INIT = `(() => {
   if (window.__probe) return;
-  const P = window.__probe = { ft: [], last: 0, long: [], cls: 0, live: 0, liveText: [] };
+  const P = window.__probe = { ft: [], last: 0, long: [], cls: 0, live: 0, liveText: [], lastLive: '' };
   const tick = (t) => { if (P.last) { P.ft.push(t - P.last); if (P.ft.length > 6000) P.ft.splice(0, 2000); } P.last = t; requestAnimationFrame(tick); };
   requestAnimationFrame(tick);
   try { new PerformanceObserver((l) => { for (const e of l.getEntries()) P.long.push(Math.round(e.duration)); }).observe({ type: 'longtask', buffered: true }); } catch {}
@@ -23,7 +23,7 @@ export const PROBE_INIT = `(() => {
       const live = el && el.closest && el.closest(LIVE);
       if (!live) continue;
       const t = (live.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 100);
-      if (t && P.liveText[P.liveText.length - 1] !== t) { P.live++; P.liveText.push(t); if (P.liveText.length > 200) P.liveText.shift(); }
+      if (t && P.lastLive !== t) { P.lastLive = t; P.live++; P.liveText.push(t); if (P.liveText.length > 200) P.liveText.shift(); }
     }
   });
   const start = () => mo.observe(document.documentElement, { subtree: true, childList: true, characterData: true });

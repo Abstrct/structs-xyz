@@ -20,6 +20,7 @@
     "padtour": "node scripts/studio/padtour.mjs",
     "personas": "node scripts/studio/personas/run.mjs",
     "personas:quick": "node scripts/studio/personas/run.mjs --quick",
+    "personas:firefox": "node scripts/studio/personas/run.mjs --engine=firefox",
     "layout": "node scripts/studio/layout.mjs",
     "soak": "tsx scripts/studio/soak.test.ts",
     "shoot": "node scripts/studio/shoot.mjs",

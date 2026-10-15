@@ -24,6 +24,12 @@
       ["--dc-accent", "--text-enemy-primary", "focus cursor vs enemy"]
     ]
   },
+  "engines": {
+    "firefox": {
+      "why": "Desktop Firefox, driven over WebDriver BiDi (scripts/studio/firefox.mjs). These personas test what a Firefox player meets: mouse, keyboard and pad, reduced motion, zoom, old saves, long sessions, ultrawide. Left out are the ones whose test rests on Chrome-only emulation: touch and phone layouts (desktop Firefox reports a fine pointer), colour-vision filters, the accessibility tree, CPU and network throttling, software GL. And the keyboard-only players: headless Firefox on macOS never holds window focus, so :focus-visible never matches and focus rings never draw, and native Tab, Enter and Space behaviour isn't faithful. Test keyboard play in Firefox headed.",
+      "personas": ["rookie", "couch-captain", "magnifier", "steady", "shaky", "frame-perfect", "spreadsheet", "night-owl", "returner", "second-language", "streamer"]
+    }
+  },
   "jargon": {
     "why": "Words the plain-language copy rules retired or that trip a reader on game screens (kid-audience layer: ship, machine and layer, not hull, struct and battleground). Counted on screens for checks.reading.",
     "words": ["struct", "ambit", "hull", "battleground", "LCD", "GRASS", "alpha", "infusion", "substation", "allocation", "reactor", "mempool", "tx", "nonce", "PoW"]
